@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__UnityMCP__manage_editor",
+      "Bash(rm -rf \"/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets/Screenshots\" \"/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets/Screenshots.meta\" && ls \"/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets\")",
+      "mcp__UnityMCP__refresh_unity"
+    ],
+    "additionalDirectories": [
+      "/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets/Screenshots"
+    ]
+  }
+}
