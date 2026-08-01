@@ -2,48 +2,30 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Di chuyen nhan vat tren mat dat theo kieu hole.io:
-/// - Ban phim: WASD / mui ten
-/// - Chuot: giu chuot trai va keo
-/// - Mobile: cham va keo
-/// Huong di chuyen duoc tinh theo huong camera (camera-relative).
+/// Doi input 2D tu joystick/ban phim sang huong the gioi theo truc camera,
+/// roi day xuong RbMovement.
+///
+/// Pipeline: Joystick -> MovePlayerByInput -> RbMovement.SetDir -> rb.velocity
 /// </summary>
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(RbMovement))]
 public class PlayerController : MonoBehaviour
 {
-    [Header("Movement")]
-    [Tooltip("Toc do di chuyen toi da (m/s)")]
-    public float moveSpeed = 8f;
+    [Header("Input")]
+    [Tooltip("Joystick ao dieu khien nhan vat")]
+    public VirtualJoystick joystick;
 
-    [Tooltip("Do muot khi tang/giam toc (cang lon cang bam duong)")]
-    public float acceleration = 20f;
-
-    [Tooltip("Toc do xoay than nhan vat theo huong di chuyen (do/giay)")]
-    public float turnSpeed = 720f;
-
-    [Header("Drag Input")]
-    [Tooltip("So pixel keo de dat toc do toi da")]
-    public float dragRadiusPixels = 120f;
-
-    [Header("Bounds")]
-    [Tooltip("Gioi han nua chieu rong cua map (0 = khong gioi han)")]
-    public float mapHalfSize = 29f;
+    [Tooltip("Cho phep WASD / phim mui ten de test trong Editor")]
+    public bool useKeyboard = true;
 
     [Header("References")]
-    [Tooltip("Camera dung de tinh huong di chuyen. De trong se tu lay Camera.main")]
+    [Tooltip("Camera dung de doi input sang huong the gioi. De trong se tu lay Camera.main")]
     public Transform cameraTransform;
 
-    Rigidbody _rb;
-    Vector2 _dragOrigin;
-    Vector2 _dragCurrent;
-    bool _isDragging;
-    Vector3 _currentVelocity;
+    private RbMovement _movement;
 
     void Awake()
     {
-        _rb = GetComponent<Rigidbody>();
-        _rb.constraints = RigidbodyConstraints.FreezeRotation;
-        _rb.interpolation = RigidbodyInterpolation.Interpolate;
+        _movement = GetComponent<RbMovement>();
 
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
@@ -51,37 +33,22 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        ReadDragInput();
+        MovePlayerByInput(ReadInput());
     }
 
-    void FixedUpdate()
+    public void MovePlayerByInput(Vector2 input)
     {
-        Vector2 input = Vector2.ClampMagnitude(ReadKeyboard() + ReadDrag(), 1f);
-        Vector3 desired = ToWorldDirection(input) * moveSpeed;
-
-        _currentVelocity = Vector3.MoveTowards(
-            _currentVelocity, desired, acceleration * Time.fixedDeltaTime);
-
-        Vector3 next = _rb.position + _currentVelocity * Time.fixedDeltaTime;
-
-        if (mapHalfSize > 0f)
-        {
-            next.x = Mathf.Clamp(next.x, -mapHalfSize, mapHalfSize);
-            next.z = Mathf.Clamp(next.z, -mapHalfSize, mapHalfSize);
-        }
-
-        _rb.MovePosition(next);
-
-        if (_currentVelocity.sqrMagnitude > 0.01f)
-        {
-            Quaternion target = Quaternion.LookRotation(
-                new Vector3(_currentVelocity.x, 0f, _currentVelocity.z));
-            _rb.MoveRotation(Quaternion.RotateTowards(
-                _rb.rotation, target, turnSpeed * Time.fixedDeltaTime));
-        }
+        _movement.SetDir(ToWorldDirection(input));
     }
 
-    Vector2 ReadKeyboard()
+    private Vector2 ReadInput()
+    {
+        Vector2 input = joystick != null ? joystick.Direction : Vector2.zero;
+        if (useKeyboard) input += ReadKeyboard();
+        return input;
+    }
+
+    private Vector2 ReadKeyboard()
     {
         var kb = Keyboard.current;
         if (kb == null) return Vector2.zero;
@@ -94,49 +61,33 @@ public class PlayerController : MonoBehaviour
         return v;
     }
 
-    void ReadDragInput()
-    {
-        var touch = Touchscreen.current;
-        if (touch != null && touch.primaryTouch.press.isPressed)
-        {
-            Vector2 pos = touch.primaryTouch.position.ReadValue();
-            if (!_isDragging) { _dragOrigin = pos; _isDragging = true; }
-            _dragCurrent = pos;
-            return;
-        }
-
-        var mouse = Mouse.current;
-        if (mouse != null && mouse.leftButton.isPressed)
-        {
-            Vector2 pos = mouse.position.ReadValue();
-            if (!_isDragging) { _dragOrigin = pos; _isDragging = true; }
-            _dragCurrent = pos;
-            return;
-        }
-
-        _isDragging = false;
-    }
-
-    Vector2 ReadDrag()
-    {
-        if (!_isDragging || dragRadiusPixels <= 0f) return Vector2.zero;
-        return Vector2.ClampMagnitude((_dragCurrent - _dragOrigin) / dragRadiusPixels, 1f);
-    }
-
-    Vector3 ToWorldDirection(Vector2 input)
+    /// <summary>
+    /// Lay truc camera roi flatten Y thay vi hardcode 45 do, de doi goc camera
+    /// khong phai sua code. Normalize cuoi cung de duong cheo khong nhanh hon truc thang.
+    /// </summary>
+    private Vector3 ToWorldDirection(Vector2 input)
     {
         if (input.sqrMagnitude < 0.0001f) return Vector3.zero;
 
-        Vector3 forward = Vector3.forward;
         Vector3 right = Vector3.right;
+        Vector3 forward = Vector3.forward;
 
         if (cameraTransform != null)
         {
-            forward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
-            if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
-            right = Vector3.Cross(Vector3.up, forward);
+            right = cameraTransform.right;
+            right.y = 0f;
+            right.Normalize();
+
+            forward = cameraTransform.forward;
+            forward.y = 0f;
+
+            // Camera nhin thang xuong thi forward bi triet tieu, lay up lam thay the
+            if (forward.sqrMagnitude < 0.0001f) forward = cameraTransform.up;
+            forward.y = 0f;
+            forward.Normalize();
         }
 
-        return (forward * input.y + right * input.x);
+        Vector3 dir = right * input.x + forward * input.y;
+        return dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.zero;
     }
 }
