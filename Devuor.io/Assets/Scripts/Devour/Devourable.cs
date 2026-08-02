@@ -75,9 +75,29 @@ public class Devourable : MonoBehaviour
     [Tooltip("Thu nho dan khi den gan mieng cho khoi loi ra khoi model nhan vat")]
     public bool shrinkWhileFlying = true;
 
+    [Header("Khi thoat vung hut")]
+    [Tooltip("Roi xuong dat sau khi thoat vung hut. Tat = dung im giua khong trung")]
+    public bool fallWhenReleased = true;
+
+    [Tooltip("Gia toc roi. Am la roi xuong. -9.81 la trong luc that, keo xuong am hon cho roi dut khoat")]
+    public float fallGravity = -28f;
+
+    [Tooltip("Giu lai bao nhieu phan van toc dang bay luc bi tha.\n" +
+             "0 = roi thang xuong tai cho, 1 = van lao theo da cu roi moi roi")]
+    [Range(0f, 1f)] public float releaseMomentum = 0.45f;
+
+    [Tooltip("Do/giay de xoay ve tu the dung khi dang roi")]
+    public float uprightSpeed = 540f;
+
+    [Tooltip("Giay de phinh lai ve kich thuoc goc sau khi bi tha")]
+    public float restoreTime = 0.25f;
+
     [Header("Su kien")]
     [Tooltip("Ban ra dung luc bi nuot: am thanh, popup diem, particle...")]
     public UnityEvent onDevoured;
+
+    [Tooltip("Ban ra dung luc thoat vung hut va bat dau roi: am thanh roi do, bui...")]
+    public UnityEvent onDropped;
 
     [Tooltip("Ban ra dung luc but khoi cho va bat dau bay")]
     public UnityEvent onPulled;
@@ -87,6 +107,9 @@ public class Devourable : MonoBehaviour
 
     /// <summary>Da but khoi cho va dang bay vao mieng chua.</summary>
     public bool IsFlying { get; private set; }
+
+    /// <summary>Da thoat vung hut va dang roi tro lai mat dat.</summary>
+    public bool IsFalling { get; private set; }
 
     /// <summary>Tat de tam khoa khong cho hut (vd: dang bi SuctionReactor neo vao canh).</summary>
     public bool CanBeCaptured { get; set; } = true;
@@ -130,7 +153,14 @@ public class Devourable : MonoBehaviour
     private Vector3 _startScale;
     private Vector3 _centerLocal;
     private float _radius;
-    private Quaternion _captureRotation;
+    /// <summary>
+    /// Tu the dung ban dau cua vat the, chot MOT LAN luc Awake.
+    ///
+    /// Khong duoc ghi lai moi lan bi tom: vat the bi tom lai giua luc dang nghieng
+    /// (dang roi, hoac vua tuot ra tu pha giang co) se lay luon goc nghieng do lam
+    /// "tu the dung", roi dap xuong dat trong tinh trang nga nghieng vinh vien.
+    /// </summary>
+    private Quaternion _restRotation;
     private Vector3 _spinAxis = Vector3.up;
     private float _roll;
     private float _noiseSeed;
@@ -138,6 +168,12 @@ public class Devourable : MonoBehaviour
     private bool _resisting;
     private Vector3 _resistPosition;
     private Quaternion _resistRotation;
+
+    private Vector3 _lastVelocity;
+    private Vector3 _fallVelocity;
+    private Vector3 _scaleAtRelease;
+    private float _restoreTimer;
+    private float _groundY;
 
     /// <summary>Cach nhau bao nhieu cap thi mo khoa mot BAC vat the moi.</summary>
     public const int LevelsPerTier = 10;
@@ -193,6 +229,12 @@ public class Devourable : MonoBehaviour
         _centerLocal = CalcCenterLocal();
         _noiseSeed = Random.Range(0f, 100f);
 
+        // Do cao nghi cua vat the, chot mot lan luc vao game. Dung lam day cho pha roi.
+        // Chot o Awake chu khong phai luc bi tom: neu chot luc bi tom thi vat the bi tom
+        // lai giua khi dang roi se lay do cao tren khong lam "mat dat", roi lo lung.
+        _groundY = transform.position.y;
+        _restRotation = transform.rotation;
+
         if (autoLevelFromSize)
         {
             int tier = TierForRadius(_radius);
@@ -231,6 +273,12 @@ public class Devourable : MonoBehaviour
 
         StopResist();          // dang rung vi qua level, gio du cap roi thi tra ve cho cu truoc da
 
+        // Bi tom lai giua luc dang roi: huy pha roi, nhung giu lai van toc dang co
+        // de duong bay noi tiep muot chu khong khung lai mot phat
+        IsFalling = false;
+        _lastVelocity = _fallVelocity;
+        _fallVelocity = Vector3.zero;
+
         IsCaptured = true;
         IsFlying = false;
         PullSpeed = 0f;
@@ -241,7 +289,6 @@ public class Devourable : MonoBehaviour
         float elapsed = Time.time - _releasedAt;
         Grip = Mathf.Max(0f, Grip - elapsed * Mathf.Max(0f, gripDecay));
         StruggleAnchor = transform.position;
-        _captureRotation = transform.rotation;
         _roll = 0f;
         SwirlSign = Random.value < 0.5f ? -1f : 1f;
         _spinAxis = Random.onUnitSphere;
@@ -281,14 +328,22 @@ public class Devourable : MonoBehaviour
         if (onPulled != null) onPulled.Invoke();
     }
 
-    /// <summary>Tra vat the ve trang thai binh thuong khi thoat vung hut.</summary>
+    /// <summary>
+    /// Thoat vung hut: tra ve trang thai binh thuong roi roi xuong dat.
+    ///
+    /// Prop trong project khong co Rigidbody nen neu chi bat lai collider roi buong tay
+    /// thi vat the se dung y nguyen giua khong trung. Vi vay khi khong co Rigidbody dong
+    /// thi tu chay mot pha roi don gian trong Update.
+    /// </summary>
     public void OnReleased()
     {
         if (!IsCaptured) return;
 
-        // Chi giang co roi duoc tha thi dat lai goc nghieng, con dang bay ma tha
-        // thi giu nguyen tu the roi cho vat ly xu ly tiep.
-        if (!IsFlying) transform.rotation = _captureRotation;
+        bool wasFlying = IsFlying;
+
+        // Chi giang co roi duoc tha thi dat lai goc nghieng ngay, con dang bay ma tha
+        // thi de pha roi tu xoay dan ve tu the dung cho do giat.
+        if (!wasFlying) transform.rotation = _restRotation;
 
         IsCaptured = false;
         IsFlying = false;
@@ -305,9 +360,81 @@ public class Devourable : MonoBehaviour
         {
             _rb.isKinematic = _rbWasKinematic;
             _rb.useGravity = _rbUsedGravity;
+
+            // Co Rigidbody dong thi giao han cho physics, chi day cho no cai da dang bay
+            if (!_rb.isKinematic)
+            {
+                _rb.linearVelocity = _lastVelocity * releaseMomentum;
+                transform.localScale = _startScale;
+                IsFalling = false;
+                _lastVelocity = Vector3.zero;
+                if (onDropped != null) onDropped.Invoke();
+                return;
+            }
         }
 
-        transform.localScale = _startScale;
+        bool aboveGround = transform.position.y > _groundY + 0.01f;
+        if (!fallWhenReleased || !aboveGround)
+        {
+            transform.localScale = _startScale;
+            IsFalling = false;
+            _lastVelocity = Vector3.zero;
+            if (onDropped != null) onDropped.Invoke();
+            return;
+        }
+
+        IsFalling = true;
+        _fallVelocity = _lastVelocity * releaseMomentum;
+        _scaleAtRelease = transform.localScale;
+        _restoreTimer = 0f;
+        _lastVelocity = Vector3.zero;
+
+        if (onDropped != null) onDropped.Invoke();
+    }
+
+    /// <summary>
+    /// Pha roi tu do cho vat the khong co Rigidbody.
+    ///
+    /// Update nay thoat ngay o dong dau khi khong roi, nen 256 vat the dung yen gan nhu
+    /// khong ton gi. Chi lam ba viec: roi theo trong luc, xoay lai cho dung, phinh lai
+    /// ve kich thuoc goc (vi luc bay vao mieng no da bi thu nho lai).
+    /// </summary>
+    void Update()
+    {
+        if (!IsFalling) return;
+
+        float deltaTime = Time.deltaTime;
+
+        _fallVelocity.y += fallGravity * deltaTime;
+        Vector3 next = transform.position + _fallVelocity * deltaTime;
+
+        if (uprightSpeed > 0f)
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation, _restRotation, uprightSpeed * deltaTime);
+
+        if (restoreTime > 0.001f)
+        {
+            _restoreTimer = Mathf.Min(_restoreTimer + deltaTime, restoreTime);
+            transform.localScale = Vector3.Lerp(_scaleAtRelease, _startScale, _restoreTimer / restoreTime);
+        }
+        else
+        {
+            transform.localScale = _startScale;
+        }
+
+        if (next.y <= _groundY)
+        {
+            next.y = _groundY;
+            transform.position = next;
+            transform.rotation = _restRotation;
+            transform.localScale = _startScale;
+
+            IsFalling = false;
+            _fallVelocity = Vector3.zero;
+            return;
+        }
+
+        transform.position = next;
     }
 
     /// <summary>
@@ -333,16 +460,19 @@ public class Devourable : MonoBehaviour
         Vector3 toMouth = mouthPosition - transform.position;
         if (toMouth.sqrMagnitude < 0.0001f) return;
 
-        Vector3 baseUp = _captureRotation * Vector3.up;
+        Vector3 baseUp = _restRotation * Vector3.up;
         float leanRad = struggleLean * Mathf.Deg2Rad * amount;
         Vector3 bentUp = Vector3.RotateTowards(baseUp, toMouth.normalized, leanRad, 0f);
 
-        transform.rotation = Quaternion.FromToRotation(baseUp, bentUp) * _captureRotation;
+        transform.rotation = Quaternion.FromToRotation(baseUp, bentUp) * _restRotation;
     }
 
     /// <summary>Phan nhin thay duoc cua duong bay: be theo huong bay, keo dai, xoay va nho dan.</summary>
     public void TickFlight(float deltaTime, Vector3 move, float distanceToMouth, float shrinkDistance)
     {
+        // Nho lai van toc de neu thoat vung hut giua chung thi con cai da ma bay tiep
+        if (deltaTime > 0.0001f) _lastVelocity = move / deltaTime;
+
         float shrink = 1f;
         if (shrinkWhileFlying && shrinkDistance > 0.001f)
             shrink = Mathf.Lerp(0.1f, 1f, Mathf.Clamp01(distanceToMouth / shrinkDistance));

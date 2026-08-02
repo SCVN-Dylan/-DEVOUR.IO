@@ -15,10 +15,11 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
 
     [Header("Hut")]
-    [Tooltip("BAT: item lot vao vung hut la bay thang vao mieng ngay o toc do toi da.\n" +
-             "Khong co pha giang co, khong rung, va khong bao gio bi bo lai du nhan vat co quay di huong khac.\n\n" +
-             "TAT: giang co theo resistance cua tung vat nhu binh thuong, tuot khoi non thi bi bo lai.\n\n" +
-             "Khong anh huong toi cong chan level: vat qua cap van khong hut duoc")]
+    [Tooltip("BAT: item lot vao vung hut la bay thang vao mieng ngay o toc do toi da, khong co pha giang co.\n\n" +
+             "TAT: giang co theo resistance cua tung vat nhu binh thuong.\n\n" +
+             "Cai nay CHI quyet dinh co pha giang co hay khong. Hai thu sau khong doi:\n" +
+             "  - ra khoi vung hut thi van bi nha ra va roi xuong\n" +
+             "  - vat qua cap van khong hut duoc")]
     public bool instantDevour = false;
 
     void Awake()

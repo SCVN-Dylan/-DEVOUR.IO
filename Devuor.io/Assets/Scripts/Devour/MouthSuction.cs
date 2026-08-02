@@ -52,12 +52,20 @@ public class MouthSuction : MonoBehaviour
     [Tooltip("So vat the giu cung luc toi da")]
     public int maxCaptured = 24;
 
-    [Tooltip("Da lot vao non roi thi hut den cung, ke ca khi nhan vat quay di huong khac")]
-    public bool keepWhenOutOfCone = true;
+    [Tooltip("BAT: da lot vao non roi thi hut den cung, ke ca khi nhan vat quay di huong khac.\n" +
+             "TAT: ra khoi vung hut la nha ngay, vat the roi xuong dat (Devourable lo phan roi)")]
+    public bool keepWhenOutOfCone = false;
 
     [Tooltip("Tinh ca kich thuoc vat the khi kiem tra non. 1 = vat to thi de hut hon,\n" +
              "0 = coi moi vat la mot diem (rat kho ngam vat cao dung sat nguoi)")]
     [Range(0f, 1f)] public float targetSizeAssist = 1f;
+
+    [Tooltip("Tran (do) ma kich thuoc vat the duoc phep noi rong goc non.\n\n" +
+             "Khong co tran nay thi vat cang lai gan goc cang no ra vo han: xe o 2m duoc\n" +
+             "tinh la trong non tan 80 do, toa nha trong 5m thi quay huong nao cung dinh -\n" +
+             "tuc la da hut la hut den cung, khong bao gio nha ra duoc.\n\n" +
+             "15 do vua du de ngam trung cai cay cao dung sat nguoi, ma quay di la roi ngay")]
+    [Range(0f, 60f)] public float maxSizeAssistAngle = 15f;
 
     [Header("Cap do")]
     [Tooltip("Chi hut duoc vat co Required Level <= Suction Level. Tat di thi hut duoc tat ca")]
@@ -69,6 +77,11 @@ public class MouthSuction : MonoBehaviour
     [Tooltip("Vat qua level nam trong non se rung nhe tai cho, cho nguoi choi biet\n" +
              "la no co cam nhan duoc luc hut nhung minh chua du cap")]
     public bool shakeTooBigTargets = true;
+
+    [Header("An khi cham")]
+    [Tooltip("Dung vao vat the la nuot luon, khong can nam trong non hut.\n" +
+             "Van phai du cap: vat qua cap thi cham vao chi bi chan duong nhu buc tuong")]
+    public bool devourOnContact = true;
 
     [Header("Do manh")]
     [Tooltip("He so nhan chung. Tang len thi vat nang cung bi lua di nhanh hon")]
@@ -91,7 +104,8 @@ public class MouthSuction : MonoBehaviour
 
     [Header("Che do hut")]
     [Tooltip("GameManager ghi de o nay moi khi doi. BAT: bo qua pha giang co, item vao non\n" +
-             "la bay vao mieng ngay o toc do toi da va khong bao gio bi bo lai")]
+             "la bay vao mieng ngay o toc do toi da.\n\n" +
+             "Khong lien quan toi vung hut: ra khoi non thi van bi nha ra nhu thuong")]
     public bool instantDevour = false;
 
     [Header("Giai doan giang co")]
@@ -303,10 +317,26 @@ public class MouthSuction : MonoBehaviour
         float distance = toPoint.magnitude;
 
         if (distance - radius > range) return false;
-        if (distance <= radius || distance < 0.0001f) return true;   // mieng nam trong long vat the
+        if (distance < 0.0001f) return true;
 
-        float angularRadius = Mathf.Asin(Mathf.Clamp01(radius / distance)) * Mathf.Rad2Deg;
-        return Vector3.Angle(m.forward, toPoint) - angularRadius <= coneAngle * 0.5f;
+        float angle = Vector3.Angle(m.forward, toPoint) - AngularAssist(distance, radius);
+        return angle <= coneAngle * 0.5f;
+    }
+
+    /// <summary>
+    /// Goc duoc noi them nho vat the co kich thuoc, da chan tran.
+    ///
+    /// Khong chan tran thi asin(banKinh/khoangCach) tien toi 90 do khi vat lai gan,
+    /// nghia la non phinh ra thanh gan nhu hinh cau: vat da bi tom thi cang bay vao
+    /// cang khong the thoat, quay nguoi di huong nao no cung van "trong non".
+    /// Do la ly do phai co maxSizeAssistAngle.
+    /// </summary>
+    private float AngularAssist(float distance, float radius)
+    {
+        if (radius <= 0f || distance <= 0.0001f) return 0f;
+
+        float raw = Mathf.Asin(Mathf.Clamp01(radius / distance)) * Mathf.Rad2Deg;
+        return Mathf.Min(raw, maxSizeAssistAngle);
     }
 
     /// <summary>
@@ -335,12 +365,10 @@ public class MouthSuction : MonoBehaviour
         float distance = toPoint.magnitude;
 
         if (distance - radius > range) return 0f;
-        if (distance <= radius || distance < 0.0001f) return _intensity * suctionPower;
+        if (distance < 0.0001f) return _intensity * suctionPower;
 
         float halfAngle = coneAngle * 0.5f;
-        float angularRadius = Mathf.Asin(Mathf.Clamp01(radius / distance)) * Mathf.Rad2Deg;
-
-        float angle = Mathf.Max(0f, Vector3.Angle(m.forward, toPoint) - angularRadius);
+        float angle = Mathf.Max(0f, Vector3.Angle(m.forward, toPoint) - AngularAssist(distance, radius));
         if (angle > halfAngle) return 0f;
 
         float effectiveDistance = Mathf.Max(0f, distance - radius);
@@ -428,6 +456,45 @@ public class MouthSuction : MonoBehaviour
         return target.Radius * targetSizeAssist;
     }
 
+    // ------------------------------------------------------------- an khi cham
+
+    // Ca bon callback: Enter bat luc dam vao, Stay bat truong hop vat the nam tua vao
+    // nguoi ma khong sinh them va cham moi (vd nhan vat dung yen ep vao mot cai xe).
+    void OnCollisionEnter(Collision collision) { TryDevourOnContact(collision.collider); }
+    void OnCollisionStay(Collision collision) { TryDevourOnContact(collision.collider); }
+    void OnTriggerEnter(Collider other) { TryDevourOnContact(other); }
+    void OnTriggerStay(Collider other) { TryDevourOnContact(other); }
+
+    /// <summary>
+    /// Cham vao vat the thi nuot luon neu du cap.
+    ///
+    /// Khong kiem tra non hut o day: da dung vao nguoi roi thi huong nhin khong con
+    /// y nghia gi nua. Nhung cong chan level thi van giu - vat qua cap phai la vat
+    /// can duong, khong phai vat an duoc bang cach di dam vao.
+    /// </summary>
+    private void TryDevourOnContact(Collider col)
+    {
+        if (!devourOnContact || col == null) return;
+        if (!CanSuck()) return;
+
+        // Vat dang bi hut da tat collider nen khong vao day duoc, nhung cu chan cho chac
+        Devourable target = col.GetComponentInParent<Devourable>();
+        if (target == null || target.IsCaptured || !target.CanBeCaptured) return;
+
+        if (target.transform == transform || target.transform.IsChildOf(transform)) return;
+        if ((suckableLayers.value & (1 << col.gameObject.layer)) == 0) return;
+        if (useLevelGate && target.requiredLevel > suctionLevel) return;
+
+        _resisting.Remove(target);
+        _captured.Remove(target);
+        target.StopResist();
+
+        if (Swallowed != null) Swallowed(target);
+
+        target.Devour();
+        if (onSwallowed != null) onSwallowed.Invoke();
+    }
+
     private bool CanSuck()
     {
         if (!SuctionEnabled) return false;
@@ -512,13 +579,15 @@ public class MouthSuction : MonoBehaviour
             float radius = TargetRadius(target);
             float strength = StrengthAt(center, radius);
 
-            // Vat da but ra roi thi hut den cung, con vat dang giang co ma tuot
-            // khoi non thi tra ve cho cu. Che do tuc thi thi khong bao gio bo lai.
-            bool lost = !instantDevour
-                     && strength <= 0f
-                     && (!target.IsFlying || !keepWhenOutOfCone);
+            // Ra khoi vung hut la nha, KE CA o che do tuc thi.
+            //
+            // Truoc day che do tuc thi bo qua luon buoc nay ("da hut la hut den cung"),
+            // nhung nhu vay hai thiet lap da nhau: bat Ins len thi cai cong vung hut
+            // thanh vo nghia. Gio Ins chi con mot y nghia duy nhat la bo qua pha giang
+            // co, con vung hut thi luc nao cung la vung hut.
+            bool lost = strength <= 0f && (!target.IsFlying || !keepWhenOutOfCone);
 
-            if (!instantDevour && !keepWhenOutOfCone && !target.IsFlying && !IsInCone(center, radius))
+            if (!keepWhenOutOfCone && !target.IsFlying && !IsInCone(center, radius))
                 lost = true;
 
             if (lost)
