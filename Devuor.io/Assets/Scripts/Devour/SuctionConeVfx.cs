@@ -157,16 +157,42 @@ public class SuctionConeVfx : MonoBehaviour
     }
 
     /// <summary>
+    /// Goc bat dau cua cung tron o day non, tinh bang do.
+    ///
+    /// Day non la mot dia ban kinh R nam vat ngang, tam dia cao heightAboveGround so voi
+    /// mat dat. Cat ngang o mat dat roi giu phan tren thi con lai mot cung tron chay tu
+    /// goc nay, qua dinh, sang goc doi xung - tuc la arc = 180 - 2 * goc nay.
+    ///
+    /// Vai truong hop de doi chieu:
+    ///   mieng cao bang R tro len -> tra ve -90, arc thanh 360 (khong cat gi ca)
+    ///   mieng cao 1, R = 3.46     -> tra ve -16.8, arc 213.6
+    ///   mieng nam ngay mat dat    -> tra ve 0, arc 180 (dung nua tren)
+    ///
+    /// Day la cung tron chu khong phai lat cat thang, nen phan giu lai hoi hep hon
+    /// vung thuc te nam tren mat dat mot chut o hai goc duoi. Doi lai khong hat nao
+    /// sinh ra duoi dat, va van dung duoc shape Circle co san thay vi mesh rieng.
+    /// </summary>
+    private static float ArcStartDegrees(float baseRadius, float heightAboveGround)
+    {
+        if (heightAboveGround < 0f || baseRadius <= 0.0001f) return -90f;
+        return -Mathf.Asin(Mathf.Clamp01(heightAboveGround / baseRadius)) * Mathf.Rad2Deg;
+    }
+
+    /// <summary>
     /// Resize cac lop o day non cho khop voi Range / Cone Angle cua MouthSuction.
     /// Chi goi luc setup trong Editor (menu Tools/Devour), khong chay luc game chay:
     /// prefab van la noi giu su that, day chi la nut bam cho do phai tinh tay.
     /// </summary>
-    public void FitToCone(float range, float coneAngle)
+    /// <param name="heightAboveGround">
+    /// Khoang cach tu mat dat len toi mieng. Truyen so am = khong cat, day non van tron day.
+    /// </param>
+    public void FitToCone(float range, float coneAngle, float heightAboveGround = -1f)
     {
         if (coneLayers == null) return;
 
         float halfAngle = Mathf.Clamp(coneAngle, 5f, 179f) * 0.5f * Mathf.Deg2Rad;
         float baseRadius = Mathf.Max(0.01f, Mathf.Tan(halfAngle) * range);
+        float arcStart = ArcStartDegrees(baseRadius, heightAboveGround);
 
         for (int i = 0; i < coneLayers.Length; i++)
         {
@@ -181,6 +207,12 @@ public class SuctionConeVfx : MonoBehaviour
             position.z = range;
             shape.position = position;
             shape.radius = baseRadius;
+
+            // Chi phun o phan day non con nam tren mat dat
+            shape.arc = 180f - 2f * arcStart;
+            Vector3 shapeRotation = shape.rotation;
+            shapeRotation.z = arcStart;
+            shape.rotation = shapeRotation;
 
             // Vong doi vua du de hat tat dung luc cham mieng, khong bay vot ra sau lung
             float speed = Mathf.Abs(ps.velocityOverLifetime.radial.constantMax);

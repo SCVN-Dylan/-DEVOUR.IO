@@ -223,11 +223,20 @@ public static class DevourMenu
             return;
         }
 
+        // FitToCone sua truc tiep cac module cua ParticleSystem chu khong sua field nao
+        // cua vfx, nen phai ghi Undo cho tung he particle, khong thi Ctrl+Z khong tra lai
+        // duoc va Unity cung khong biet la scene da ban.
+        ParticleSystem[] layers = vfx.GetComponentsInChildren<ParticleSystem>(true);
+        Undo.RecordObjects(layers, "Khop VFX voi vung hut");
         Undo.RecordObject(vfx, "Khop VFX voi vung hut");
-        vfx.FitToCone(suction.range, suction.coneAngle);
-        EditorUtility.SetDirty(vfx);
 
-        Debug.Log("[Devour] Da khop VFX theo range " + suction.range + " / goc " + suction.coneAngle + ".");
+        vfx.FitToCone(suction.range, suction.coneAngle, suction.MouthHeightAboveGround);
+
+        EditorUtility.SetDirty(vfx);
+        for (int i = 0; i < layers.Length; i++) EditorUtility.SetDirty(layers[i]);
+
+        Debug.Log("[Devour] Da khop VFX theo range " + suction.range + " / goc " + suction.coneAngle
+                  + (suction.clipBelowGround ? " / cat o mat dat y=" + suction.groundY : " / khong cat") + ".");
     }
 
     [MenuItem(MenuRoot + "Khop VFX voi Range/Cone Angle cua nhan vat dang chon", true)]

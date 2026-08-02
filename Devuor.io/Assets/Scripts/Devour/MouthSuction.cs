@@ -43,14 +43,39 @@ public class MouthSuction : MonoBehaviour
     [Tooltip("Goc mo cua non tinh bang do. 60 = xoe 30 do moi ben")]
     [Range(5f, 179f)] public float coneAngle = 60f;
 
+    [Tooltip("Cat bo phan non thut xuong duoi mat dat, chi giu tu mat dat tro len.\n\n" +
+             "Mieng cao 1m ma day non rong 3.46m thi non thoc xuong tan -2.46m: mot nua\n" +
+             "vung hut nam trong long duong, VFX phun vao do coi nhu mat trang")]
+    public bool clipBelowGround = true;
+
+    [Tooltip("Cao do mat dat trong world space. Diem thap hon muc nay coi nhu ngoai vung hut")]
+    public float groundY = 0f;
+
     [Tooltip("Layer duoc phep hut")]
     public LayerMask suckableLayers = ~0;
 
     [Tooltip("Giay giua hai lan quet. Nho hon = nhay hon nhung ton CPU hon")]
     public float scanInterval = 0.08f;
 
-    [Tooltip("So vat the giu cung luc toi da")]
-    public int maxCaptured = 24;
+    [Tooltip("Quet rong hon Range bao nhieu roi moi loc lai theo non.\n" +
+             "Can bang do rong nhat cua vat the to nhat, khong thi vat nam sat ria non\n" +
+             "se bao la trong non ma khong bao gio bi quet thay")]
+    public float scanPadding = 6f;
+
+    [Tooltip("So vat the hut cung luc toi da. PlayerLevel ghi de o nay moi khi len cap:\n" +
+             "cap cang cao thi ngoam duoc cang nhieu mon mot luc.\n\n" +
+             "Day la cai van chinh nhip lon len - khong phai toc do bay, ma la so mon\n" +
+             "duoc phep bay cung luc")]
+    public int maxCaptured = 2;
+
+    [Header("Nhip nuot")]
+    [Tooltip("Gioi han so vat nuot duoc moi giay. 0 = TAT (mac dinh).\n\n" +
+             "De 0 thi vat toi mieng la nuot ngay, nhip lon len do maxCaptured quyet dinh.\n" +
+             "Chi bat neu muon them mot tran cung tren so vat/giay")]
+    public float swallowsPerSecond = 0f;
+
+    [Tooltip("Chi co tac dung khi Swallows Per Second > 0: so luot duoc phep don lai")]
+    [Range(1f, 10f)] public float swallowBurst = 2f;
 
     [Tooltip("BAT: da lot vao non roi thi hut den cung, ke ca khi nhan vat quay di huong khac.\n" +
              "TAT: ra khoi vung hut la nha ngay, vat the roi xuong dat (Devourable lo phan roi)")]
@@ -207,6 +232,7 @@ public class MouthSuction : MonoBehaviour
     private Collider[] _hits = new Collider[64];
     private float _scanTimer;
     private float _intensity;
+    private float _swallowBudget;
     private Vector3 _bodyStartScale = Vector3.one;
     private bool _bodyCached;
 
@@ -241,6 +267,9 @@ public class MouthSuction : MonoBehaviour
         _intensity = rampTime > 0.0001f
             ? Mathf.MoveTowards(_intensity, target, deltaTime / rampTime)
             : target;
+
+        // Gao nuoc: moi giay do them swallowsPerSecond luot, day thi thoi
+        _swallowBudget = Mathf.Min(_swallowBudget + swallowsPerSecond * deltaTime, Mathf.Max(1f, swallowBurst));
 
         if (vfx != null) vfx.SetIntensity(_intensity);
         ApplyBodyScale();
@@ -312,6 +341,8 @@ public class MouthSuction : MonoBehaviour
     /// </summary>
     public bool IsInCone(Vector3 worldPoint, float radius)
     {
+        if (IsUnderGround(worldPoint, radius)) return false;
+
         Transform m = EnsureMouth();
         Vector3 toPoint = worldPoint - m.position;
         float distance = toPoint.magnitude;
@@ -340,6 +371,27 @@ public class MouthSuction : MonoBehaviour
     }
 
     /// <summary>
+    /// Hinh cau nam tron duoi mat dat thi coi nhu ngoai vung hut.
+    ///
+    /// Xet ca ban kinh chu khong chi cai tam: vat the dat tren mat dat co tam nam thap
+    /// hon groundY (vd tam bounds cua mot tam tham) van con phan noi len tren, van an duoc.
+    /// Chi bo khi khong con mot ti nao o tren mat dat.
+    /// </summary>
+    private bool IsUnderGround(Vector3 worldPoint, float radius)
+    {
+        return clipBelowGround && worldPoint.y + radius < groundY;
+    }
+
+    /// <summary>
+    /// Khoang cach tu mat dat len toi mieng, dung cho SuctionConeVfx.FitToCone de biet
+    /// phai cat day non o dau. Tra ve so am khi khong cat.
+    /// </summary>
+    public float MouthHeightAboveGround
+    {
+        get { return clipBelowGround ? EnsureMouth().position.y - groundY : -1f; }
+    }
+
+    /// <summary>
     /// Do manh cua luc hut tai mot diem, 0 = ngoai vung.
     /// Gan mieng va nam giua tam non thi manh nhat, ra ria va ra xa thi yeu dan.
     ///
@@ -359,6 +411,7 @@ public class MouthSuction : MonoBehaviour
     public float StrengthAt(Vector3 worldPoint, float radius)
     {
         if (_intensity <= 0f) return 0f;
+        if (IsUnderGround(worldPoint, radius)) return 0f;
 
         Transform m = EnsureMouth();
         Vector3 toPoint = worldPoint - m.position;
@@ -456,6 +509,21 @@ public class MouthSuction : MonoBehaviour
         return target.Radius * targetSizeAssist;
     }
 
+    /// <summary>
+    /// Tru mot luot nuot. Het luot thi tra ve false va vat the phai cho.
+    ///
+    /// Dung chung cho ca hut lan an-khi-cham: neu chi chan mot duong thi nguoi choi
+    /// lao vao dong do va an sach bang duong con lai, gioi han thanh vo nghia.
+    /// </summary>
+    private bool TryConsumeSwallow()
+    {
+        if (swallowsPerSecond <= 0f) return true;      // 0 = tat gioi han
+        if (_swallowBudget < 1f) return false;
+
+        _swallowBudget -= 1f;
+        return true;
+    }
+
     // ------------------------------------------------------------- an khi cham
 
     // Ca bon callback: Enter bat luc dam vao, Stay bat truong hop vat the nam tua vao
@@ -484,6 +552,7 @@ public class MouthSuction : MonoBehaviour
         if (target.transform == transform || target.transform.IsChildOf(transform)) return;
         if ((suckableLayers.value & (1 << col.gameObject.layer)) == 0) return;
         if (useLevelGate && target.requiredLevel > suctionLevel) return;
+        if (!TryConsumeSwallow()) return;              // het luot thi frame sau an tiep
 
         _resisting.Remove(target);
         _captured.Remove(target);
@@ -512,13 +581,21 @@ public class MouthSuction : MonoBehaviour
         if (_captured.Count >= maxCaptured) return;
 
         Transform m = EnsureMouth();
-        int count = Physics.OverlapSphereNonAlloc(m.position, range, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
+
+        // Quet rong hon range mot chut roi moi loc lai bang IsInCone.
+        //
+        // Phai the vi hai ben dung hai thuoc do khac nhau: OverlapSphere tim theo hinh
+        // that cua collider, con IsInCone lai cong them Devourable.Radius (duong cheo cua
+        // bounds, luon lon hon be ngang). Vat nam trong khe chenh do se bao "trong non"
+        // ma khong bao gio bi quet thay - nhin ra la vat sat ngay truoc mat khong bi hut.
+        float scanRadius = range + scanPadding;
+        int count = Physics.OverlapSphereNonAlloc(m.position, scanRadius, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
 
         // Mang day nghia la con collider bi bo sot, noi mang ra cho lan quet sau
         if (count >= _hits.Length && _hits.Length < 512)
         {
             _hits = new Collider[_hits.Length * 2];
-            count = Physics.OverlapSphereNonAlloc(m.position, range, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
+            count = Physics.OverlapSphereNonAlloc(m.position, scanRadius, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
         }
 
         for (int i = 0; i < count; i++)
@@ -610,6 +687,11 @@ public class MouthSuction : MonoBehaviour
 
             if (TickFlight(target, mouthPosition, axis, deltaTime))
             {
+                // Da toi mieng nhung het luot nuot: cu de no lo lung o day cho den luot.
+                // TickFlight se lai tra ve true o frame sau ma khong day them, nen vat the
+                // dung yen sat mieng - thanh mot hang doi nhin thay duoc.
+                if (!TryConsumeSwallow()) continue;
+
                 _captured.RemoveAt(i);
 
                 // Ban truoc Devour() vi Devour() se Destroy vat the
@@ -762,10 +844,10 @@ public class MouthSuction : MonoBehaviour
         Vector3 baseCenter = origin + forward * range;
 
         Gizmos.color = gizmoColor;
-        Gizmos.DrawLine(origin, baseCenter + up * baseRadius);
-        Gizmos.DrawLine(origin, baseCenter - up * baseRadius);
-        Gizmos.DrawLine(origin, baseCenter + right * baseRadius);
-        Gizmos.DrawLine(origin, baseCenter - right * baseRadius);
+        GizmoLine(origin, baseCenter + up * baseRadius);
+        GizmoLine(origin, baseCenter - up * baseRadius);
+        GizmoLine(origin, baseCenter + right * baseRadius);
+        GizmoLine(origin, baseCenter - right * baseRadius);
 
         DrawCircle(baseCenter, up, right, baseRadius);
         DrawCircle(origin + forward * (range * 0.5f), up, right, baseRadius * 0.5f);
@@ -777,7 +859,7 @@ public class MouthSuction : MonoBehaviour
         Gizmos.DrawWireSphere(origin, swallowDistance);
     }
 
-    private static void DrawCircle(Vector3 center, Vector3 up, Vector3 right, float radius)
+    private void DrawCircle(Vector3 center, Vector3 up, Vector3 right, float radius)
     {
         const int segments = 24;
         Vector3 previous = center + right * radius;
@@ -786,9 +868,34 @@ public class MouthSuction : MonoBehaviour
         {
             float angle = i / (float)segments * Mathf.PI * 2f;
             Vector3 current = center + (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * radius;
-            Gizmos.DrawLine(previous, current);
+            GizmoLine(previous, current);
             previous = current;
         }
+    }
+
+    /// <summary>
+    /// Ve mot doan gizmo, cat bo phan chim duoi mat dat. Nho vay gizmo ve dung cai
+    /// vung ma IsInCone/StrengthAt thuc su chap nhan, khong ve mot cai non day du roi
+    /// de nguoi doc tuong la hut duoc ca duoi long duong.
+    /// </summary>
+    private void GizmoLine(Vector3 a, Vector3 b)
+    {
+        if (clipBelowGround)
+        {
+            bool aAbove = a.y >= groundY;
+            bool bAbove = b.y >= groundY;
+
+            if (!aAbove && !bAbove) return;
+
+            if (aAbove != bAbove)
+            {
+                Vector3 clipped = Vector3.Lerp(a, b, (groundY - a.y) / (b.y - a.y));
+                if (aAbove) b = clipped;
+                else a = clipped;
+            }
+        }
+
+        Gizmos.DrawLine(a, b);
     }
 
     private void DrawSpiral(Vector3 origin, Vector3 forward, Vector3 up, Vector3 right, float baseRadius)
@@ -808,7 +915,7 @@ public class MouthSuction : MonoBehaviour
             Vector3 current = origin + forward * distance
                 + (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * radius;
 
-            Gizmos.DrawLine(previous, current);
+            GizmoLine(previous, current);
             previous = current;
         }
     }

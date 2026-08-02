@@ -49,6 +49,14 @@ public class PlayerLevel : MonoBehaviour
     [Tooltip("Nhan vao XP nhan duoc. Tang len de len cap nhanh hon ma khong phai sua duong cong")]
     public float xpMultiplier = 1f;
 
+    [Header("Suc chua theo cap")]
+    [Tooltip("So vat hut duoc CUNG LUC o tung bac. Phan tu 0 la bac 1 (tu cap 1),\n" +
+             "phan tu 1 la bac 2 (tu cap 10), phan tu 2 la bac 3 (tu cap 20)...\n\n" +
+             "Day la nhip lon len chinh cua van dau: cap thap thi moi lan chi lua duoc\n" +
+             "hai mon, len cap moi ngoam duoc ca chum.\n\n" +
+             "De trong = khong dong vao maxCaptured cua MouthSuction")]
+    public int[] captureCapacityPerTier = new int[] { 2, 3, 5, 8 };
+
     [Header("Su kien")]
     [Tooltip("Ban ra moi lan len cap, kem so cap moi")]
     public LevelEvent onLevelUp;
@@ -194,7 +202,30 @@ public class PlayerLevel : MonoBehaviour
     private void PushLevelToSuction()
     {
         if (_suction == null) _suction = GetComponent<MouthSuction>();
-        if (_suction != null) _suction.suctionLevel = _level;
+        if (_suction == null) return;
+
+        _suction.suctionLevel = _level;
+
+        if (captureCapacityPerTier == null || captureCapacityPerTier.Length == 0) return;
+
+        // Suc chua lay theo BAC dang mo, khong phai theo tung cap: nhu vay no nhay
+        // dung cung luc voi viec mo khoa loai vat the moi, nguoi choi cam nhan mot
+        // buoc tien ro rang thay vi nhich len tung ti mot.
+        int index = Mathf.Clamp(UnlockedTier - 1, 0, captureCapacityPerTier.Length - 1);
+        _suction.maxCaptured = Mathf.Max(1, captureCapacityPerTier[index]);
+    }
+
+    /// <summary>Suc chua o cap hien tai, de UI hien "2/3 mon".</summary>
+    public int CaptureCapacity
+    {
+        get
+        {
+            if (captureCapacityPerTier == null || captureCapacityPerTier.Length == 0)
+                return _suction != null ? _suction.maxCaptured : 1;
+
+            int index = Mathf.Clamp(UnlockedTier - 1, 0, captureCapacityPerTier.Length - 1);
+            return Mathf.Max(1, captureCapacityPerTier[index]);
+        }
     }
 
     void OnValidate()
@@ -203,6 +234,10 @@ public class PlayerLevel : MonoBehaviour
         maxLevel = Mathf.Max(1, maxLevel);
         baseXp = Mathf.Max(0.1f, baseXp);
         xpMultiplier = Mathf.Max(0.01f, xpMultiplier);
+
+        if (captureCapacityPerTier != null)
+            for (int i = 0; i < captureCapacityPerTier.Length; i++)
+                captureCapacityPerTier[i] = Mathf.Max(1, captureCapacityPerTier[i]);
 
         if (xpCurveOverride == null) return;
         for (int i = 0; i < xpCurveOverride.Length; i++)

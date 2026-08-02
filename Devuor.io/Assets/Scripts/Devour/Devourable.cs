@@ -82,12 +82,24 @@ public class Devourable : MonoBehaviour
     [Tooltip("Gia toc roi. Am la roi xuong. -9.81 la trong luc that, keo xuong am hon cho roi dut khoat")]
     public float fallGravity = -28f;
 
-    [Tooltip("Giu lai bao nhieu phan van toc dang bay luc bi tha.\n" +
+    [Tooltip("Giu lai bao nhieu phan van toc NGANG dang bay luc bi tha.\n" +
              "0 = roi thang xuong tai cho, 1 = van lao theo da cu roi moi roi")]
     [Range(0f, 1f)] public float releaseMomentum = 0.45f;
 
-    [Tooltip("Do/giay de xoay ve tu the dung khi dang roi")]
+    [Tooltip("Van toc bat len luc vua duoc tha, tao duong bay vong cung.\n" +
+             "Khong co cai nay thi vat the thua huong luon da chui xuong cua duong bay\n" +
+             "vao mieng va bo nhao thang xuong dat, nhin nhu bi keo tut")]
+    public float releasePop = 2.5f;
+
+    [Tooltip("Ham van toc ngang khi dang roi, don vi 1/giay. 0 = truot mai khong dung")]
+    public float airDrag = 1.2f;
+
+    [Tooltip("Do/giay de xoay ve tu the dung khi dang roi. Neu con nghieng ma sap cham dat\n" +
+             "thi tu dong quay nhanh hon de kip thang nguoi truoc khi tiep dat")]
     public float uprightSpeed = 540f;
+
+    [Tooltip("Layer duoc coi la mat dat khi do cho tiep dat")]
+    public LayerMask groundMask = ~0;
 
     [Tooltip("Giay de phinh lai ve kich thuoc goc sau khi bi tha")]
     public float restoreTime = 0.25f;
@@ -174,6 +186,10 @@ public class Devourable : MonoBehaviour
     private Vector3 _scaleAtRelease;
     private float _restoreTimer;
     private float _groundY;
+    private float _groundOffset;
+    private float _landingY;
+
+    private static readonly RaycastHit[] _rayHits = new RaycastHit[8];
 
     /// <summary>Cach nhau bao nhieu cap thi mo khoa mot BAC vat the moi.</summary>
     public const int LevelsPerTier = 10;
@@ -234,6 +250,11 @@ public class Devourable : MonoBehaviour
         // lai giua khi dang roi se lay do cao tren khong lam "mat dat", roi lo lung.
         _groundY = transform.position.y;
         _restRotation = transform.rotation;
+
+        // Do xem pivot cua no nam cao/thap hon mat san bao nhieu ngay tu dau van.
+        // Map dat nhieu vat lun mot chut vao nen; neu khi roi lai dat pivot dung bang
+        // mat san thi no se cao hon may cai ben canh mot chut, nhin ra ngay la co gi do sai.
+        _groundOffset = Mathf.Clamp(_groundY - FindGroundY(_groundY), -1f, 1f);
 
         if (autoLevelFromSize)
         {
@@ -373,7 +394,7 @@ public class Devourable : MonoBehaviour
             }
         }
 
-        bool aboveGround = transform.position.y > _groundY + 0.01f;
+        bool aboveGround = transform.position.y > FindGroundY(_groundY) + 0.01f;
         if (!fallWhenReleased || !aboveGround)
         {
             transform.localScale = _startScale;
@@ -384,7 +405,14 @@ public class Devourable : MonoBehaviour
         }
 
         IsFalling = true;
-        _fallVelocity = _lastVelocity * releaseMomentum;
+
+        // Chi giu da NGANG, con phuong dung thi thay bang mot cu bat len nhe.
+        // Duong bay vao mieng luon chui len phia mieng roi vong xuong, neu bung nguyen
+        // thanh phan doc do ra thi vat the bo nhao thang xuong dat nhin rat gia.
+        Vector3 keep = _lastVelocity * releaseMomentum;
+        _fallVelocity = new Vector3(keep.x, releasePop, keep.z);
+
+        _landingY = FindGroundY(_groundY - _groundOffset) + _groundOffset;
         _scaleAtRelease = transform.localScale;
         _restoreTimer = 0f;
         _lastVelocity = Vector3.zero;
@@ -406,11 +434,22 @@ public class Devourable : MonoBehaviour
         float deltaTime = Time.deltaTime;
 
         _fallVelocity.y += fallGravity * deltaTime;
+
+        // Ham da ngang lai cho vat the khong truot vo tan tren khong
+        if (airDrag > 0f)
+        {
+            float keep = Mathf.Max(0f, 1f - airDrag * deltaTime);
+            _fallVelocity.x *= keep;
+            _fallVelocity.z *= keep;
+        }
+
         Vector3 next = transform.position + _fallVelocity * deltaTime;
 
-        if (uprightSpeed > 0f)
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation, _restRotation, uprightSpeed * deltaTime);
+        // Do lai mat dat theo dung cho no dang o: vat the troi ngang trong luc roi,
+        // co the bay tu mat duong sang cong vien hay len mai nha, moi cho mot cao do.
+        _landingY = FindGroundY(_landingY - _groundOffset) + _groundOffset;
+
+        TickUpright(deltaTime);
 
         if (restoreTime > 0.001f)
         {
@@ -422,9 +461,9 @@ public class Devourable : MonoBehaviour
             transform.localScale = _startScale;
         }
 
-        if (next.y <= _groundY)
+        if (next.y <= _landingY)
         {
-            next.y = _groundY;
+            next.y = _landingY;
             transform.position = next;
             transform.rotation = _restRotation;
             transform.localScale = _startScale;
@@ -435,6 +474,57 @@ public class Devourable : MonoBehaviour
         }
 
         transform.position = next;
+    }
+
+    /// <summary>
+    /// Xoay ve tu the dung, nhanh dan neu sap cham dat.
+    ///
+    /// Neu chi quay deu mot toc do co dinh thi vat the roi tu thap xuong se cham dat
+    /// trong luc con nghieng, roi bi snap thang nguoi mot phat ngay luc tiep dat -
+    /// dung cai giat do la thu nhin ra "bi loi". Uoc luong con bao lau nua thi cham dat
+    /// roi chia goc con lai cho quang thoi gian do, la vua kip thang nguoi.
+    /// </summary>
+    private void TickUpright(float deltaTime)
+    {
+        if (uprightSpeed <= 0f) return;
+
+        float angle = Quaternion.Angle(transform.rotation, _restRotation);
+        if (angle < 0.05f) return;
+
+        float speed = uprightSpeed;
+
+        float height = transform.position.y - _landingY;
+        float gravity = Mathf.Abs(fallGravity);
+        if (height > 0f && gravity > 0.01f)
+        {
+            float v = _fallVelocity.y;
+            float timeLeft = (v + Mathf.Sqrt(Mathf.Max(0f, v * v + 2f * gravity * height))) / gravity;
+            if (timeLeft > 0.02f) speed = Mathf.Max(speed, angle / timeLeft);
+            else speed = 99999f;
+        }
+
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, _restRotation, speed * deltaTime);
+    }
+
+    /// <summary>
+    /// Do cao mat dat ngay duoi vat the. Bo qua chinh collider cua no, khong thi tia
+    /// ban ra tu trong long minh se trung ngay vao minh va bao la "da cham dat".
+    /// </summary>
+    private float FindGroundY(float fallback)
+    {
+        Vector3 from = transform.position + Vector3.up * 0.6f;
+        int n = Physics.RaycastNonAlloc(from, Vector3.down, _rayHits, 300f, groundMask, QueryTriggerInteraction.Ignore);
+
+        float best = float.NegativeInfinity;
+        for (int i = 0; i < n; i++)
+        {
+            Collider c = _rayHits[i].collider;
+            if (c == null) continue;
+            if (c.transform == transform || c.transform.IsChildOf(transform)) continue;
+            if (_rayHits[i].point.y > best) best = _rayHits[i].point.y;
+        }
+
+        return best > float.NegativeInfinity ? best : fallback;
     }
 
     /// <summary>

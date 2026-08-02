@@ -394,18 +394,29 @@ public static class MapBuilder
         return go;
     }
 
+    /// <summary>
+    /// Block nha nho: bon o vuong, moi o ngau nhien la nha THAP (bac 1) hoac nha VUA (bac 2).
+    ///
+    /// Phai tron hai co chu khong duoc dong deu: neu ca block deu la nha vua thi ban kinh
+    /// nao cung vuot 2.2 va thanh bac 2 het, nguoi choi cap 1 chay ca map khong an duoc gi
+    /// ngoai may cai cay trong cong vien. Tron vao thi cho nao cung co mon de bat dau, va
+    /// len cap 10 thi quay lai chinh cho do an tiep phan con lai.
+    /// </summary>
     private static void BuildSmallBlock(Transform parent, Vector3 p, int r, int c)
     {
-        // Bon o vuong nho trong mot o, bo bot ngau nhien mot vai cai cho khoi deu tam tap
         float q = Cell * 0.25f;
         for (int i = 0; i < 4; i++)
         {
-            if (Random.value < 0.25f) continue;
+            if (Random.value < 0.2f) continue;
             float ox = (i % 2 == 0 ? -q : q);
             float oz = (i < 2 ? q : -q);
-            float w = Random.Range(2.0f, 2.9f);
-            float h = Random.Range(2.5f, 7.5f);
-            SpawnBuilding(parent, new Vector3(p.x + ox, 0f, p.z + oz), w, w, h, "Bld_" + r + "_" + c + "_" + i);
+
+            bool low = Random.value < 0.5f;
+            float w = low ? Random.Range(1.5f, 2.1f) : Random.Range(2.2f, 2.9f);
+            float h = low ? Random.Range(2.0f, 3.2f) : Random.Range(4.5f, 7.5f);
+
+            SpawnBuilding(parent, new Vector3(p.x + ox, 0f, p.z + oz), w, w, h,
+                          (low ? "Hut_" : "Bld_") + r + "_" + c + "_" + i);
         }
     }
 

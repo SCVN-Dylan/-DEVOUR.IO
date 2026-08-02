@@ -44,6 +44,13 @@ public class PlayerGrowth : MonoBehaviour
     [Tooltip("Phong to luon vung hut. Nen bat, khong thi nhan vat to ra se nuot chung ca cai non hut")]
     public bool scaleSuctionRange = true;
 
+    [Tooltip("So mu khi phong to TAM HUT theo kich thuoc.\n\n" +
+             "1 = tam hut nhan thang theo scale. Nghe thi hop ly nhung tao ra vong lap tu khuech dai:\n" +
+             "to hon -> quet rong hon -> an nhanh hon -> lai to hon. Do duoc scale 1 len 6.8 trong 5 giay,\n" +
+             "tam hut phinh tu 6 len 40.8 tren map rong 154.\n\n" +
+             "0.5 = tam hut theo can bac hai cua scale. To gap 9 lan thi tam hut chi gap 3.")]
+    [Range(0.2f, 1f)] public float suctionRangeExponent = 0.5f;
+
     [Tooltip("To hon thi chay nhanh hon bao nhieu. 0 = giu nguyen toc do, 1 = nhanh dung theo ti le scale")]
     [Range(0f, 1f)] public float speedGain = 0.35f;
 
@@ -226,7 +233,9 @@ public class PlayerGrowth : MonoBehaviour
 
         if (scaleSuctionRange)
         {
-            _suction.range = _baseRange * _scale;
+            // Tam voi thi duoi theo can bac hai, con kich thuoc mieng thi theo dung than
+            float reach = Mathf.Pow(Mathf.Max(0.01f, _scale), suctionRangeExponent);
+            _suction.range = _baseRange * reach;
             _suction.swallowDistance = _baseSwallow * _scale;
             _suction.shrinkDistance = _baseShrink * _scale;
         }
