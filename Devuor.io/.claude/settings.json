@@ -3,7 +3,17 @@
     "allow": [
       "mcp__UnityMCP__manage_editor",
       "Bash(rm -rf \"/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets/Screenshots\" \"/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets/Screenshots.meta\" && ls \"/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets\")",
-      "mcp__UnityMCP__refresh_unity"
+      "mcp__UnityMCP__refresh_unity",
+      "mcp__UnityMCP__create_script",
+      "mcp__UnityMCP__manage_graphics",
+      "Bash(awk -F'[!&]' '{print $0}')",
+      "Bash(python3 /private/tmp/claude-501/-Volumes-Supercent-DEVOUR-IO-Devuor-io/e2d3b7d4-88b4-49a4-a01e-3ec790368549/scratchpad/sim.py)",
+      "Bash(awk -F'!u!' '{print $2}')",
+      "Bash(awk -F' ' '{print $1}')",
+      "Read(//Applications/Unity/Hub/Editor/**)",
+      "Read(//Users/dylannguyen/Library/Unity/**)",
+      "Read(//Applications/Unity/Hub/Editor/6000.3.15f1/Unity.app/Contents/Managed/**)",
+      "Bash(python3 -)"
     ],
     "additionalDirectories": [
       "/Volumes/Supercent/DEVOUR.IO/Devuor.io/Assets/Screenshots"
