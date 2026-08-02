@@ -89,6 +89,11 @@ public class MouthSuction : MonoBehaviour
     [Tooltip("Giay de luc hut len/xuong het cong suat khi bat/tat. Tranh bat tat giat cuc")]
     public float rampTime = 0.12f;
 
+    [Header("Che do hut")]
+    [Tooltip("GameManager ghi de o nay moi khi doi. BAT: bo qua pha giang co, item vao non\n" +
+             "la bay vao mieng ngay o toc do toi da va khong bao gio bi bo lai")]
+    public bool instantDevour = false;
+
     [Header("Giai doan giang co")]
     [Tooltip("Toc do vat the troi ve mieng trong luc con dang giang co. De qua thap thi\n" +
              "giai doan giang co nhin nhu vat the dung im, nguoi choi tuong la hut khong an")]
@@ -477,6 +482,9 @@ public class MouthSuction : MonoBehaviour
             target.OnCaptured();
             _captured.Add(target);
 
+            // Khong can cho bay o day: TickCaptured chay ngay sau Scan trong cung
+            // mot Update, che do tuc thi duoc xu ly gon o do.
+
             if (_captured.Count >= maxCaptured) return;
         }
     }
@@ -505,9 +513,13 @@ public class MouthSuction : MonoBehaviour
             float strength = StrengthAt(center, radius);
 
             // Vat da but ra roi thi hut den cung, con vat dang giang co ma tuot
-            // khoi non thi tra ve cho cu.
-            bool lost = strength <= 0f && (!target.IsFlying || !keepWhenOutOfCone);
-            if (!keepWhenOutOfCone && !target.IsFlying && !IsInCone(center, radius)) lost = true;
+            // khoi non thi tra ve cho cu. Che do tuc thi thi khong bao gio bo lai.
+            bool lost = !instantDevour
+                     && strength <= 0f
+                     && (!target.IsFlying || !keepWhenOutOfCone);
+
+            if (!instantDevour && !keepWhenOutOfCone && !target.IsFlying && !IsInCone(center, radius))
+                lost = true;
 
             if (lost)
             {
@@ -515,6 +527,11 @@ public class MouthSuction : MonoBehaviour
                 _captured.RemoveAt(i);
                 continue;
             }
+
+            // Che do tuc thi: cho bay thang o toc do toi da, bo qua pha giang co.
+            // Kiem tra o day chu khong phai luc Scan de khi bat cong tac giua chung thi
+            // ca nhung vat DANG giang co cung duoc cho bay luon, khong ket lai nua chung.
+            if (instantDevour && !target.IsFlying) target.BeginFlight(maxPullSpeed);
 
             if (!target.IsFlying)
             {
@@ -583,7 +600,9 @@ public class MouthSuction : MonoBehaviour
         // het toc do tu giua duong, doan cuoi khong con gi de "vut" ca. Bam theo
         // khoang cach thi vat nao cung the: le te troi vao, den gan mieng moi bung toc.
         float closeness = 1f - Mathf.Clamp01(distance / Mathf.Max(0.01f, range));
-        float targetSpeed = Mathf.Lerp(farPullSpeed, maxPullSpeed, Mathf.Pow(closeness, nearBoostSharpness));
+        float targetSpeed = instantDevour
+            ? maxPullSpeed
+            : Mathf.Lerp(farPullSpeed, maxPullSpeed, Mathf.Pow(closeness, nearBoostSharpness));
 
         target.PullSpeed = Mathf.MoveTowards(target.PullSpeed, targetSpeed, pullAcceleration * deltaTime);
         float step = target.PullSpeed * deltaTime;
