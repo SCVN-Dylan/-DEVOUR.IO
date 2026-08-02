@@ -255,6 +255,12 @@ public static class DevourMenu
             return;
         }
 
+        // BAT BUOC: ngoai play mode, Collider.bounds khong tu cap nhat theo transform.
+        // Thieu dong nay thi vat the vua bi doi scale bang script se tra ve bounds cua
+        // prefab goc - mot cai thap cao 16 don vi bao ban kinh 0.87 va bi xep nham bac 1,
+        // lam ca bang can bang sai het ma khong co dau hieu gi.
+        Physics.SyncTransforms();
+
         int tierCount = Devourable.TierCount;
         int[] countByTier = new int[tierCount + 2];
         int[] xpByTier = new int[tierCount + 2];
