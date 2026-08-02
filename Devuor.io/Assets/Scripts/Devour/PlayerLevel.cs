@@ -57,6 +57,31 @@ public class PlayerLevel : MonoBehaviour
              "De trong = khong dong vao maxCaptured cua MouthSuction")]
     public int[] captureCapacityPerTier = new int[] { 2, 3, 5, 8 };
 
+    [Header("Moi cap manh len bao nhieu")]
+    [Tooltip("TAM HUT moi cap rong them bao nhieu phan tram cua tam hut GOC.\n" +
+             "0.12 = cap 2 rong hon cap 1 12%, cap 3 hon 24%... (cong don, khong nhan chong)\n\n" +
+             "He so nay nhan chong len phan da no theo kich thuoc than cua PlayerGrowth,\n" +
+             "chu khong thay the. De 0 = tam hut chi phu thuoc kich thuoc nhu cu.\n\n" +
+             "Bam chuot phai vao component roi chon 'In bang suc manh theo cap' de xem\n" +
+             "so cu the tung cap truoc khi chinh")]
+    [Range(0f, 0.5f)] public float rangeGainPerLevel = 0.12f;
+
+    [Tooltip("KICH THUOC than moi cap to them bao nhieu phan tram. 0.05 = cap 2 to hon cap 1 5%.\n\n" +
+             "Van bi chan boi PlayerGrowth.maxScale. Luu y: kich thuoc lai keo tam hut theo\n" +
+             "(mu 0.5), nen bat cai nay len thi tam hut an hai lan - nho lai Range Gain Per Level.\n\n" +
+             "De 0 (mac dinh) = than chi to len theo luong da an nhu cu")]
+    [Range(0f, 0.5f)] public float sizeGainPerLevel = 0f;
+
+    [Tooltip("GOC NON moi cap mo them bao nhieu DO. 1.5 = cap 2 rong hon cap 1 1.5 do.\n\n" +
+             "Day la so do tuyet doi chu khong phai phan tram, vi goc non bi chan trong\n" +
+             "khoang 5..179 do - nhan phan tram thi cham tran rat nhanh.\n\n" +
+             "De 0 (mac dinh) = goc non khong doi theo cap")]
+    [Range(0f, 10f)] public float coneAngleGainPerLevel = 0f;
+
+    [Tooltip("Tran cua goc non, du len bao nhieu cap cung khong vuot qua.\n" +
+             "Goc qua rong thi vung hut gan thanh hinh cau, quay huong nao cung hut duoc")]
+    [Range(5f, 179f)] public float maxConeAngle = 120f;
+
     [Header("Su kien")]
     [Tooltip("Ban ra moi lan len cap, kem so cap moi")]
     public LevelEvent onLevelUp;
@@ -102,6 +127,9 @@ public class PlayerLevel : MonoBehaviour
     }
 
     private MouthSuction _suction;
+    private PlayerGrowth _growth;
+    private float _baseRange = -1f;
+    private float _baseConeAngle = -1f;
     private int _level = 1;
     private int _xp;
 
@@ -205,6 +233,7 @@ public class PlayerLevel : MonoBehaviour
         if (_suction == null) return;
 
         _suction.suctionLevel = _level;
+        PushPowerForLevel();
 
         if (captureCapacityPerTier == null || captureCapacityPerTier.Length == 0) return;
 
@@ -213,6 +242,89 @@ public class PlayerLevel : MonoBehaviour
         // buoc tien ro rang thay vi nhich len tung ti mot.
         int index = Mathf.Clamp(UnlockedTier - 1, 0, captureCapacityPerTier.Length - 1);
         _suction.maxCaptured = Mathf.Max(1, captureCapacityPerTier[index]);
+    }
+
+    /// <summary>
+    /// Ap dung ba con so "moi cap manh len bao nhieu" cho cap hien tai.
+    ///
+    /// Tam hut va kich thuoc phai di vong qua PlayerGrowth: no ghi de ca hai thu do moi
+    /// frame trong ApplyScale, ghi thang vao MouthSuction o day thi frame sau la bay sach.
+    /// Dua he so cho no nhan vao moi giu duoc ca hai nguon phong to.
+    ///
+    /// Goc non thi khong ai tranh nen ghi thang, chi can nho goc GOC truoc khi ghi lan
+    /// dau - khong thi moi lan len cap lai cong don len ket qua cua lan truoc.
+    /// </summary>
+    private void PushPowerForLevel()
+    {
+        int steps = _level - 1;
+
+        if (_growth == null) _growth = GetComponent<PlayerGrowth>();
+
+        if (_growth != null)
+        {
+            _growth.LevelRangeMultiplier = 1f + rangeGainPerLevel * steps;
+            _growth.LevelScaleMultiplier = 1f + sizeGainPerLevel * steps;
+        }
+        else
+        {
+            if (_baseRange < 0f) _baseRange = _suction.range;
+            _suction.range = _baseRange * (1f + rangeGainPerLevel * steps);
+        }
+
+        if (_baseConeAngle < 0f) _baseConeAngle = _suction.coneAngle;
+        _suction.coneAngle = Mathf.Min(_baseConeAngle + coneAngleGainPerLevel * steps, maxConeAngle);
+    }
+
+    /// <summary>
+    /// In ra bang suc manh tung cap de can bang, khong phai bam Play va choi thu.
+    /// Bam chuot phai vao header cua component trong Inspector de goi.
+    ///
+    /// Cot kich thuoc va tam hut la o trang thai CHUA an gi (than x1). Luc choi that
+    /// con nhan them phan an duoc, nen day la san duoi chu khong phai so cuoi cung.
+    /// </summary>
+    [ContextMenu("In bang suc manh theo cap")]
+    private void LogPowerTable()
+    {
+        MouthSuction suction = _suction != null ? _suction : GetComponent<MouthSuction>();
+        if (suction == null) return;
+
+        PlayerGrowth growth = _growth != null ? _growth : GetComponent<PlayerGrowth>();
+
+        float baseRange = growth != null ? growth.BaseRange : (_baseRange >= 0f ? _baseRange : suction.range);
+        float baseAngle = _baseConeAngle >= 0f ? _baseConeAngle : suction.coneAngle;
+        float exponent = growth != null ? growth.suctionRangeExponent : 1f;
+
+        var text = new System.Text.StringBuilder();
+        text.AppendLine("[PlayerLevel] Bang suc manh theo cap (than chua an gi):");
+        text.AppendLine("cap |  than | tam hut | goc non | suc chua | XP len cap");
+
+        for (int level = 1; level <= Mathf.Max(1, maxLevel); level++)
+        {
+            int steps = level - 1;
+
+            float bodyScale = 1f + sizeGainPerLevel * steps;
+            if (growth != null) bodyScale = Mathf.Min(bodyScale, Mathf.Max(1f, growth.maxScale));
+
+            float range = baseRange * Mathf.Pow(bodyScale, exponent) * (1f + rangeGainPerLevel * steps);
+            float angle = Mathf.Min(baseAngle + coneAngleGainPerLevel * steps, maxConeAngle);
+
+            int tier = 1;
+            for (int t = 2; t <= Devourable.TierCount; t++)
+                if (level >= Devourable.RequiredLevelForTier(t)) tier = t;
+
+            int capacity = captureCapacityPerTier != null && captureCapacityPerTier.Length > 0
+                ? Mathf.Max(1, captureCapacityPerTier[Mathf.Clamp(tier - 1, 0, captureCapacityPerTier.Length - 1)])
+                : suction.maxCaptured;
+
+            text.AppendLine(level.ToString().PadLeft(3)
+                + " | x" + bodyScale.ToString("F2")
+                + " | " + range.ToString("F2").PadLeft(7)
+                + " | " + angle.ToString("F1").PadLeft(7)
+                + " | " + capacity.ToString().PadLeft(8)
+                + " | " + (level < maxLevel ? XpToNextAt(level).ToString() : "-"));
+        }
+
+        Debug.Log(text.ToString(), this);
     }
 
     /// <summary>Suc chua o cap hien tai, de UI hien "2/3 mon".</summary>

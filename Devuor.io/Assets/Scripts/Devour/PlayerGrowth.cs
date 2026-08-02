@@ -70,6 +70,62 @@ public class PlayerGrowth : MonoBehaviour
     /// <summary>Kich thuoc dang huong toi (scale nhay den day roi moi dung).</summary>
     public float TargetScale { get { return _targetScale; } }
 
+    /// <summary>
+    /// He so TAM HUT do cap do dong gop, nhan chong len phan da no theo kich thuoc.
+    /// PlayerLevel ghi vao day moi khi len cap.
+    ///
+    /// Chi ghi nho gia tri chu khong ap dung ngay: Update goi ApplyScale moi frame roi.
+    /// Ap dung ngay o day la hong khi PlayerLevel.Awake chay truoc Awake cua component
+    /// nay - luc do _baseRange con la 0, tam hut se bi dat ve 0.
+    /// </summary>
+    public float LevelRangeMultiplier
+    {
+        get { return _levelRangeMultiplier; }
+        set { _levelRangeMultiplier = Mathf.Max(0.01f, value); }
+    }
+
+    /// <summary>
+    /// He so KICH THUOC do cap do dong gop. Cung nhu tren: chi ghi nho, Update ap dung.
+    /// </summary>
+    public float LevelScaleMultiplier
+    {
+        get { return _levelScaleMultiplier; }
+        set { _levelScaleMultiplier = Mathf.Max(0.01f, value); }
+    }
+
+    /// <summary>
+    /// Kich thuoc thuc su dang ap dung: phan an duoc nhan them phan do cap do dem lai,
+    /// roi chan tran o maxScale.
+    ///
+    /// Moi thu an theo kich thuoc (tam hut, toc do, camera, do nang nguoi len) deu phai
+    /// dung so nay chu khong dung rieng phan an duoc, khong thi len cap than to ra ma
+    /// mieng voi camera dung yen.
+    /// </summary>
+    public float EffectiveScale
+    {
+        get { return Mathf.Clamp(_scale * _levelScaleMultiplier, 0.01f, Mathf.Max(1f, maxScale)); }
+    }
+
+    /// <summary>
+    /// Tam hut goc luc chua lon len ti nao, cho cong cu can bang doi chieu.
+    ///
+    /// Chua chay Awake (dang o edit mode) thi _baseRange lan _suction deu chua co gi,
+    /// luc do gia tri dang nam tren MouthSuction chinh la goc - phai tu tim lay.
+    /// </summary>
+    public float BaseRange
+    {
+        get
+        {
+            if (_baseRange > 0f) return _baseRange;
+
+            MouthSuction suction = _suction != null ? _suction : GetComponent<MouthSuction>();
+            return suction != null ? suction.range : 0f;
+        }
+    }
+
+    private float _levelRangeMultiplier = 1f;
+    private float _levelScaleMultiplier = 1f;
+
     private MouthSuction _suction;
     private RbMovement _movement;
     private Rigidbody _rb;
@@ -211,41 +267,45 @@ public class PlayerGrowth : MonoBehaviour
 
     private void ApplyScale()
     {
+        // Phan an duoc + phan do cap do. Tu day tro xuong khong dung _scale nua, khong
+        // thi len cap chi to moi cai than con mieng/camera/tam hut dung yen.
+        float scale = EffectiveScale;
+
         // Nhip nay khi nuot: be ngang phinh ra, chieu cao thut lai mot chut roi ve cho cu
         float pop = 0f;
         if (_popTimer > 0f && popDuration > 0.001f)
             pop = Mathf.Sin(_popTimer / popDuration * Mathf.PI) * popAmount;
 
         transform.localScale = new Vector3(
-            _baseLocalScale.x * _scale * (1f + pop),
-            _baseLocalScale.y * _scale * (1f - pop * 0.6f),
-            _baseLocalScale.z * _scale * (1f + pop));
+            _baseLocalScale.x * scale * (1f + pop),
+            _baseLocalScale.y * scale * (1f - pop * 0.6f),
+            _baseLocalScale.z * scale * (1f + pop));
 
         // Nhan vat to ra tu tam, khong nang len thi nua nguoi duoi se thut xuong dat
         // roi bi physics day nguoc len -> giat nay tung nhip.
-        float lift = (_scale - _appliedScale) * _baseHalfHeight;
+        float lift = (scale - _appliedScale) * _baseHalfHeight;
         if (Mathf.Abs(lift) > 0.0001f)
         {
             if (_rb != null && !_rb.isKinematic) _rb.position += Vector3.up * lift;
             else transform.position += Vector3.up * lift;
         }
-        _appliedScale = _scale;
+        _appliedScale = scale;
 
         if (scaleSuctionRange)
         {
             // Tam voi thi duoi theo can bac hai, con kich thuoc mieng thi theo dung than
-            float reach = Mathf.Pow(Mathf.Max(0.01f, _scale), suctionRangeExponent);
-            _suction.range = _baseRange * reach;
-            _suction.swallowDistance = _baseSwallow * _scale;
-            _suction.shrinkDistance = _baseShrink * _scale;
+            float reach = Mathf.Pow(Mathf.Max(0.01f, scale), suctionRangeExponent);
+            _suction.range = _baseRange * reach * _levelRangeMultiplier;
+            _suction.swallowDistance = _baseSwallow * scale;
+            _suction.shrinkDistance = _baseShrink * scale;
         }
 
         if (_movement != null && _baseSpeed > 0f)
-            _movement.Speed = _baseSpeed * Mathf.Lerp(1f, _scale, speedGain);
+            _movement.Speed = _baseSpeed * Mathf.Lerp(1f, scale, speedGain);
 
         if (cameraFollow != null)
         {
-            float zoom = Mathf.Lerp(1f, _scale, cameraZoomGain);
+            float zoom = Mathf.Lerp(1f, scale, cameraZoomGain);
             cameraFollow.height = _baseCameraHeight * zoom;
             cameraFollow.distance = _baseCameraDistance * zoom;
         }

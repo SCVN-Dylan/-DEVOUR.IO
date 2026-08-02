@@ -271,7 +271,15 @@ public class MouthSuction : MonoBehaviour
         // Gao nuoc: moi giay do them swallowsPerSecond luot, day thi thoi
         _swallowBudget = Mathf.Min(_swallowBudget + swallowsPerSecond * deltaTime, Mathf.Max(1f, swallowBurst));
 
-        if (vfx != null) vfx.SetIntensity(_intensity);
+        if (vfx != null)
+        {
+            vfx.SetIntensity(_intensity);
+
+            // Range doi lien tuc luc choi (PlayerGrowth theo kich thuoc, PlayerLevel theo
+            // cap), nen phai keo VFX theo moi frame chu khong the bake mot lan luc setup
+            vfx.MatchRange(range);
+        }
+
         ApplyBodyScale();
 
         if (_intensity <= 0f)

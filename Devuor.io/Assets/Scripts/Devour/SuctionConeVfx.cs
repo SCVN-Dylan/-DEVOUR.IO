@@ -36,12 +36,20 @@ public class SuctionConeVfx : MonoBehaviour
              "Vanh o mieng thi dung cho vao day, khong no se bi phong to theo")]
     public ParticleSystem[] coneLayers;
 
+    [Header("Bam theo tam hut luc chay")]
+    [Tooltip("Tu co gian VFX cho khop voi Range hien tai cua MouthSuction.\n\n" +
+             "Can bat khi tam hut thay doi luc choi (PlayerGrowth phong theo kich thuoc,\n" +
+             "PlayerLevel phong theo cap). Tat di thi VFX dung im o kich thuoc luc bake,\n" +
+             "cang choi lau cang lech so voi vung hut that")]
+    public bool followRange = true;
+
     /// <summary>Cuong do dang ap dung, 0..1.</summary>
     public float Intensity { get; private set; }
 
     private float[] _baseRates;
     private ParticleSystem.MinMaxGradient[] _baseColors;
     private float _applied = -1f;
+    private float _fittedRange = -1f;
 
     void Awake()
     {
@@ -157,6 +165,61 @@ public class SuctionConeVfx : MonoBehaviour
     }
 
     /// <summary>
+    /// Co gian VFX cho vua dung tam hut hien tai. MouthSuction goi moi frame.
+    ///
+    /// Tai sao phai chia cho scale cua cha: dinh nghia cua Scaling Mode = Local nghe nhu
+    /// la "bo qua scale cua cha", nhung do khong phai cai xay ra voi tam voi trong world
+    /// space - do thuc te thi cha x2 lam tam voi VFX x2 y het nhu vfx.localScale x2.
+    ///
+    /// Ma nhan vat thi to len theo mu 1, con tam hut chi no theo mu 0.5 (xem
+    /// PlayerGrowth.suctionRangeExponent). De nguyen thi hai ben doang nhau cang luc
+    /// cang xa: to gap 9 lan thi luong gio rong gap 9 trong khi vung hut chi gap 3,
+    /// nguoi choi thay gio thoi trum ca vat the ma khong hut duoc.
+    ///
+    /// Chia nguoc scale cua cha ra roi nhan lai ti le range/rangeLucBake thi tam voi
+    /// world cua VFX luon dung bang range, bat ke than nhan vat to nho the nao.
+    /// </summary>
+    public void MatchRange(float range)
+    {
+        if (!followRange || range <= 0.01f) return;
+
+        float fitted = FittedRange();
+        if (fitted <= 0.01f) return;
+
+        float parentScale = transform.parent != null ? Mathf.Abs(transform.parent.lossyScale.x) : 1f;
+        if (parentScale < 0.0001f) return;
+
+        float scale = range / (fitted * parentScale);
+
+        // Set transform moi frame la ban ca hierarchy, ma gia tri thi hau nhu khong doi
+        if (Mathf.Abs(scale - transform.localScale.x) < 0.0005f) return;
+
+        transform.localScale = Vector3.one * scale;
+    }
+
+    /// <summary>
+    /// Range ma cac lop day non dang duoc bake theo. Chinh la vi tri cua day non tren
+    /// truc z, tuc dung cai ma FitToCone da ghi vao - khong can luu them field nao.
+    ///
+    /// Doc mot lan roi nho: shape.position khong doi theo localScale nen cache duoc,
+    /// va FitToCone se xoa cache moi khi bake lai.
+    /// </summary>
+    private float FittedRange()
+    {
+        if (_fittedRange > 0f) return _fittedRange;
+        if (coneLayers == null) return -1f;
+
+        for (int i = 0; i < coneLayers.Length; i++)
+        {
+            if (coneLayers[i] == null) continue;
+            float z = coneLayers[i].shape.position.z;
+            if (z > 0.01f) { _fittedRange = z; return _fittedRange; }
+        }
+
+        return -1f;
+    }
+
+    /// <summary>
     /// Goc bat dau cua cung tron o day non, tinh bang do.
     ///
     /// Day non la mot dia ban kinh R nam vat ngang, tam dia cao heightAboveGround so voi
@@ -189,6 +252,9 @@ public class SuctionConeVfx : MonoBehaviour
     public void FitToCone(float range, float coneAngle, float heightAboveGround = -1f)
     {
         if (coneLayers == null) return;
+
+        // Bake lai thi moc cua MatchRange cung phai doc lai
+        _fittedRange = -1f;
 
         float halfAngle = Mathf.Clamp(coneAngle, 5f, 179f) * 0.5f * Mathf.Deg2Rad;
         float baseRadius = Mathf.Max(0.01f, Mathf.Tan(halfAngle) * range);
