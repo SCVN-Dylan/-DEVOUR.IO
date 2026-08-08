@@ -235,7 +235,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7730775390232282932}
-  - component: {fileID: 1747000000000000004}
   m_Layer: 0
   m_Name: Tree
   m_TagString: Untagged
@@ -260,33 +259,3 @@ Transform:
   - {fileID: 5888670885395050825}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1747000000000000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8873480596084990043}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9cb22548f3bb48c989c268ec8c056729, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Devourable
-  scoreValue: 1
-  resistance: 0.35
-  gripDecay: 0.5
-  struggleShake: 0.06
-  struggleShakeSpeed: 26
-  struggleLean: 22
-  alignToFlight: 1
-  alignSpeed: 900
-  spinSpeed: 540
-  flightStretch: 0.4
-  stretchAtSpeed: 28
-  shrinkWhileFlying: 1
-  onDevoured:
-    m_PersistentCalls:
-      m_Calls: []
-  onPulled:
-    m_PersistentCalls:
-      m_Calls: []

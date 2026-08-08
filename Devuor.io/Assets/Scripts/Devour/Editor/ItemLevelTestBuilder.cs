@@ -6,24 +6,21 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Dung scene TEST CHOI DUOC cho he hut MOI (SimpleSuction + PhysicsDevourable):
+/// Dung lai 10 khu item TRONG scene ItemLevelTest (in-place, khong con phu thuoc Main).
 ///
-///   Item_Base.prefab       : root "Item" co Rigidbody + PhysicsDevourable + node "Model" (slot).
-///   Item_&lt;model&gt;.prefab     : Prefab Variant cua Item_Base, cam model rieng vao slot + 1 BoxCollider
-///                            bao quanh (bo MeshCollider cu vi non-convex khong hop Rigidbody dong).
+/// Yeu cau: scene ItemLevelTest da co san rig choi duoc (Player co SimpleSuction, Camera,
+/// UI...). Tool nay chi lo phan noi dung test: tao/lam moi he prefab Item + 10 khu, va
+/// dam bao Player duoc setup dung (SimpleSuction + SuctionZone). Cac object cu khong dung
+/// (GameManager, Mouth/SuctionVFX) va cac component missing-script se bi don sach.
 ///
-/// Player: go het hut cu (MouthSuction/PlayerLevel/PlayerGrowth), gan SimpleSuction (non truoc mat,
-/// len cap thi scale + non no ra). Item scale theo co mieng (range): L1 = 10% range, L10 = 80% range.
-///
-/// Scene: nhan ban rig choi duoc tu Main, xoa Map, + san phang + 10 khu (moi khu 5 item variant,
-/// requiredLevel = so cua khu). Bam Play: lai Player an khu level 1 -> len cap -> hut duoc khu cao hon.
+/// Item = Prefab Variant cua Item_Base (Rigidbody + PhysicsDevourable + BoxCollider), size
+/// theo co mieng (SimpleSuction.range). Khu N: 5 item requiredLevel = N.
 ///
 /// Chay: Tools/Devour/Dung scene test Item theo level
 /// </summary>
 public static class ItemLevelTestBuilder
 {
     private const string MenuRoot = "Tools/Devour/";
-    private const string MainPath = "Assets/Scenes/Main.unity";
     private const string ScenePath = "Assets/Scenes/ItemLevelTest.unity";
 
     private const string ItemFolderParent = "Assets/Prefabs";
@@ -44,10 +41,9 @@ public static class ItemLevelTestBuilder
     private const int ItemsPerLevel = 5;
     private const int Cols = 5;
 
-    // Co mieng (tam hut) luc level 1. Item scale theo con so nay cho on dinh.
     private const float SuctionRange = 4f;
-    private const float RangeFracL1 = 0.10f;   // item L1  = 10% tam hut
-    private const float RangeFracL10 = 0.80f;  // item L10 = 80% tam hut
+    private const float RangeFracL1 = 0.10f;
+    private const float RangeFracL10 = 0.80f;
 
     private const float PatchThick = 0.06f;
     private const float PatchTop = 0.04f;
@@ -60,11 +56,10 @@ public static class ItemLevelTestBuilder
     private static void BuildWithDialog()
     {
         if (!EditorUtility.DisplayDialog(
-            "Dung scene test Item (he hut moi)",
-            "1) Tao prefab Item trong " + ItemFolder + " (Item_Base + variant, co Rigidbody + PhysicsDevourable).\n"
-            + "2) Nhan ban rig tu Main -> ghi de " + ScenePath + ", xoa Map, + san + " + Levels + " khu.\n"
-            + "3) Player: go hut cu, gan SimpleSuction (non truoc mat).\n\n"
-            + "Item co physic + ngu/thuc, scale theo co mieng (L1=10%, L10=80% range).",
+            "Dung lai 10 khu item trong ItemLevelTest",
+            "Lam moi he prefab Item (" + ItemFolder + ") + dung lai 10 khu trong:\n  " + ScenePath + "\n\n"
+            + "Chay IN-PLACE tren scene nay (khong dung Main). Player phai da co san trong scene.\n"
+            + "Cac object cu khong dung se bi don (GameManager, SuctionVFX, missing scripts).",
             "Dung", "Thoi"))
             return;
 
@@ -73,6 +68,25 @@ public static class ItemLevelTestBuilder
 
     public static void BuildPlayable()
     {
+        // Mo/dung scene ItemLevelTest
+        Scene scene = EditorSceneManager.GetActiveScene();
+        if (scene.path != ScenePath)
+        {
+            if (!System.IO.File.Exists(ScenePath))
+            {
+                Debug.LogError("[ItemLevelTest] Khong tim thay " + ScenePath + ". Scene phai ton tai san (co rig Player).");
+                return;
+            }
+            scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        }
+
+        GameObject player = FindPlayer();
+        if (player == null)
+        {
+            Debug.LogError("[ItemLevelTest] Scene khong co Player (SimpleSuction). Khong dung duoc.");
+            return;
+        }
+
         List<Piece> pool = LoadPool();
         if (pool.Count == 0)
         {
@@ -80,6 +94,28 @@ public static class ItemLevelTestBuilder
             return;
         }
 
+        // Don object cu khong dung
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            string n = roots[i].name;
+            if (n == "ItemZones" || n == "Ground" || n == "GameManager")
+                UnityEngine.Object.DestroyImmediate(roots[i]);
+        }
+        CleanMissingScriptsInScene(scene);
+
+        // Ground
+        GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ground.name = "Ground";
+        ground.transform.position = new Vector3(0f, -1f, 0f);
+        ground.transform.localScale = new Vector3(400f, 2f, 400f);
+        SetMaterial(ground, "Assets/Materials/M_Sidewalk.mat");
+        GameObjectUtility.SetStaticEditorFlags(ground, StaticEditorFlags.BatchingStatic);
+
+        // Setup player (SimpleSuction + SuctionZone), don SuctionVFX cu
+        SetupPlayer(player, SuctionRange);
+
+        // He prefab Item
         Piece[][] picks = new Piece[Levels][];
         HashSet<GameObject> unique = new HashSet<GameObject>();
         for (int level = 1; level <= Levels; level++)
@@ -88,8 +124,6 @@ public static class ItemLevelTestBuilder
             picks[level - 1] = p.ToArray();
             for (int i = 0; i < p.Count; i++) unique.Add(p[i].prefab);
         }
-
-        // --- 1) He prefab Item ---
         EnsureFolder();
         GameObject baseAsset = CreateBaseTemplate();
         Dictionary<GameObject, GameObject> variant = new Dictionary<GameObject, GameObject>();
@@ -101,28 +135,7 @@ public static class ItemLevelTestBuilder
         }
         AssetDatabase.SaveAssets();
 
-        // --- 2) Nhan ban rig choi duoc tu Main ---
-        Scene main = EditorSceneManager.OpenScene(MainPath, OpenSceneMode.Single);
-        EditorSceneManager.SaveScene(main, ScenePath, true);
-        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-
-        int removed = 0;
-        GameObject[] roots = scene.GetRootGameObjects();
-        for (int i = 0; i < roots.Length; i++)
-            if (roots[i].name.StartsWith("Map")) { UnityEngine.Object.DestroyImmediate(roots[i]); removed++; }
-
-        GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        ground.name = "Ground";
-        ground.transform.position = new Vector3(0f, -1f, 0f);
-        ground.transform.localScale = new Vector3(400f, 2f, 400f);
-        SetMaterial(ground, "Assets/Materials/M_Sidewalk.mat");
-        GameObjectUtility.SetStaticEditorFlags(ground, StaticEditorFlags.BatchingStatic);
-
-        // --- 3) Player: go hut cu + gan SimpleSuction ---
-        GameObject player = FindPlayer();
-        if (player != null) SetupPlayer(player, SuctionRange);
-
-        // --- Kich thuoc item theo co mieng ---
+        // Kich thuoc item theo co mieng
         float r1 = SuctionRange * RangeFracL1;
         float r10 = SuctionRange * RangeFracL10;
         float growth = Mathf.Pow(r10 / r1, 1f / (Levels - 1));
@@ -177,11 +190,8 @@ public static class ItemLevelTestBuilder
             sizeLog.Append("L" + level + " Ø" + (targetR * 2f).ToString("F2") + "  ");
         }
 
-        if (player != null)
-        {
-            player.transform.position = new Vector3(0f, 1f, cellZ * 0.9f);
-            player.transform.rotation = Quaternion.identity;
-        }
+        player.transform.position = new Vector3(0f, 1f, cellZ * 0.9f);
+        player.transform.rotation = Quaternion.identity;
 
         Camera cam = Camera.main;
         if (cam != null)
@@ -198,10 +208,9 @@ public static class ItemLevelTestBuilder
         AssetDatabase.SaveAssets();
 
         Debug.Log("[ItemLevelTest] " + (saved ? "Xong" : "LUU THAT BAI")
-                + ": prefab Item = 1 base + " + variantCount + " variant. Scene xoa " + removed + " Map, "
-                + Levels + " khu x " + ItemsPerLevel + " = " + itemCount + " item (physic + ngu/thuc)."
-                + "\nPlayer: SimpleSuction non truoc mat, range=" + SuctionRange + ", len cap -> scale + non no."
-                + "\nĐK item/level: " + sizeLog + "\nScene: " + ScenePath + " — bam Play de test.");
+                + " (in-place): prefab Item = 1 base + " + variantCount + " variant, "
+                + Levels + " khu x " + ItemsPerLevel + " = " + itemCount + " item."
+                + "\nĐK item/level: " + sizeLog + "\nScene: " + ScenePath);
     }
 
     private static float ClusterPitch(float targetR) { return 2f * targetR * 1.25f + 0.4f; }
@@ -210,14 +219,12 @@ public static class ItemLevelTestBuilder
 
     private static void SetupPlayer(GameObject player, float range)
     {
-        // Go het logic hut cu (thu tu: bo cai phu thuoc truoc)
-        RemoveIfPresent(player, typeof(PlayerGrowth));
-        RemoveIfPresent(player, typeof(PlayerLevel));
-        RemoveIfPresent(player, typeof(MouthSuction));
-
-        // Tat VFX non cu
+        // Bo VFX non cu (SuctionConeVfx) neu con
         Transform vfx = player.transform.Find("Mouth/SuctionVFX");
-        if (vfx != null) vfx.gameObject.SetActive(false);
+        if (vfx != null) UnityEngine.Object.DestroyImmediate(vfx.gameObject);
+
+        // Don component missing-script tren player (vd MouthSuction/PlayerLevel/PlayerGrowth cu da xoa)
+        CleanMissingScriptsRecursive(player);
 
         SimpleSuction s = player.GetComponent<SimpleSuction>();
         if (s == null) s = player.AddComponent<SimpleSuction>();
@@ -228,6 +235,7 @@ public static class ItemLevelTestBuilder
         s.coneAngle = 75f;
         s.pullSpeed = 10f;
         s.swallowDistance = 0.6f;
+        s.eatOnContact = true;
         s.useLevelGate = true;
         s.level = 1;
         s.maxLevel = Levels;
@@ -236,7 +244,6 @@ public static class ItemLevelTestBuilder
         s.scalePerLevel = 0.12f;
         s.rangePerLevel = 0.15f;
 
-        // Ve vung hut ra (quat ban trong suot tren mat dat)
         Transform zoneT = player.transform.Find("SuctionZone");
         GameObject zoneGO = zoneT != null ? zoneT.gameObject : new GameObject("SuctionZone");
         zoneGO.transform.SetParent(player.transform, false);
@@ -244,12 +251,6 @@ public static class ItemLevelTestBuilder
         if (viz == null) viz = zoneGO.AddComponent<SuctionZoneVisual>();
         viz.suction = s;
         viz.mouth = s.mouth;
-    }
-
-    private static void RemoveIfPresent(GameObject go, System.Type type)
-    {
-        Component c = go.GetComponent(type);
-        if (c != null) UnityEngine.Object.DestroyImmediate(c);
     }
 
     // ---------------------------------------------------------------- he prefab Item
@@ -260,7 +261,6 @@ public static class ItemLevelTestBuilder
             AssetDatabase.CreateFolder(ItemFolderParent, "Items");
     }
 
-    /// <summary>Item_Base: root "Item" (Rigidbody + PhysicsDevourable) + node con "Model" (slot).</summary>
     private static GameObject CreateBaseTemplate()
     {
         GameObject root = new GameObject("Item");
@@ -305,15 +305,13 @@ public static class ItemLevelTestBuilder
     }
 
     /// <summary>
-    /// Chuan bi model: go het logic cu (Devourable/PhysicsDevourable/Rigidbody/SuctionReactor)
-    /// + go moi collider co san (nhieu la MeshCollider non-convex, khong dung duoc voi Rigidbody
-    /// dong) roi them 1 BoxCollider bao quanh. Xoa Static Flags de item bay/roi duoc.
+    /// Chuan bi model: don component thua/missing (vd Devourable cu tren Tree/Car/Building da bi xoa),
+    /// go moi collider co san (MeshCollider non-convex khong hop Rigidbody dong) + Rigidbody,
+    /// xoa Static Flags, roi them 1 BoxCollider bao quanh.
     /// </summary>
     private static void PrepModel(GameObject go)
     {
-        DestroyAll(go.GetComponentsInChildren<Devourable>(true));
-        DestroyAll(go.GetComponentsInChildren<PhysicsDevourable>(true));
-        DestroyAll(go.GetComponentsInChildren<SuctionReactor>(true));
+        CleanMissingScriptsRecursive(go);
         DestroyAll(go.GetComponentsInChildren<Rigidbody>(true));
         DestroyAll(go.GetComponentsInChildren<Collider>(true));
 
@@ -325,7 +323,7 @@ public static class ItemLevelTestBuilder
         if (MeasureRenderers(go, out b))
         {
             BoxCollider bc = go.AddComponent<BoxCollider>();
-            bc.center = b.center - go.transform.position;   // go dang o goc, scale 1 => world = local
+            bc.center = b.center - go.transform.position;
             bc.size = b.size;
         }
     }
@@ -449,7 +447,7 @@ public static class ItemLevelTestBuilder
         go.transform.localScale = new Vector3(w, PatchThick, d);
         if (mat != null) go.GetComponent<Renderer>().sharedMaterial = mat;
         Collider col = go.GetComponent<Collider>();
-        if (col != null) UnityEngine.Object.DestroyImmediate(col);   // tam nen chi lam mau, khong chan
+        if (col != null) UnityEngine.Object.DestroyImmediate(col);
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
     }
 
@@ -486,9 +484,20 @@ public static class ItemLevelTestBuilder
     {
         SimpleSuction ss = Object.FindAnyObjectByType<SimpleSuction>();
         if (ss != null) return ss.gameObject;
-        MouthSuction ms = Object.FindAnyObjectByType<MouthSuction>();
-        if (ms != null) return ms.gameObject;
         return GameObject.Find("Player");
+    }
+
+    private static void CleanMissingScriptsInScene(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++) CleanMissingScriptsRecursive(roots[i]);
+    }
+
+    private static void CleanMissingScriptsRecursive(GameObject go)
+    {
+        Transform[] all = go.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < all.Length; i++)
+            GameObjectUtility.RemoveMonoBehavioursWithMissingScript(all[i].gameObject);
     }
 
     private static bool MeasureRenderers(GameObject go, out Bounds bounds)
