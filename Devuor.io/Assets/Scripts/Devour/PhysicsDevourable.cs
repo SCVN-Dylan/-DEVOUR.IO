@@ -51,6 +51,13 @@ public class PhysicsDevourable : MonoBehaviour
     [Tooltip("Do (degree) lac nghieng nhe khi rung. 0 = khong lac")]
     public float struggleTilt = 5f;
 
+    [Header("Hieu ung nuot (swallow)")]
+    [Tooltip("Thoi gian item xoay tit + teo lao vao mom truoc khi bien mat (giay). 0 = bien mat ngay")]
+    public float swallowDuration = 0.12f;
+
+    [Tooltip("Toc do xoay tit khi bi nuot (do/giay)")]
+    public float swallowSpin = 1200f;
+
     [Header("Su kien")]
     public UnityEvent onDevoured;
 
@@ -152,12 +159,51 @@ public class PhysicsDevourable : MonoBehaviour
     public bool Consumed { get { return _consumed; } }
     private bool _consumed;
 
-    /// <summary>Cham mieng / cham than player: ban su kien roi bien mat.</summary>
-    public void Devour()
+    /// <summary>
+    /// Cham mieng / cham than player: ban su kien roi choi HIEU UNG NUOT (xoay + teo lao vao mom)
+    /// truoc khi bien mat. swallowTarget = transform mom de item bay dung vao do.
+    /// </summary>
+    public void Devour(Transform swallowTarget = null)
     {
         if (_consumed) return;
         _consumed = true;
         if (onDevoured != null) onDevoured.Invoke();
+
+        if (swallowDuration > 0f && isActiveAndEnabled)
+            StartCoroutine(SwallowAnim(swallowTarget));
+        else
+            Destroy(gameObject);
+    }
+
+    /// <summary>Hieu ung nuot: xoay tit + teo nho lao thang vao mom roi bien mat.</summary>
+    private System.Collections.IEnumerator SwallowAnim(Transform target)
+    {
+        _state = State.Sucked;                       // khoa: physics/suction khong con xen vao
+        if (!_rb.isKinematic)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+        }
+        _rb.isKinematic = true;
+        _rb.useGravity = false;
+
+        Collider[] cols = GetComponentsInChildren<Collider>();
+        for (int i = 0; i < cols.Length; i++) cols[i].enabled = false;   // dang bay vao, khong xo day thu khac
+
+        Vector3 startPos = transform.position;
+        Vector3 startScale = transform.localScale;
+        float t = 0f;
+        while (t < swallowDuration)
+        {
+            t += Time.deltaTime;
+            float ease = Mathf.Clamp01(t / swallowDuration);
+            ease *= ease;                                                 // gia toc lao vao mom
+            Vector3 tp = target != null ? target.position : startPos;
+            transform.position = Vector3.Lerp(startPos, tp, ease);
+            transform.localScale = startScale * (1f - ease);             // teo dan ve 0
+            transform.Rotate(Vector3.up, swallowSpin * Time.deltaTime, Space.Self);   // xoay tit
+            yield return null;
+        }
         Destroy(gameObject);
     }
 

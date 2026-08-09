@@ -71,6 +71,18 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Moi cap non hut dai ra bao nhieu (0.15 = +15%/cap)")]
     public float rangePerLevel = 0.15f;
 
+    [Header("Hieu ung 'uc' khi nuot (gulp)")]
+    [Range(0f, 0.6f)]
+    [Tooltip("Do manh cai giat squash-stretch moi lan nuot (0.18 = phinh cao / co ngang 18%). 0 = tat")]
+    public float gulpPunch = 0.18f;
+
+    [Tooltip("Thoi gian 1 cai 'uc' (giay)")]
+    public float gulpDuration = 0.22f;
+
+    [Range(0.5f, 4f)]
+    [Tooltip("So nhip nhun len-xuong trong 1 cai uc. Cao = rung nhieu lan")]
+    public float gulpWobbles = 1.3f;
+
     [Header("Su kien")]
     public UnityEvent onDevour;
     public UnityEvent onLevelUp;
@@ -83,6 +95,7 @@ public class SimpleSuction : MonoBehaviour
     private Vector3 _baseScale;
     private int _xp;
     private float _scanTimer;
+    private float _gulpTimer;
     private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
     private readonly List<PhysicsDevourable> _toRemove = new List<PhysicsDevourable>();
@@ -115,6 +128,18 @@ public class SimpleSuction : MonoBehaviour
         if (_scanTimer <= 0f) { Scan(); _scanTimer = Mathf.Max(0f, scanInterval); }
 
         ApplyActive();
+    }
+
+    void Update()
+    {
+        // Hieu ung 'uc': squash-stretch tren than nhan vat, chong len scale cap do, tat dan.
+        if (_gulpTimer <= 0f) return;
+        _gulpTimer -= Time.deltaTime;
+        if (_gulpTimer <= 0f) { ApplyScale(Vector3.one); return; }    // xong: tra ve chuan
+
+        float k = 1f - _gulpTimer / gulpDuration;                     // 0..1 tien do
+        float amp = gulpPunch * (1f - k) * Mathf.Sin(k * Mathf.PI * 2f * gulpWobbles);
+        ApplyScale(new Vector3(1f - amp, 1f + amp, 1f - amp));        // cao len / dep ngang -> 'uc'
     }
 
     /// <summary>Quet lai danh sach item nam trong non (phan dat tien). Item roi khoi non -> tha ra.</summary>
@@ -186,8 +211,16 @@ public class SimpleSuction : MonoBehaviour
     {
         if (UIManager.Instance != null) UIManager.Instance.AddScore(it.scoreValue);
         AddXp(it.xpValue);
-        it.Devour();
+        it.Devour(mouth);        // item xoay tit + teo lao vao mom
+        PlayGulp();              // than nhan vat 'uc' mot cai
         if (onDevour != null) onDevour.Invoke();
+    }
+
+    /// <summary>Kich hoat (hoac restart) cai 'uc' squash-stretch khi vua nuot.</summary>
+    private void PlayGulp()
+    {
+        if (gulpPunch <= 0f || gulpDuration <= 0f) return;
+        _gulpTimer = gulpDuration;
     }
 
     public int XpToNextAt(int lvl)
@@ -227,7 +260,14 @@ public class SimpleSuction : MonoBehaviour
 
     private void ApplyLevelScale()
     {
-        transform.localScale = _baseScale * (1f + scalePerLevel * (level - 1));
+        ApplyScale(Vector3.one);
+    }
+
+    /// <summary>Dat scale = base * (he so cap do) * (punch squash-stretch cua gulp).</summary>
+    private void ApplyScale(Vector3 punch)
+    {
+        float lvl = 1f + scalePerLevel * (level - 1);
+        transform.localScale = Vector3.Scale(_baseScale * lvl, punch);
     }
 
     void OnDrawGizmosSelected()

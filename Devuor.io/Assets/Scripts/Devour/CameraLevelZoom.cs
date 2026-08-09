@@ -11,6 +11,9 @@ using UnityEngine;
 ///     cap 4..6  -> 62   (50+12)
 ///     cap 7..9  -> 74   (50+12+12)
 ///     cap 10    -> 88   (50+12+12+14)
+///
+/// Ngoai ra co zoomEveryLevel: BAT thi MOI cap deu zoom out them addPerLevel do
+/// (cong don voi list moc); TAT thi chi zoom theo list moc nhu tren.
 /// FOV cang lon = nhin cang rong = ZOOM OUT. Doi muot theo lerpSpeed.
 /// </summary>
 [RequireComponent(typeof(Camera))]
@@ -43,6 +46,14 @@ public class CameraLevelZoom : MonoBehaviour
         new Step { level = 10, add = 14f },
     };
 
+    [Header("Zoom nho moi cap")]
+    [Tooltip("BAT: moi lan len cap deu CONG THEM addPerLevel do FOV (van cong don list moc o tren).\n" +
+             "TAT: chi zoom theo list moc.")]
+    public bool zoomEveryLevel = false;
+
+    [Tooltip("Do FOV cong them cho MOI cap da len (khi bat zoomEveryLevel). 0.2 = len 5 cap thi +1 do")]
+    public float addPerLevel = 0.2f;
+
     [Tooltip("Toc do doi FOV muot (do/giay). 0 = doi ngay")]
     public float lerpSpeed = 25f;
 
@@ -69,17 +80,21 @@ public class CameraLevelZoom : MonoBehaviour
         Apply();
     }
 
-    /// <summary>FOV = baseFov + tong add cua cac moc da dat (cong don).</summary>
+    /// <summary>FOV = baseFov + (moi cap x addPerLevel neu bat) + tong add cua cac moc da dat (cong don).</summary>
     public float TargetFov()
     {
         int level = player != null ? player.Level : 1;
         float fov = baseFov;
+
+        if (zoomEveryLevel)
+            fov += addPerLevel * (level - 1);   // moi cap da len deu zoom out them mot chut
+
         if (steps != null)
         {
             for (int i = 0; i < steps.Count; i++)
             {
                 Step s = steps[i];
-                if (s != null && level >= s.level) fov += s.add;   // CONG DON
+                if (s != null && level >= s.level) fov += s.add;   // CONG DON theo moc
             }
         }
         return Mathf.Clamp(fov, 1f, 179f);
