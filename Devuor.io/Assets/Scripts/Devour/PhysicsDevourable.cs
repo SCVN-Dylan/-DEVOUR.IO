@@ -37,6 +37,10 @@ public class PhysicsDevourable : MonoBehaviour
     [Tooltip("Khi dang bi hut, thu nho con bao nhieu luc cham mieng (0.12 = con 12%)")]
     [Range(0.01f, 1f)] public float minShrink = 0.12f;
 
+    [Tooltip("Bat dau thu nho tu khoang cach = ban kinh item * so nay. Vat cang TO nho tu cang xa\n" +
+             "(fix vat level cao khong kip co lai vi bi an tu xa)")]
+    public float shrinkRadiusMul = 2.5f;
+
     [Header("Giang co (item hon player dung 1 cap)")]
     [Tooltip("Bien do RUNG tai cho (don vi world). Item hon 1 cap chi rung, khong bi hut/di chuyen")]
     public float struggleShake = 0.08f;
@@ -60,6 +64,7 @@ public class PhysicsDevourable : MonoBehaviour
     private State _state = State.Asleep;
     private Rigidbody _rb;
     private Vector3 _centerLocal;
+    private float _radius = 0.5f;
     private Vector3 _startScale = Vector3.one;
     private Vector3 _anchor;
     private Quaternion _anchorRot;
@@ -84,7 +89,7 @@ public class PhysicsDevourable : MonoBehaviour
     /// Keo bang VAT LY (van dynamic, khong ngu): dat van toc huong ve mieng, item van va cham
     /// binh thuong tren duong bay. Cang gan mieng thi cang THU NHO lai.
     /// </summary>
-    public void Pull(Vector3 target, float targetSpeed, float accel, float shrinkDistance)
+    public void Pull(Vector3 target, float targetSpeed, float accel)
     {
         if (_state != State.Sucked) EnterSucked();
 
@@ -97,8 +102,10 @@ public class PhysicsDevourable : MonoBehaviour
         Vector3 desiredVel = dir * targetSpeed;
         _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, desiredVel, accel * Time.fixedDeltaTime);
 
-        float f = shrinkDistance > 0.01f
-            ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(dist / shrinkDistance))
+        // Thu nho theo CO ITEM: vat to bat dau nho tu xa hon nen kip co lai truoc khi bi an
+        float shrinkStart = _radius * shrinkRadiusMul;
+        float f = shrinkStart > 0.01f
+            ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(dist / shrinkStart))
             : 1f;
         transform.localScale = _startScale * f;
     }
@@ -167,7 +174,6 @@ public class PhysicsDevourable : MonoBehaviour
     }
 
     void OnCollisionEnter(Collision collision) { Contact(collision.collider); }
-    void OnCollisionStay(Collision collision) { Contact(collision.collider); }
 
     /// <summary>
     /// Xu ly va cham: neu cham vao PLAYER (co SimpleSuction) thi bao no an minh (van theo cap).
@@ -235,6 +241,7 @@ public class PhysicsDevourable : MonoBehaviour
             if (!has) { b = rends[i].bounds; has = true; }
             else b.Encapsulate(rends[i].bounds);
         }
+        _radius = has ? b.extents.magnitude : 0.5f;   // ban kinh world luc dau (cho shrink theo co)
         return has ? transform.InverseTransformPoint(b.center) : Vector3.zero;
     }
 }

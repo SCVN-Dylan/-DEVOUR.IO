@@ -306,12 +306,14 @@ MonoBehaviour:
   mouth: {fileID: 4087071182281879751}
   range: 4
   coneAngle: 75
-  pullSpeed: 10
+  pullSpeed: 12
+  farSpeedFactor: 0.25
+  pullAccel: 18
   swallowDistance: 0.6
-  shrinkDistance: 2.5
   suckableLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  scanInterval: 0.05
   eatOnContact: 1
   useLevelGate: 1
   level: 1
@@ -351,7 +353,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5648563887185035439}
-  m_LocalRotation: {x: -0, y: 0.7652275, z: -0.64375997, w: 0}
+  m_LocalRotation: {x: 0.76522744, y: -0, z: -0, w: 0.6437601}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 0

@@ -39,11 +39,11 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Tam item vao gan mieng hon khoang nay thi nuot")]
     public float swallowDistance = 0.6f;
 
-    [Tooltip("Item bat dau thu nho dan khi vao gan mieng hon khoang nay")]
-    public float shrinkDistance = 2.5f;
-
-    [Tooltip("Layer duoc phep hut")]
+    [Tooltip("Layer duoc phep hut. Nen dat item vao layer rieng de OverlapSphere quet it collider hon")]
     public LayerMask suckableLayers = ~0;
+
+    [Tooltip("Giay giua 2 lan QUET vung hut (OverlapSphere - phan dat nhat). Keo item van muot moi frame. 0 = quet moi frame")]
+    public float scanInterval = 0.05f;
 
     [Header("An khi cham than")]
     [Tooltip("Item cham vao than nhan vat la nuot luon - NHUNG VAN PHAI DAT CAP (requiredLevel <= level).\n" +
@@ -82,8 +82,10 @@ public class SimpleSuction : MonoBehaviour
 
     private Vector3 _baseScale;
     private int _xp;
-    private readonly HashSet<PhysicsDevourable> _prev = new HashSet<PhysicsDevourable>();
-    private readonly HashSet<PhysicsDevourable> _curr = new HashSet<PhysicsDevourable>();
+    private float _scanTimer;
+    private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
+    private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
+    private readonly List<PhysicsDevourable> _toRemove = new List<PhysicsDevourable>();
     private static readonly Collider[] _hits = new Collider[128];
 
     void Awake()
@@ -107,57 +109,82 @@ public class SimpleSuction : MonoBehaviour
 
     void FixedUpdate()
     {
-        Vector3 mp = mouth.position;
-        Vector3 fwd = mouth.forward;
-        float eff = CurrentRange;
-        float half = coneAngle * 0.5f;
+        // QUET (dat: OverlapSphere + GetComponentInParent) chay theo scanInterval,
+        // con KEO/GIANG CO chay moi frame cho muot -> nhe hon nhieu tren mobile.
+        _scanTimer -= Time.fixedDeltaTime;
+        if (_scanTimer <= 0f) { Scan(); _scanTimer = Mathf.Max(0f, scanInterval); }
 
-        _curr.Clear();
+        ApplyActive();
+    }
 
+    /// <summary>Quet lai danh sach item nam trong non (phan dat tien). Item roi khoi non -> tha ra.</summary>
+    private void Scan()
+    {
+        Vector3 mp = mouth.position, fwd = mouth.forward;
+        float eff = CurrentRange, half = coneAngle * 0.5f;
+
+        _found.Clear();
         int n = Physics.OverlapSphereNonAlloc(mp, eff, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
         {
             if (_hits[i] == null) continue;
             PhysicsDevourable it = _hits[i].GetComponentInParent<PhysicsDevourable>();
-            if (it == null || it.Consumed || _curr.Contains(it)) continue;
+            if (it == null || it.Consumed || _found.Contains(it)) continue;
 
-            int diff = it.RequiredLevel - level;                 // >0 = item cao cap hon player
-            if (useLevelGate && diff >= 2) continue;             // hon 2+ cap: khong tac dong gi
+            int diff = it.RequiredLevel - level;
+            if (useLevelGate && diff >= 2) continue;   // hon 2+ cap: khong tac dong gi
 
             Vector3 to = it.Center - mp;
             float dist = to.magnitude;
             if (dist > eff) continue;
             if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
 
-            _curr.Add(it);
+            _found.Add(it);
+        }
+
+        foreach (PhysicsDevourable it in _active)
+            if (it != null && !_found.Contains(it)) it.Release();
+
+        _active.Clear();
+        foreach (PhysicsDevourable it in _found) _active.Add(it);
+    }
+
+    /// <summary>Keo (hut) hoac giang co cac item dang trong non - chay moi frame, khong quet lai.</summary>
+    private void ApplyActive()
+    {
+        if (_active.Count == 0) return;
+
+        Vector3 mp = mouth.position;
+        float eff = CurrentRange;
+        _toRemove.Clear();
+
+        foreach (PhysicsDevourable it in _active)
+        {
+            if (it == null || it.Consumed) { _toRemove.Add(it); continue; }
+
+            int diff = it.RequiredLevel - level;   // len cap thi item giang co tu chuyen sang hut
 
             if (!useLevelGate || diff <= 0)
             {
-                // AN DUOC: hut vao. Xa bay cham, cang gan mieng hut cang manh.
-                if (dist <= swallowDistance) { Swallow(it); continue; }
-                float nearness = 1f - Mathf.Clamp01(dist / eff);            // 0 o ria, 1 sat mieng
+                Vector3 to = it.Center - mp;
+                float dist = to.magnitude;
+                if (dist <= swallowDistance) { Swallow(it); _toRemove.Add(it); continue; }
+                float nearness = 1f - Mathf.Clamp01(dist / eff);
                 float speed = pullSpeed * Mathf.Lerp(farSpeedFactor, 1f, nearness);
-                it.Pull(mp, speed, pullAccel, shrinkDistance);              // ramp toi speed => quan tinh
+                it.Pull(mp, speed, pullAccel);
             }
             else
             {
-                // diff == 1: GIANG CO - rung/le ve mieng nhung khong bi hut vao
-                it.Struggle(mp);
+                it.Struggle(mp);   // diff == 1: rung tai cho
             }
         }
 
-        // Item khong con trong non nua -> tha ra cho tu roi
-        foreach (PhysicsDevourable it in _prev)
-            if (it != null && !_curr.Contains(it)) it.Release();
-
-        _prev.Clear();
-        foreach (PhysicsDevourable it in _curr) _prev.Add(it);
+        for (int i = 0; i < _toRemove.Count; i++) _active.Remove(_toRemove[i]);
     }
 
     private void Swallow(PhysicsDevourable it)
     {
         if (UIManager.Instance != null) UIManager.Instance.AddScore(it.scoreValue);
-        _prev.Remove(it);
         AddXp(it.xpValue);
         it.Devour();
         if (onDevour != null) onDevour.Invoke();

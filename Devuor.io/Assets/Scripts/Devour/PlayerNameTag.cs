@@ -63,7 +63,16 @@ public class PlayerNameTag : MonoBehaviour
         if (label != null)
         {
             int lvl = suction != null ? suction.Level : 1;
-            label.text = string.Format(format, playerName, lvl);
+            // Chi doi text khi level/ten thay doi -> tranh string.Format + regen mesh TMP moi frame (nang tren mobile)
+            if (lvl != _lastLevel || playerName != _lastName)
+            {
+                label.text = string.Format(format, playerName, lvl);
+                _lastLevel = lvl;
+                _lastName = playerName;
+            }
         }
     }
+
+    private int _lastLevel = -1;
+    private string _lastName;
 }

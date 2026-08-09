@@ -2,15 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Zoom camera bang FOV theo CAP DO nguoi choi, dinh nghia bang mot LIST cac moc.
+/// Zoom camera bang FOV theo CAP DO, CONG DON qua tung moc (khong phai set tuyet doi).
 ///
-/// Moi moc co 2 gia tri: (level, fov). Khi nguoi choi dat level >= moc thi camera doi FOV
-/// sang gia tri cua moc do. FOV CANG LON = nhin cang rong = ZOOM OUT.
-///   fov 50 -> goc thuong
-///   fov 88 -> rong (thay nhieu hon, moi thu nho lai)
-///
-/// Camera KHONG doi vi tri (CameraFollow lo phan bam), chi doi FOV. Doi muot theo lerpSpeed.
-/// Vi du list: (1 -> 50), (4 -> 62), (7 -> 74), (10 -> 88).
+/// FOV = baseFov + tong (add) cua MOI moc co level <= cap nguoi choi.
+/// Moi moc: (level, add) = dat cap nay thi CONG THEM 'add' do vao FOV.
+///   baseFov = 50, moc (4,+12),(7,+12),(10,+14):
+///     cap 1..3  -> 50
+///     cap 4..6  -> 62   (50+12)
+///     cap 7..9  -> 74   (50+12+12)
+///     cap 10    -> 88   (50+12+12+14)
+/// FOV cang lon = nhin cang rong = ZOOM OUT. Doi muot theo lerpSpeed.
 /// </summary>
 [RequireComponent(typeof(Camera))]
 [DisallowMultipleComponent]
@@ -21,8 +22,8 @@ public class CameraLevelZoom : MonoBehaviour
     {
         [Tooltip("Cap do dat toi")]
         public int level = 1;
-        [Tooltip("FOV luc dat cap nay (do). Cang lon = zoom out cang nhieu")]
-        public float fov = 50f;
+        [Tooltip("CONG THEM bao nhieu do FOV khi dat cap nay (cong don voi cac moc truoc)")]
+        public float add = 12f;
     }
 
     [Tooltip("De trong = tu tim SimpleSuction trong scene")]
@@ -31,16 +32,18 @@ public class CameraLevelZoom : MonoBehaviour
     [Tooltip("De trong = lay Camera tren chinh object nay")]
     public Camera cam;
 
-    [Tooltip("Danh sach moc: dat level nao thi FOV bao nhieu. Khong can sap xep san.")]
+    [Tooltip("FOV goc (khi chua qua moc nao). Cac moc cong don len tren nay")]
+    public float baseFov = 50f;
+
+    [Tooltip("Danh sach moc: dat level nay thi CONG THEM 'add' do. Cong don qua nhieu moc.")]
     public List<Step> steps = new List<Step>
     {
-        new Step { level = 1, fov = 50f },
-        new Step { level = 4, fov = 62f },
-        new Step { level = 7, fov = 74f },
-        new Step { level = 10, fov = 88f },
+        new Step { level = 4, add = 12f },
+        new Step { level = 7, add = 12f },
+        new Step { level = 10, add = 14f },
     };
 
-    [Tooltip("Toc do doi FOV muot khi len cap (do/giay). 0 = doi ngay")]
+    [Tooltip("Toc do doi FOV muot (do/giay). 0 = doi ngay")]
     public float lerpSpeed = 25f;
 
     private float _fov;
@@ -49,6 +52,7 @@ public class CameraLevelZoom : MonoBehaviour
     {
         if (cam == null) cam = GetComponent<Camera>();
         if (player == null) player = Object.FindAnyObjectByType<SimpleSuction>();
+        if (baseFov <= 0f && cam != null) baseFov = cam.fieldOfView;
         _fov = TargetFov();
         Apply();
     }
@@ -65,19 +69,17 @@ public class CameraLevelZoom : MonoBehaviour
         Apply();
     }
 
-    /// <summary>FOV ung voi cap hien tai: lay moc co level lon nhat ma <= cap nguoi choi.</summary>
+    /// <summary>FOV = baseFov + tong add cua cac moc da dat (cong don).</summary>
     public float TargetFov()
     {
         int level = player != null ? player.Level : 1;
-        float fov = cam != null ? cam.fieldOfView : 60f;
-        int best = int.MinValue;
+        float fov = baseFov;
         if (steps != null)
         {
             for (int i = 0; i < steps.Count; i++)
             {
                 Step s = steps[i];
-                if (s == null) continue;
-                if (s.level <= level && s.level > best) { best = s.level; fov = s.fov; }
+                if (s != null && level >= s.level) fov += s.add;   // CONG DON
             }
         }
         return Mathf.Clamp(fov, 1f, 179f);

@@ -32,6 +32,13 @@ public class SuctionZoneVisual : MonoBehaviour
     private Mesh _mesh;
     private Material _mat;
 
+    // Cache de KHONG dung lai mesh moi frame (tranh GC tren mobile) - chi rebuild khi thong so doi
+    private Vector3[] _verts;
+    private int[] _tris;
+    private int _lastSeg = -1;
+    private float _lastRadius = -1f, _lastAngle = -1f, _lastInvSx = -1f, _lastInvSz = -1f;
+    private Color _lastColor;
+
     void OnEnable()
     {
         _mf = GetComponent<MeshFilter>();
@@ -85,36 +92,51 @@ public class SuctionZoneVisual : MonoBehaviour
 
         Rebuild(suction.CurrentRange, suction.coneAngle, sx, sz);
 
-        if (_mat != null) { _mat.color = color; if (_mat.HasProperty("_BaseColor")) _mat.SetColor("_BaseColor", color); }
+        // Mau chi set khi doi (tranh SetColor moi frame)
+        if (_mat != null && color != _lastColor)
+        {
+            _mat.color = color;
+            if (_mat.HasProperty("_BaseColor")) _mat.SetColor("_BaseColor", color);
+            _lastColor = color;
+        }
     }
 
+    /// <summary>Dung lai mesh CHI KHI thong so doi (range/angle/scale/segments) - con lai skip, khong ton gi.</summary>
     private void Rebuild(float radius, float angle, float invSx, float invSz)
     {
         if (_mesh == null) return;
 
         int seg = Mathf.Clamp(segments, 6, 64);
+        if (seg == _lastSeg
+            && Mathf.Approximately(radius, _lastRadius) && Mathf.Approximately(angle, _lastAngle)
+            && Mathf.Approximately(invSx, _lastInvSx) && Mathf.Approximately(invSz, _lastInvSz))
+            return;   // khong doi -> khoi dung lai
+
+        _lastSeg = seg; _lastRadius = radius; _lastAngle = angle; _lastInvSx = invSx; _lastInvSz = invSz;
+
+        if (_verts == null || _verts.Length != seg + 2)
+        {
+            _verts = new Vector3[seg + 2];
+            _tris = new int[seg * 3];
+            for (int i = 0; i < seg; i++)   // topology co dinh, chi tinh 1 lan
+            {
+                _tris[i * 3] = 0;
+                _tris[i * 3 + 1] = i + 1;
+                _tris[i * 3 + 2] = i + 2;
+            }
+        }
+
         float half = angle * 0.5f * Mathf.Deg2Rad;
-
-        var verts = new Vector3[seg + 2];
-        var tris = new int[seg * 3];
-
-        verts[0] = Vector3.zero;
+        _verts[0] = Vector3.zero;
         for (int i = 0; i <= seg; i++)
         {
             float a = Mathf.Lerp(-half, half, i / (float)seg);
-            // local +Z la huong nhin; quat toa quanh +Z
-            verts[i + 1] = new Vector3(Mathf.Sin(a) * radius * invSx, 0f, Mathf.Cos(a) * radius * invSz);
-        }
-        for (int i = 0; i < seg; i++)
-        {
-            tris[i * 3] = 0;
-            tris[i * 3 + 1] = i + 1;
-            tris[i * 3 + 2] = i + 2;
+            _verts[i + 1] = new Vector3(Mathf.Sin(a) * radius * invSx, 0f, Mathf.Cos(a) * radius * invSz);
         }
 
         _mesh.Clear();
-        _mesh.vertices = verts;
-        _mesh.triangles = tris;
+        _mesh.vertices = _verts;
+        _mesh.triangles = _tris;
         _mesh.RecalculateBounds();
     }
 

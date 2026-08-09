@@ -231,23 +231,12 @@ public static class ItemLevelTestBuilder
         SimpleSuction s = player.GetComponent<SimpleSuction>();
         if (s == null) s = player.AddComponent<SimpleSuction>();
 
-        Transform mouth = player.transform.Find("Mouth");
-        s.mouth = mouth != null ? mouth : player.transform;
-        s.range = range;
-        s.coneAngle = 75f;
-        s.pullSpeed = 12f;
-        s.farSpeedFactor = 0.25f;
-        s.pullAccel = 18f;
-        s.swallowDistance = 0.6f;
-        s.shrinkDistance = 2.5f;
-        s.eatOnContact = true;
-        s.useLevelGate = true;
-        s.level = 1;
-        s.maxLevel = Levels;
-        s.xpToNextBase = 3;
-        s.xpGrowth = 1.25f;
-        s.scalePerLevel = 0.12f;
-        s.rangePerLevel = 0.15f;
+        // Thong so SimpleSuction lay TU PREFAB Player. O day XOA moi override cu tren instance
+        // (vd range/cone bi ket 1.4/71 tu cac lan test) -> instance dung dung gia tri prefab,
+        // va gia tri do song dung qua play (override kieu nay tung khong sync edit<->play).
+        if (PrefabUtility.IsPartOfPrefabInstance(s))
+            PrefabUtility.RevertObjectOverride(s, InteractionMode.AutomatedAction);
+        // mouth de trong -> SimpleSuction.Awake tu tim object con "Mouth"
 
         Transform zoneT = player.transform.Find("SuctionZone");
         GameObject zoneGO = zoneT != null ? zoneT.gameObject : new GameObject("SuctionZone");
@@ -255,7 +244,8 @@ public static class ItemLevelTestBuilder
         SuctionZoneVisual viz = zoneGO.GetComponent<SuctionZoneVisual>();
         if (viz == null) viz = zoneGO.AddComponent<SuctionZoneVisual>();
         viz.suction = s;
-        viz.mouth = s.mouth;
+        Transform mouth = player.transform.Find("Mouth");
+        viz.mouth = mouth != null ? mouth : player.transform;
     }
 
     private static void SetupCameraZoom(GameObject player)
@@ -269,7 +259,8 @@ public static class ItemLevelTestBuilder
 
         zoom.player = player.GetComponent<SimpleSuction>();
         zoom.cam = cam;
-        // steps giu mac dinh (FOV): (1->50, 4->62, 7->74, 10->88)
+        if (zoom.baseFov <= 0f) zoom.baseFov = 50f;
+        // steps CONG DON mac dinh: (4->+12, 7->+12, 10->+14) => 50/62/74/88
     }
 
     private static void SetupNameTag(GameObject player)
@@ -297,7 +288,7 @@ public static class ItemLevelTestBuilder
         rb.mass = 0.4f;
         rb.useGravity = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        rb.collisionDetectionMode = CollisionDetectionMode.Discrete;   // re hon Continuous, du cho item nho/cham
 
         PhysicsDevourable d = root.AddComponent<PhysicsDevourable>();
         d.requiredLevel = 1;
