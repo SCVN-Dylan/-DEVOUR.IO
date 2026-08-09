@@ -41,6 +41,23 @@ public class PhysicsDevourable : MonoBehaviour
              "(fix vat level cao khong kip co lai vi bi an tu xa)")]
     public float shrinkRadiusMul = 2.5f;
 
+    [Header("Bay vao spiral helix")]
+    [Tooltip("BAT: item bay theo DUONG XOAN OC 3D hoi tu vao mom (helix). TAT: bay thang.")]
+    public bool useHelixSpiral = true;
+
+    [Tooltip("Ban kinh spiral o diem start = khoang cach * he so nay.\n" +
+             "0.5 = spiral rong bang 50% khoang cach item->mom")]
+    [Range(0.1f, 1f)] public float helixRadiusFactor = 0.4f;
+
+    [Tooltip("Zo cua helix: bao nhieu vong xoan trong 1 don vi khoang cach. 2 = 2 vong tren 1 don vi")]
+    [Range(0.5f, 5f)] public float helixPitch = 1.5f;
+
+    [Tooltip("Item xoay tit quanh truc spiral (do/giay). Cao = xoay nhanh")]
+    public float helixSpin = 1080f;
+
+    [Tooltip("Gan mom hon khoang nay thi fade spiral -> bay thang vao mom")]
+    public float helixFadeDistance = 1.0f;
+
     [Header("Giang co (item hon player dung 1 cap)")]
     [Tooltip("Bien do RUNG tai cho (don vi world). Item hon 1 cap chi rung, khong bi hut/di chuyen")]
     public float struggleShake = 0.08f;
@@ -77,6 +94,8 @@ public class PhysicsDevourable : MonoBehaviour
     private Quaternion _anchorRot;
     private float _noiseSeed;
     private float _sleepAt;
+    private float _swirlSign;
+    private float _helixPhaseOffset;   // random phase offset moi item cho spiral khong dong pha
 
     void Awake()
     {
@@ -84,6 +103,8 @@ public class PhysicsDevourable : MonoBehaviour
         _centerLocal = CalcCenterLocal();
         _startScale = transform.localScale;
         _noiseSeed = Random.value * 10f;
+        _swirlSign = Random.value < 0.5f ? -1f : 1f;
+        _helixPhaseOffset = Random.value * Mathf.PI * 2f;
     }
 
     void Start()
@@ -93,8 +114,8 @@ public class PhysicsDevourable : MonoBehaviour
 
     /// <summary>
     /// SimpleSuction goi moi frame khi item nam trong non.
-    /// Keo bang VAT LY (van dynamic, khong ngu): dat van toc huong ve mieng, item van va cham
-    /// binh thuong tren duong bay. Cang gan mieng thi cang THU NHO lai.
+    /// Keo bang VAT LY: dat van toc huong ve mieng + (neu useHelixSpiral) logic SPIRAL HELIX hoi tu.
+    /// Item bay theo duong xoan oc 3D, ban kinh giam dan khi gan mieng.
     /// </summary>
     public void Pull(Vector3 target, float targetSpeed, float accel)
     {
@@ -102,11 +123,36 @@ public class PhysicsDevourable : MonoBehaviour
 
         Vector3 to = target - Center;
         float dist = to.magnitude;
-        Vector3 dir = dist > 0.001f ? to / dist : Vector3.zero;
+        Vector3 axis = dist > 0.001f ? to / dist : Vector3.zero;
 
-        // QUAN TINH: van toc ramp dan toi van toc mong muon (khong dat tuc thi). Xa thi
-        // targetSpeed nho -> bay cham; cang gan mieng targetSpeed cang lon -> gia toc len nhanh dan.
-        Vector3 desiredVel = dir * targetSpeed;
+        Vector3 desiredVel = axis * targetSpeed;
+
+        if (useHelixSpiral && dist > 0.05f)
+        {
+            float fade = Mathf.Clamp01(dist / Mathf.Max(0.01f, helixFadeDistance));
+
+            // SPIRAL HELIX: ban kinh + phase angle -> vi tri tren helix -> vector toi do
+            float radius = dist * helixRadiusFactor * fade;
+            float phase = (1f - fade) * helixPitch * Mathf.PI * 2f + _helixPhaseOffset;
+
+            // Tao 2 vector VUONG GOC voi truc spiral (up, right cua he toa do local)
+            Vector3 up = Mathf.Abs(axis.y) < 0.9f ? Vector3.up : Vector3.right;
+            Vector3 right = Vector3.Cross(axis, up).normalized;
+            up = Vector3.Cross(right, axis).normalized;
+
+            // Vi tri tren helix circle
+            Vector3 circleOffset = radius * (Mathf.Cos(phase) * right + Mathf.Sin(phase) * up);
+            Vector3 helixPos = target + circleOffset;
+            Vector3 toHelix = helixPos - Center;
+
+            // Them van toc TIEP TUYEN: keo item toi vi tri helix
+            desiredVel = Vector3.Lerp(axis * targetSpeed, toHelix.normalized * targetSpeed, fade * 0.8f);
+
+            // LAM VAT XOAY TIT quanh truc spiral
+            if (helixSpin > 0.1f)
+                _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, axis * (_swirlSign * helixSpin * Mathf.Deg2Rad), 0.1f);
+        }
+
         _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, desiredVel, accel * Time.fixedDeltaTime);
 
         // Thu nho theo CO ITEM: vat to bat dau nho tu xa hon nen kip co lai truoc khi bi an
