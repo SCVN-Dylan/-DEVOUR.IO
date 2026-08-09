@@ -26,8 +26,15 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Goc mo cua non (do). 70 = xoe 35 do moi ben")]
     public float coneAngle = 75f;
 
-    [Tooltip("Van toc keo item ve mieng (don vi/giay). Item van la vat ly khi bay vao")]
+    [Tooltip("Van toc keo item luc SAT MIENG (don vi/giay). Cang gan mieng hut cang manh")]
     public float pullSpeed = 12f;
+
+    [Range(0.05f, 1f)]
+    [Tooltip("Ti le toc do o RIA XA nhat cua non so voi sat mieng. 0.25 = ria hut cham (1/4), gan mieng manh dan len 1x")]
+    public float farSpeedFactor = 0.25f;
+
+    [Tooltip("Gia toc keo (u/s^2) = do QUAN TINH. Thap = nang, tang toc tu tu; cao = bat toc nhanh")]
+    public float pullAccel = 18f;
 
     [Tooltip("Tam item vao gan mieng hon khoang nay thi nuot")]
     public float swallowDistance = 0.6f;
@@ -113,7 +120,9 @@ public class SimpleSuction : MonoBehaviour
             if (_hits[i] == null) continue;
             PhysicsDevourable it = _hits[i].GetComponentInParent<PhysicsDevourable>();
             if (it == null || it.Consumed || _curr.Contains(it)) continue;
-            if (useLevelGate && it.RequiredLevel > level) continue;   // qua cap thi khong hut
+
+            int diff = it.RequiredLevel - level;                 // >0 = item cao cap hon player
+            if (useLevelGate && diff >= 2) continue;             // hon 2+ cap: khong tac dong gi
 
             Vector3 to = it.Center - mp;
             float dist = to.magnitude;
@@ -122,8 +131,19 @@ public class SimpleSuction : MonoBehaviour
 
             _curr.Add(it);
 
-            if (dist <= swallowDistance) { Swallow(it); continue; }
-            it.Pull(mp, pullSpeed, shrinkDistance);
+            if (!useLevelGate || diff <= 0)
+            {
+                // AN DUOC: hut vao. Xa bay cham, cang gan mieng hut cang manh.
+                if (dist <= swallowDistance) { Swallow(it); continue; }
+                float nearness = 1f - Mathf.Clamp01(dist / eff);            // 0 o ria, 1 sat mieng
+                float speed = pullSpeed * Mathf.Lerp(farSpeedFactor, 1f, nearness);
+                it.Pull(mp, speed, pullAccel, shrinkDistance);              // ramp toi speed => quan tinh
+            }
+            else
+            {
+                // diff == 1: GIANG CO - rung/le ve mieng nhung khong bi hut vao
+                it.Struggle(mp);
+            }
         }
 
         // Item khong con trong non nua -> tha ra cho tu roi

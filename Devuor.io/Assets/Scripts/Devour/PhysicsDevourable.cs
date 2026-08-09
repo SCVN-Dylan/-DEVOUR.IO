@@ -37,6 +37,16 @@ public class PhysicsDevourable : MonoBehaviour
     [Tooltip("Khi dang bi hut, thu nho con bao nhieu luc cham mieng (0.12 = con 12%)")]
     [Range(0.01f, 1f)] public float minShrink = 0.12f;
 
+    [Header("Giang co (item hon player dung 1 cap)")]
+    [Tooltip("Bien do RUNG tai cho (don vi world). Item hon 1 cap chi rung, khong bi hut/di chuyen")]
+    public float struggleShake = 0.08f;
+
+    [Tooltip("Tan so rung. Cao = rung gap")]
+    public float struggleFreq = 26f;
+
+    [Tooltip("Do (degree) lac nghieng nhe khi rung. 0 = khong lac")]
+    public float struggleTilt = 5f;
+
     [Header("Su kien")]
     public UnityEvent onDevoured;
 
@@ -46,11 +56,14 @@ public class PhysicsDevourable : MonoBehaviour
     /// <summary>Tam thuc te (tam bounds) de suction keo cho dung, khong lech theo pivot.</summary>
     public Vector3 Center { get { return transform.TransformPoint(_centerLocal); } }
 
-    private enum State { Asleep, Sucked, Falling }
+    private enum State { Asleep, Sucked, Struggling, Falling }
     private State _state = State.Asleep;
     private Rigidbody _rb;
     private Vector3 _centerLocal;
     private Vector3 _startScale = Vector3.one;
+    private Vector3 _anchor;
+    private Quaternion _anchorRot;
+    private float _noiseSeed;
     private float _sleepAt;
 
     void Awake()
@@ -58,6 +71,7 @@ public class PhysicsDevourable : MonoBehaviour
         _rb = GetComponent<Rigidbody>();
         _centerLocal = CalcCenterLocal();
         _startScale = transform.localScale;
+        _noiseSeed = Random.value * 10f;
     }
 
     void Start()
@@ -70,14 +84,18 @@ public class PhysicsDevourable : MonoBehaviour
     /// Keo bang VAT LY (van dynamic, khong ngu): dat van toc huong ve mieng, item van va cham
     /// binh thuong tren duong bay. Cang gan mieng thi cang THU NHO lai.
     /// </summary>
-    public void Pull(Vector3 target, float speed, float shrinkDistance)
+    public void Pull(Vector3 target, float targetSpeed, float accel, float shrinkDistance)
     {
         if (_state != State.Sucked) EnterSucked();
 
         Vector3 to = target - Center;
         float dist = to.magnitude;
+        Vector3 dir = dist > 0.001f ? to / dist : Vector3.zero;
 
-        _rb.linearVelocity = dist > 0.001f ? to / dist * speed : Vector3.zero;
+        // QUAN TINH: van toc ramp dan toi van toc mong muon (khong dat tuc thi). Xa thi
+        // targetSpeed nho -> bay cham; cang gan mieng targetSpeed cang lon -> gia toc len nhanh dan.
+        Vector3 desiredVel = dir * targetSpeed;
+        _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, desiredVel, accel * Time.fixedDeltaTime);
 
         float f = shrinkDistance > 0.01f
             ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(dist / shrinkDistance))
@@ -85,10 +103,35 @@ public class PhysicsDevourable : MonoBehaviour
         transform.localScale = _startScale * f;
     }
 
-    /// <summary>Het bi hut: bat lai trong luc, tra ve kich thuoc goc, tu roi xuong. Sau sleepDelay ngu.</summary>
+    /// <summary>
+    /// GIANG CO: item hon player dung 1 cap. Chi RUNG LAC TAI CHO (khong bi hut, khong di chuyen,
+    /// khong nuot). Kinematic + jitter transform quanh diem neo bang Perlin noise cho tu nhien.
+    /// </summary>
+    public void Struggle(Vector3 mouthPos)
+    {
+        if (_state != State.Struggling) EnterStruggle();
+
+        float t = Time.time * struggleFreq + _noiseSeed;
+        Vector3 jitter = new Vector3(
+            Mathf.PerlinNoise(t, _noiseSeed) - 0.5f,
+            Mathf.PerlinNoise(_noiseSeed, t) - 0.5f,
+            Mathf.PerlinNoise(t, t) - 0.5f) * (2f * struggleShake);
+        transform.position = _anchor + jitter;
+
+        if (struggleTilt > 0.01f)
+        {
+            float rx = (Mathf.PerlinNoise(t, 1.7f) - 0.5f) * 2f * struggleTilt;
+            float rz = (Mathf.PerlinNoise(1.7f, t) - 0.5f) * 2f * struggleTilt;
+            transform.rotation = _anchorRot * Quaternion.Euler(rx, 0f, rz);
+        }
+    }
+
+    /// <summary>Het bi hut/giang co: bat lai trong luc, tra ve kich thuoc goc, tu roi xuong. Sau sleepDelay ngu.</summary>
     public void Release()
     {
-        if (_state != State.Sucked) return;
+        if (_state != State.Sucked && _state != State.Struggling) return;
+
+        if (_state == State.Struggling) transform.rotation = _anchorRot;   // het rung, tra ve the dung
 
         _state = State.Falling;
         _rb.isKinematic = false;
@@ -141,7 +184,7 @@ public class PhysicsDevourable : MonoBehaviour
             if (_consumed) return;
         }
 
-        if (_state == State.Sucked) return;   // dang bi hut thi khong dung physics xen vao
+        if (_state == State.Sucked || _state == State.Struggling) return;   // suction dang dieu khien, physics khong xen vao
 
         if (_state == State.Asleep)
         {
@@ -160,6 +203,14 @@ public class PhysicsDevourable : MonoBehaviour
         _rb.isKinematic = false;   // VAT LY, khong ngu
         _rb.useGravity = false;    // bay thang vao mieng, khong bi trong luc keo xuong
         _rb.WakeUp();
+    }
+
+    private void EnterStruggle()
+    {
+        _state = State.Struggling;
+        _rb.isKinematic = true;    // rung tai cho bang transform, khong cho physics keo di
+        _anchor = transform.position;
+        _anchorRot = transform.rotation;
     }
 
     private void EnterSleep()

@@ -114,6 +114,8 @@ public static class ItemLevelTestBuilder
 
         // Setup player (SimpleSuction + SuctionZone), don SuctionVFX cu
         SetupPlayer(player, SuctionRange);
+        SetupCameraZoom(player);
+        SetupNameTag(player);
 
         // He prefab Item
         Piece[][] picks = new Piece[Levels][];
@@ -234,6 +236,8 @@ public static class ItemLevelTestBuilder
         s.range = range;
         s.coneAngle = 75f;
         s.pullSpeed = 12f;
+        s.farSpeedFactor = 0.25f;
+        s.pullAccel = 18f;
         s.swallowDistance = 0.6f;
         s.shrinkDistance = 2.5f;
         s.eatOnContact = true;
@@ -252,6 +256,29 @@ public static class ItemLevelTestBuilder
         if (viz == null) viz = zoneGO.AddComponent<SuctionZoneVisual>();
         viz.suction = s;
         viz.mouth = s.mouth;
+    }
+
+    private static void SetupCameraZoom(GameObject player)
+    {
+        CameraFollow follow = Object.FindAnyObjectByType<CameraFollow>();
+        Camera cam = follow != null ? follow.GetComponent<Camera>() : Camera.main;
+        if (cam == null) return;
+
+        CameraLevelZoom zoom = cam.GetComponent<CameraLevelZoom>();
+        if (zoom == null) zoom = cam.gameObject.AddComponent<CameraLevelZoom>();
+
+        zoom.player = player.GetComponent<SimpleSuction>();
+        zoom.cam = cam;
+        // steps giu mac dinh (FOV): (1->50, 4->62, 7->74, 10->88)
+    }
+
+    private static void SetupNameTag(GameObject player)
+    {
+        // Name tag gio nam trong prefab Player (Canvas World Space con cua Player), tu bam +
+        // tu doc level. O day chi don object tag ROI cu (ban truoc) neu con sot trong scene.
+        GameObject old = GameObject.Find("PlayerNameTag");
+        if (old != null && old.GetComponentInParent<SimpleSuction>() == null)
+            UnityEngine.Object.DestroyImmediate(old);
     }
 
     // ---------------------------------------------------------------- he prefab Item
