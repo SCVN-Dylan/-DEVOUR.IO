@@ -108,6 +108,7 @@ MonoBehaviour:
   xpValue: 1
   scoreValue: 1
   sleepDelay: 5
+  minShrink: 0.12
   onDevoured:
     m_PersistentCalls:
       m_Calls: []

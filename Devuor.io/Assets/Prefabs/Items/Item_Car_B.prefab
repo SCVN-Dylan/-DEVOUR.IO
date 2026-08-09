@@ -53,7 +53,6 @@ PrefabInstance:
       value: Car_B
       objectReference: {fileID: 0}
     m_RemovedComponents:
-    - {fileID: 1747000000000000002, guid: bf84b49769a1c46cca30b1f4bc5c3321, type: 3}
     - {fileID: 7245294046941995852, guid: bf84b49769a1c46cca30b1f4bc5c3321, type: 3}
     - {fileID: 87487853066735131, guid: bf84b49769a1c46cca30b1f4bc5c3321, type: 3}
     m_RemovedGameObjects: []

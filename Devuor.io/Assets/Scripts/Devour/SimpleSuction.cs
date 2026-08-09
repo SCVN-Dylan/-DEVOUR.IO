@@ -26,11 +26,14 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Goc mo cua non (do). 70 = xoe 35 do moi ben")]
     public float coneAngle = 75f;
 
-    [Tooltip("Toc do keo item ve mieng (don vi/giay)")]
-    public float pullSpeed = 10f;
+    [Tooltip("Van toc keo item ve mieng (don vi/giay). Item van la vat ly khi bay vao")]
+    public float pullSpeed = 12f;
 
     [Tooltip("Tam item vao gan mieng hon khoang nay thi nuot")]
     public float swallowDistance = 0.6f;
+
+    [Tooltip("Item bat dau thu nho dan khi vao gan mieng hon khoang nay")]
+    public float shrinkDistance = 2.5f;
 
     [Tooltip("Layer duoc phep hut")]
     public LayerMask suckableLayers = ~0;
@@ -120,7 +123,7 @@ public class SimpleSuction : MonoBehaviour
             _curr.Add(it);
 
             if (dist <= swallowDistance) { Swallow(it); continue; }
-            it.Pull(mp, pullSpeed * Time.fixedDeltaTime);
+            it.Pull(mp, pullSpeed, shrinkDistance);
         }
 
         // Item khong con trong non nua -> tha ra cho tu roi

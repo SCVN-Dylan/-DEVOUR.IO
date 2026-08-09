@@ -118,7 +118,6 @@ PrefabInstance:
       value: Building_D
       objectReference: {fileID: 0}
     m_RemovedComponents:
-    - {fileID: 2832999843887073418, guid: f521c8ba60bbd49d6837f02920b47793, type: 3}
     - {fileID: 3413834384797572830, guid: f521c8ba60bbd49d6837f02920b47793, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

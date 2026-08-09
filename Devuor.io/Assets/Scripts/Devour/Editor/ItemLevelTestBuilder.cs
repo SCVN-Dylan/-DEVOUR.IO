@@ -233,8 +233,9 @@ public static class ItemLevelTestBuilder
         s.mouth = mouth != null ? mouth : player.transform;
         s.range = range;
         s.coneAngle = 75f;
-        s.pullSpeed = 10f;
+        s.pullSpeed = 12f;
         s.swallowDistance = 0.6f;
+        s.shrinkDistance = 2.5f;
         s.eatOnContact = true;
         s.useLevelGate = true;
         s.level = 1;

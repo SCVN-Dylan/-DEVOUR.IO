@@ -33,6 +33,10 @@ public class PhysicsDevourable : MonoBehaviour
     [Tooltip("Sau bao lau (giay) khong con bi hut / khong con va cham thi tu ngu lai")]
     public float sleepDelay = 5f;
 
+    [Header("Bay vao mieng")]
+    [Tooltip("Khi dang bi hut, thu nho con bao nhieu luc cham mieng (0.12 = con 12%)")]
+    [Range(0.01f, 1f)] public float minShrink = 0.12f;
+
     [Header("Su kien")]
     public UnityEvent onDevoured;
 
@@ -46,12 +50,14 @@ public class PhysicsDevourable : MonoBehaviour
     private State _state = State.Asleep;
     private Rigidbody _rb;
     private Vector3 _centerLocal;
+    private Vector3 _startScale = Vector3.one;
     private float _sleepAt;
 
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
         _centerLocal = CalcCenterLocal();
+        _startScale = transform.localScale;
     }
 
     void Start()
@@ -59,23 +65,35 @@ public class PhysicsDevourable : MonoBehaviour
         EnterSleep();
     }
 
-    /// <summary>SimpleSuction goi moi frame khi item nam trong non: keo tam item ve phia mieng.</summary>
-    public void Pull(Vector3 target, float step)
+    /// <summary>
+    /// SimpleSuction goi moi frame khi item nam trong non.
+    /// Keo bang VAT LY (van dynamic, khong ngu): dat van toc huong ve mieng, item van va cham
+    /// binh thuong tren duong bay. Cang gan mieng thi cang THU NHO lai.
+    /// </summary>
+    public void Pull(Vector3 target, float speed, float shrinkDistance)
     {
         if (_state != State.Sucked) EnterSucked();
 
-        Vector3 c = Center;
-        Vector3 newCenter = Vector3.MoveTowards(c, target, step);
-        _rb.MovePosition(newCenter + (_rb.position - c));
+        Vector3 to = target - Center;
+        float dist = to.magnitude;
+
+        _rb.linearVelocity = dist > 0.001f ? to / dist * speed : Vector3.zero;
+
+        float f = shrinkDistance > 0.01f
+            ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(dist / shrinkDistance))
+            : 1f;
+        transform.localScale = _startScale * f;
     }
 
-    /// <summary>Het bi hut: bat physics, tu roi xuong. Sau sleepDelay se tu ngu.</summary>
+    /// <summary>Het bi hut: bat lai trong luc, tra ve kich thuoc goc, tu roi xuong. Sau sleepDelay ngu.</summary>
     public void Release()
     {
         if (_state != State.Sucked) return;
 
         _state = State.Falling;
         _rb.isKinematic = false;
+        _rb.useGravity = true;
+        transform.localScale = _startScale;
         _rb.WakeUp();
         _sleepAt = Time.time + sleepDelay;
     }
@@ -139,13 +157,17 @@ public class PhysicsDevourable : MonoBehaviour
     private void EnterSucked()
     {
         _state = State.Sucked;
-        _rb.isKinematic = true;   // kinematic = van "ngu", suction keo truc tiep
+        _rb.isKinematic = false;   // VAT LY, khong ngu
+        _rb.useGravity = false;    // bay thang vao mieng, khong bi trong luc keo xuong
+        _rb.WakeUp();
     }
 
     private void EnterSleep()
     {
         _state = State.Asleep;
         if (_rb.isKinematic) _rb.isKinematic = false;
+        _rb.useGravity = true;
+        transform.localScale = _startScale;   // phong to lai neu vua bi hut do
         _rb.linearVelocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
         _rb.Sleep();

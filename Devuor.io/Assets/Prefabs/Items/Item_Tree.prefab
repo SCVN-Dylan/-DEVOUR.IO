@@ -53,7 +53,6 @@ PrefabInstance:
       value: Tree
       objectReference: {fileID: 0}
     m_RemovedComponents:
-    - {fileID: 1747000000000000004, guid: 86ab9d3c4d0344dea8c11e191434bb1d, type: 3}
     - {fileID: 4550717644054117012, guid: 86ab9d3c4d0344dea8c11e191434bb1d, type: 3}
     - {fileID: 1078465329385414766, guid: 86ab9d3c4d0344dea8c11e191434bb1d, type: 3}
     m_RemovedGameObjects: []
