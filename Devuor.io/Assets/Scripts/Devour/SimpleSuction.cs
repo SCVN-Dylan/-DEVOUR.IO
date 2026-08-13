@@ -67,6 +67,10 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Moi cap nhan vat to them bao nhieu (0.12 = +12%/cap)")]
     public float scalePerLevel = 0.12f;
 
+    [Tooltip("TRAN kich thuoc: to toi da = scale goc x so nay, du level bao nhieu cung khong vuot.\n" +
+             "0 = khong gioi han (to mai theo cap)")]
+    public float maxScale = 2f;
+
     [Range(0f, 0.5f)]
     [Tooltip("Moi cap non hut dai ra bao nhieu (0.15 = +15%/cap)")]
     public float rangePerLevel = 0.15f;
@@ -263,10 +267,11 @@ public class SimpleSuction : MonoBehaviour
         ApplyScale(Vector3.one);
     }
 
-    /// <summary>Dat scale = base * (he so cap do) * (punch squash-stretch cua gulp).</summary>
+    /// <summary>Dat scale = base * (he so cap do, chan tran maxScale) * (punch squash-stretch cua gulp).</summary>
     private void ApplyScale(Vector3 punch)
     {
         float lvl = 1f + scalePerLevel * (level - 1);
+        if (maxScale > 0f) lvl = Mathf.Min(lvl, maxScale);
         transform.localScale = Vector3.Scale(_baseScale * lvl, punch);
     }
 
