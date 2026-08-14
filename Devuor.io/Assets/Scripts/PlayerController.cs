@@ -21,24 +21,52 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Camera dung de doi input sang huong the gioi. De trong se tu lay Camera.main")]
     public Transform cameraTransform;
 
+    [Header("Animation")]
+    [Tooltip("Animator xu ly animation cho player. De trong se tu tim o child")]
+    public Animator animator;
+
     private RbMovement _movement;
+    private static readonly int RunSuckingHash = Animator.StringToHash("RunSucking");
 
     void Awake()
     {
-        _movement = GetComponent<RbMovement>();
+        EnsureReferences();
+    }
+
+    private void EnsureReferences()
+    {
+        if (_movement == null)
+            _movement = GetComponent<RbMovement>();
 
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
+
+        if (animator == null)
+            animator = GetComponentInChildren<Animator>();
     }
 
     void Update()
     {
         MovePlayerByInput(ReadInput());
+        UpdateAnimation();
+    }
+
+    public void UpdateAnimation()
+    {
+        EnsureReferences();
+        if (animator != null && _movement != null)
+        {
+            animator.SetBool(RunSuckingHash, _movement.IsMoving);
+        }
     }
 
     public void MovePlayerByInput(Vector2 input)
     {
-        _movement.SetDir(ToWorldDirection(input));
+        EnsureReferences();
+        if (_movement != null)
+        {
+            _movement.SetDir(ToWorldDirection(input));
+        }
     }
 
     private Vector2 ReadInput()
