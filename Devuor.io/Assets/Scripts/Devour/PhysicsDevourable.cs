@@ -96,15 +96,21 @@ public class PhysicsDevourable : MonoBehaviour
     private float _sleepAt;
     private float _swirlSign;
     private float _helixPhaseOffset;   // random phase offset moi item cho spiral khong dong pha
+    private float _spiralAngle;
 
     void Awake()
     {
-        _rb = GetComponent<Rigidbody>();
+        EnsureReferences();
         _centerLocal = CalcCenterLocal();
         _startScale = transform.localScale;
         _noiseSeed = Random.value * 10f;
         _swirlSign = Random.value < 0.5f ? -1f : 1f;
         _helixPhaseOffset = Random.value * Mathf.PI * 2f;
+    }
+
+    private void EnsureReferences()
+    {
+        if (_rb == null) _rb = GetComponent<Rigidbody>();
     }
 
     void Start()
@@ -113,52 +119,78 @@ public class PhysicsDevourable : MonoBehaviour
     }
 
     /// <summary>
-    /// SimpleSuction goi moi frame khi item nam trong non.
-    /// Keo bang VAT LY: dat van toc huong ve mieng + (neu useHelixSpiral) logic SPIRAL HELIX hoi tu.
-    /// Item bay theo duong xoan oc 3D, ban kinh giam dan khi gan mieng.
+    /// Overload tuong thich cu.
     /// </summary>
     public void Pull(Vector3 target, float targetSpeed, float accel)
     {
+        Pull(target, target, 75f, targetSpeed, accel);
+    }
+
+    /// <summary>
+    /// SimpleSuction goi moi frame khi item nam trong non.
+    /// Keo bang VAT LY: dat van toc huong ve mieng + (neu useHelixSpiral) logic SPIRAL HELIX HOI TU TRONG VUNG HUT.
+    /// Item bay theo duong xoan oc 3D thu nho va giu CHUAN TRONG VUNG NON HUT phia tren mat dat.
+    /// </summary>
+    public void Pull(Vector3 mouthPos, Vector3 originPos, float coneAngleDeg, float targetSpeed, float accel)
+    {
+        EnsureReferences();
         if (_state != State.Sucked) EnterSucked();
 
-        Vector3 to = target - Center;
-        float dist = to.magnitude;
-        Vector3 axis = dist > 0.001f ? to / dist : Vector3.zero;
+        Vector3 center = Center;
 
-        Vector3 desiredVel = axis * targetSpeed;
+        // Vector huong ve mieng
+        Vector3 toMouth = mouthPos - center;
+        float distToMouth = toMouth.magnitude;
+        Vector3 pullDir = distToMouth > 0.001f ? toMouth / distToMouth : Vector3.up;
 
-        if (useHelixSpiral && dist > 0.05f)
+        Vector3 desiredVel = pullDir * targetSpeed;
+
+        if (useHelixSpiral && distToMouth > 0.05f)
         {
-            float fade = Mathf.Clamp01(dist / Mathf.Max(0.01f, helixFadeDistance));
+            _spiralAngle += (helixPitch * 360f) * Mathf.Deg2Rad * Time.fixedDeltaTime;
 
-            // SPIRAL HELIX: ban kinh + phase angle -> vi tri tren helix -> vector toi do
-            float radius = dist * helixRadiusFactor * fade;
-            float phase = (1f - fade) * helixPitch * Mathf.PI * 2f + _helixPhaseOffset;
+            // Tinh khoang cach XZ toi goc quat hut (chan player)
+            Vector3 originXZ = new Vector3(originPos.x, 0f, originPos.z);
+            Vector3 centerXZ = new Vector3(center.x, 0f, center.z);
+            float distXZ = Vector3.Distance(originXZ, centerXZ);
 
-            // Tao 2 vector VUONG GOC voi truc spiral (up, right cua he toa do local)
-            Vector3 up = Mathf.Abs(axis.y) < 0.9f ? Vector3.up : Vector3.right;
-            Vector3 right = Vector3.Cross(axis, up).normalized;
-            up = Vector3.Cross(right, axis).normalized;
+            // Gioi han ban kinh xoan oc: phai luon nam TRONG VUNG NON HUT (cone)
+            float halfAngleRad = (coneAngleDeg * 0.5f) * Mathf.Deg2Rad;
+            float maxConeRadius = distXZ * Mathf.Sin(halfAngleRad);
 
-            // Vi tri tren helix circle
-            Vector3 circleOffset = radius * (Mathf.Cos(phase) * right + Mathf.Sin(phase) * up);
-            Vector3 helixPos = target + circleOffset;
-            Vector3 toHelix = helixPos - Center;
+            // Ban kinh spiral duoc khong che = maxConeRadius * helixRadiusFactor (vd 40-50% do rong vung hut)
+            float spiralRadius = Mathf.Min(maxConeRadius * helixRadiusFactor, distToMouth * 0.4f);
 
-            // Them van toc TIEP TUYEN: keo item toi vi tri helix
-            desiredVel = Vector3.Lerp(axis * targetSpeed, toHelix.normalized * targetSpeed, fade * 0.8f);
+            if (spiralRadius > 0.01f)
+            {
+                // Lay 2 truc vuong goc voi pullDir
+                Vector3 right = Vector3.Cross(Vector3.up, pullDir).normalized;
+                if (right.sqrMagnitude < 0.001f) right = Vector3.right;
+                Vector3 upPerp = Vector3.Cross(pullDir, right).normalized;
 
-            // LAM VAT XOAY TIT quanh truc spiral
+                float angle = _spiralAngle * _swirlSign + _helixPhaseOffset;
+                Vector3 tangentDir = Mathf.Cos(angle) * right + Mathf.Sin(angle) * upPerp;
+
+                // Van toc quy dao xoay quanh truc pull
+                float tangentialSpeed = targetSpeed * (spiralRadius / Mathf.Max(0.1f, distXZ + 0.2f)) * 2f;
+                tangentialSpeed = Mathf.Clamp(tangentialSpeed, 0.3f, targetSpeed * 0.9f);
+
+                desiredVel += tangentDir * tangentialSpeed;
+            }
+
+            // Xoay vat quanh truc de tao hieu ung xoay tit
             if (helixSpin > 0.1f)
-                _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, axis * (_swirlSign * helixSpin * Mathf.Deg2Rad), 0.1f);
+            {
+                _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, pullDir * (_swirlSign * helixSpin * Mathf.Deg2Rad), 0.15f);
+            }
         }
 
         _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, desiredVel, accel * Time.fixedDeltaTime);
 
-        // Thu nho theo CO ITEM: vat to bat dau nho tu xa hon nen kip co lai truoc khi bi an
+        // Thu nho vat khi lai gan mieng
         float shrinkStart = _radius * shrinkRadiusMul;
         float f = shrinkStart > 0.01f
-            ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(dist / shrinkStart))
+            ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(distToMouth / shrinkStart))
             : 1f;
         transform.localScale = _startScale * f;
     }
@@ -297,9 +329,11 @@ public class PhysicsDevourable : MonoBehaviour
 
     private void EnterSucked()
     {
+        EnsureReferences();
         _state = State.Sucked;
         _rb.isKinematic = false;   // VAT LY, khong ngu
         _rb.useGravity = false;    // bay thang vao mieng, khong bi trong luc keo xuong
+        _spiralAngle = 0f;
         _rb.WakeUp();
     }
 

@@ -76,10 +76,13 @@ public class SuctionZoneVisual : MonoBehaviour
         if (mouth == null) mouth = suction.mouth != null ? suction.mouth : suction.transform;
         if (_mesh == null) return;
 
-        // Dat tam quat tai mieng, chieu xuong mat dat; huong theo mouth.forward phang tren XZ
-        Vector3 p = mouth.position;
-        Vector3 fwd = mouth.forward; fwd.y = 0f;
-        if (fwd.sqrMagnitude < 0.0001f) fwd = transform.forward;
+        // Dat tam quat tai CHAN PLAYER (suction.transform), chieu xuong mat dat; huong theo mouth.forward phang tren XZ
+        Transform originTF = suction.transform;
+        Vector3 p = originTF.position;
+        Vector3 fwd = mouth != null ? mouth.forward : originTF.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f) fwd = originTF.forward;
+        fwd.y = 0f;
         fwd.Normalize();
 
         transform.position = new Vector3(p.x, groundY, p.z);

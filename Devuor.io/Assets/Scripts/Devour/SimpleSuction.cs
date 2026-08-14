@@ -149,11 +149,17 @@ public class SimpleSuction : MonoBehaviour
     /// <summary>Quet lai danh sach item nam trong non (phan dat tien). Item roi khoi non -> tha ra.</summary>
     private void Scan()
     {
-        Vector3 mp = mouth.position, fwd = mouth.forward;
+        Vector3 origin = transform.position;   // Vi tri chân player
+        Vector3 fwd = mouth != null ? mouth.forward : transform.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f) fwd = transform.forward;
+        fwd.y = 0f;
+        fwd.Normalize();
+
         float eff = CurrentRange, half = coneAngle * 0.5f;
 
         _found.Clear();
-        int n = Physics.OverlapSphereNonAlloc(mp, eff, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
+        int n = Physics.OverlapSphereNonAlloc(origin, eff, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
         {
             if (_hits[i] == null) continue;
@@ -163,7 +169,8 @@ public class SimpleSuction : MonoBehaviour
             int diff = it.RequiredLevel - level;
             if (useLevelGate && diff >= 2) continue;   // hon 2+ cap: khong tac dong gi
 
-            Vector3 to = it.Center - mp;
+            Vector3 to = it.Center - origin;
+            to.y = 0f;   // Kiem tra goc va khoang cach phang tren mat dat
             float dist = to.magnitude;
             if (dist > eff) continue;
             if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
@@ -184,6 +191,7 @@ public class SimpleSuction : MonoBehaviour
         if (_active.Count == 0) return;
 
         Vector3 mp = mouth.position;
+        Vector3 originPos = transform.position;
         float eff = CurrentRange;
         _toRemove.Clear();
 
@@ -200,7 +208,7 @@ public class SimpleSuction : MonoBehaviour
                 if (dist <= swallowDistance) { Swallow(it); _toRemove.Add(it); continue; }
                 float nearness = 1f - Mathf.Clamp01(dist / eff);
                 float speed = pullSpeed * Mathf.Lerp(farSpeedFactor, 1f, nearness);
-                it.Pull(mp, speed, pullAccel);
+                it.Pull(mp, originPos, coneAngle, speed, pullAccel);
             }
             else
             {
