@@ -4,17 +4,10 @@ using UnityEngine;
 /// <summary>
 /// Zoom camera bang FOV theo CAP DO, CONG DON qua tung moc (khong phai set tuyet doi).
 ///
-/// FOV = baseFov + tong (add) cua MOI moc co level <= cap nguoi choi.
-/// Moi moc: (level, add) = dat cap nay thi CONG THEM 'add' do vao FOV.
-///   baseFov = 50, moc (4,+12),(7,+12),(10,+14):
-///     cap 1..3  -> 50
-///     cap 4..6  -> 62   (50+12)
-///     cap 7..9  -> 74   (50+12+12)
-///     cap 10    -> 88   (50+12+12+14)
-///
-/// Ngoai ra co zoomEveryLevel: BAT thi MOI cap deu zoom out them addPerLevel do
-/// (cong don voi list moc); TAT thi chi zoom theo list moc nhu tren.
-/// FOV cang lon = nhin cang rong = ZOOM OUT. Doi muot theo lerpSpeed.
+/// Ho tro 2 che do / ket hop:
+/// 1. zoomEveryLevel: Cong 'addPerLevel' cho moi level.
+/// 2. useSteps: Cong gia tri 'add' khi dat cac moc 'level' trong danh sach steps.
+/// 3. skipAddPerLevelOnStep: Khi bat ca 2, tai level co trong steps se dung 'add' cua Step va KHONG cong 'addPerLevel'.
 /// </summary>
 [RequireComponent(typeof(Camera))]
 [DisallowMultipleComponent]
@@ -25,7 +18,7 @@ public class CameraLevelZoom : MonoBehaviour
     {
         [Tooltip("Cap do dat toi")]
         public int level = 1;
-        [Tooltip("CONG THEM bao nhieu do FOV khi dat cap nay (cong don voi cac moc truoc)")]
+        [Tooltip("CONG THEM bao nhieu do FOV khi dat cap nay (cong don)")]
         public float add = 12f;
     }
 
@@ -38,6 +31,10 @@ public class CameraLevelZoom : MonoBehaviour
     [Tooltip("FOV goc (khi chua qua moc nao). Cac moc cong don len tren nay")]
     public float baseFov = 50f;
 
+    [Header("Zoom theo moc (Steps)")]
+    [Tooltip("Co bat/tat su dung danh sach moc (Steps)")]
+    public bool useSteps = true;
+
     [Tooltip("Danh sach moc: dat level nay thi CONG THEM 'add' do. Cong don qua nhieu moc.")]
     public List<Step> steps = new List<Step>
     {
@@ -46,16 +43,20 @@ public class CameraLevelZoom : MonoBehaviour
         new Step { level = 10, add = 14f },
     };
 
-    [Header("Zoom nho moi cap")]
-    [Tooltip("BAT: moi lan len cap deu CONG THEM addPerLevel do FOV (van cong don list moc o tren).\n" +
-             "TAT: chi zoom theo list moc.")]
-    public bool zoomEveryLevel = false;
+    [Header("Zoom nho moi cap (Add Per Level)")]
+    [Tooltip("BAT: moi lan len cap deu CONG THEM addPerLevel do FOV.\nTAT: khong cong per level.")]
+    public bool zoomEveryLevel = true;
 
-    [Tooltip("Do FOV cong them cho MOI cap da len (khi bat zoomEveryLevel). 0.2 = len 5 cap thi +1 do")]
+    [Tooltip("Do FOV cong them cho MOI cap da len (khi bat zoomEveryLevel). Vi du: 0.2 = len 5 cap thi +1 do")]
     public float addPerLevel = 0.2f;
 
-    [Tooltip("Toc do doi FOV muot (do/giay). 0 = doi ngay")]
-    public float lerpSpeed = 25f;
+    [Header("Ket hop Steps & Add Per Level")]
+    [Tooltip("BAT: Khi dung dong thoi Steps va AddPerLevel, tai level co trong Steps se lay data cua Step va KHONG cong addPerLevel cho level do.\nTAT: Cong ca hai tai level co Step.")]
+    public bool skipAddPerLevelOnStep = true;
+
+    [Header("Muot ma")]
+    [Tooltip("Toc do doi FOV muot (he so Lerp/giay). 8-12 = phan hoi nhanh luc dau, em o cuoi. 0 = doi ngay")]
+    public float lerpSpeed = 8f;
 
     private float _fov;
 
@@ -74,29 +75,61 @@ public class CameraLevelZoom : MonoBehaviour
 
         float target = TargetFov();
         _fov = (Application.isPlaying && lerpSpeed > 0f)
-            ? Mathf.MoveTowards(_fov, target, lerpSpeed * Time.deltaTime)
+            ? Mathf.Lerp(_fov, target, lerpSpeed * Time.deltaTime)
             : target;
 
         Apply();
     }
 
-    /// <summary>FOV = baseFov + (moi cap x addPerLevel neu bat) + tong add cua cac moc da dat (cong don).</summary>
+    /// <summary>
+    /// Tinh FOV muc tieu dua tren level hien tai cua player.
+    /// Cong dồn qua tung level tu 2 den level hien tai.
+    /// </summary>
     public float TargetFov()
     {
-        int level = player != null ? player.Level : 1;
+        int currentLevel = player != null ? player.Level : 1;
         float fov = baseFov;
 
-        if (zoomEveryLevel)
-            fov += addPerLevel * (level - 1);   // moi cap da len deu zoom out them mot chut
+        if (currentLevel <= 1) return Mathf.Clamp(fov, 1f, 179f);
 
-        if (steps != null)
+        // Map cac step theo level de tra cuu nhanh
+        Dictionary<int, float> stepMap = null;
+        if (useSteps && steps != null && steps.Count > 0)
         {
+            stepMap = new Dictionary<int, float>();
             for (int i = 0; i < steps.Count; i++)
             {
                 Step s = steps[i];
-                if (s != null && level >= s.level) fov += s.add;   // CONG DON theo moc
+                if (s != null && s.level > 1)
+                {
+                    if (stepMap.ContainsKey(s.level))
+                        stepMap[s.level] += s.add;
+                    else
+                        stepMap[s.level] = s.add;
+                }
             }
         }
+
+        // Duyet qua tung level tu level 2 den currentLevel
+        for (int lvl = 2; lvl <= currentLevel; lvl++)
+        {
+            float stepAdd = 0f;
+            bool hasStep = stepMap != null && stepMap.TryGetValue(lvl, out stepAdd);
+
+            if (hasStep)
+            {
+                fov += stepAdd;
+                if (zoomEveryLevel && !skipAddPerLevelOnStep)
+                {
+                    fov += addPerLevel;
+                }
+            }
+            else if (zoomEveryLevel)
+            {
+                fov += addPerLevel;
+            }
+        }
+
         return Mathf.Clamp(fov, 1f, 179f);
     }
 

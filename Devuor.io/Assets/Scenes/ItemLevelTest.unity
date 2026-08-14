@@ -3475,7 +3475,7 @@ Transform:
   m_GameObject: {fileID: 880292807}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.06, z: 0.012800217}
+  m_LocalPosition: {x: 0, y: 0.06, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5156,7 +5156,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 300
-  field of view: 20
+  field of view: 50
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -5264,11 +5264,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraLevelZoom
   player: {fileID: 6352853275198410509}
   cam: {fileID: 1180586915}
-  baseFov: 30
-  steps: []
+  baseFov: 25
+  useSteps: 1
+  steps:
+  - level: 8
+    add: 10
   zoomEveryLevel: 1
   addPerLevel: 3
-  lerpSpeed: 1
+  skipAddPerLevelOnStep: 1
+  lerpSpeed: 8
 --- !u!1 &1257055294
 GameObject:
   m_ObjectHideFlags: 0
@@ -5659,15 +5663,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2488681339936065700, guid: 728ef2ce3b4b242feaee9bb94b3452a8, type: 3}
       propertyPath: m_LocalScale.x
-      value: 3.5374517
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2488681339936065700, guid: 728ef2ce3b4b242feaee9bb94b3452a8, type: 3}
       propertyPath: m_LocalScale.y
-      value: 3.5374517
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2488681339936065700, guid: 728ef2ce3b4b242feaee9bb94b3452a8, type: 3}
       propertyPath: m_LocalScale.z
-      value: 3.5374517
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2488681339936065700, guid: 728ef2ce3b4b242feaee9bb94b3452a8, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9642,6 +9646,10 @@ PrefabInstance:
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: maxLevel
       value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: maxScale
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: coneAngle
