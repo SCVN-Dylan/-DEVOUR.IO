@@ -25,8 +25,12 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Animator xu ly animation cho player. De trong se tu tim o child")]
     public Animator animator;
 
+    [Tooltip("De trong se tu tim SimpleSuction tren nhan vat")]
+    public SimpleSuction suction;
+
     private RbMovement _movement;
     private static readonly int RunSuckingHash = Animator.StringToHash("RunSucking");
+    private static readonly int RunHash = Animator.StringToHash("Run");
 
     void Awake()
     {
@@ -43,6 +47,9 @@ public class PlayerController : MonoBehaviour
 
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
+
+        if (suction == null)
+            suction = GetComponent<SimpleSuction>();
     }
 
     void Update()
@@ -54,9 +61,28 @@ public class PlayerController : MonoBehaviour
     public void UpdateAnimation()
     {
         EnsureReferences();
-        if (animator != null && _movement != null)
+        if (animator == null || _movement == null) return;
+
+        bool isMoving = _movement.IsMoving;
+        bool hasItems = suction != null && suction.HasItemsInRange;
+
+        if (hasItems)
         {
-            animator.SetBool(RunSuckingHash, _movement.IsMoving);
+            // Co item trong vung -> bat RunSucking, tat Run
+            animator.SetBool(RunSuckingHash, true);
+            animator.SetBool(RunHash, false);
+        }
+        else if (isMoving)
+        {
+            // Di chuyen va KO co item -> bat Run, tat RunSucking
+            animator.SetBool(RunSuckingHash, false);
+            animator.SetBool(RunHash, true);
+        }
+        else
+        {
+            // Khong di chuyen va KO co item -> tat ca 2 de ve Idle
+            animator.SetBool(RunSuckingHash, false);
+            animator.SetBool(RunHash, false);
         }
     }
 

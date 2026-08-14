@@ -96,6 +96,20 @@ public class SimpleSuction : MonoBehaviour
     public int XpToNext { get { return XpToNextAt(level); } }
     public float CurrentRange { get { return range * (1f + rangePerLevel * (level - 1)); } }
 
+    /// <summary>Dang co it nhat 1 item nam trong vung/non hut hay khong.</summary>
+    public bool HasItemsInRange
+    {
+        get
+        {
+            if (_active.Count == 0) return false;
+            foreach (var item in _active)
+            {
+                if (item != null && !item.Consumed) return true;
+            }
+            return false;
+        }
+    }
+
     private Vector3 _baseScale;
     private int _xp;
     private float _scanTimer;
