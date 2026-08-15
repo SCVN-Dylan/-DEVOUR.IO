@@ -6,7 +6,7 @@ using UnityEngine;
 /// Nguyen tac giu cho muot:
 /// - Chi gan velocity trong FixedUpdate, khong cong don, khong drift
 /// - Huong luon la unit vector nen duong cheo khong nhanh hon truc thang
-/// - Giu nguyen velocity.y de trong luc va va cham hoat dong binh thuong
+/// - Roi tu do cho den khi CHAM DAT, sau do KHOA CUNG truc Y (xem _lockYOnGround)
 /// - Khoa toan bo xoay vat ly, huong nhin do code dat
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
@@ -14,6 +14,15 @@ public class RbMovement : MonoBehaviour
 {
     [Header("Rigidbody")]
     [SerializeField] private Rigidbody _rb;
+
+    [Header("Khoa truc Y")]
+    [Tooltip("Cham dat lan dau la KHOA CUNG truc Y. Item bay vao / va cham khong the hat nhan vat len xuong nua.\n" +
+             "Tat neu sau nay can nhay hoac co dia hinh cao thap.")]
+    [SerializeField] private bool _lockYOnGround = true;
+
+    [Range(0.1f, 1f)]
+    [Tooltip("Contact phai co normal.y tu nguong nay tro len moi tinh la MAT DAT (loc va cham ngang)")]
+    [SerializeField] private float _groundNormalY = 0.5f;
 
     [Header("Speed")]
     [SerializeField] private float _speed = 8f;
@@ -31,6 +40,10 @@ public class RbMovement : MonoBehaviour
 
     private Vector3 _dir;
     private Vector3 _planarVelocity;
+    private bool _yLocked;
+
+    /// <summary>Da cham dat va khoa truc Y chua.</summary>
+    public bool IsYLocked { get { return _yLocked; } }
 
     public float Speed
     {
@@ -68,6 +81,44 @@ public class RbMovement : MonoBehaviour
     void FixedUpdate()
     {
         Move();
+    }
+
+    void OnCollisionEnter(Collision collision) { TryLockY(collision); }
+    void OnCollisionStay(Collision collision) { TryLockY(collision); }
+
+    /// <summary>
+    /// Cham mat dat lan dau -> khoa truc Y vinh vien. Va cham voi ITEM khong tinh la dat
+    /// (item bay vao mom van co the co contact normal huong len).
+    /// </summary>
+    private void TryLockY(Collision collision)
+    {
+        if (_yLocked || !_lockYOnGround) return;
+        if (collision.rigidbody != null && collision.rigidbody.GetComponent<PhysicsDevourable>() != null) return;
+
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            if (collision.GetContact(i).normal.y < _groundNormalY) continue;
+            LockY();
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Khoa cung truc Y bang FreezePositionY. Tu day khong con luc nao (item bay vao, vat the
+    /// dam, trong luc) doi duoc do cao nhan vat nua.
+    ///
+    /// Khong can bu lai do cao khi nhan vat LEN CAP TO RA: pivot cua model nam ngay duoi chan
+    /// nen scale to ra thi than cao len, chan van dung yen tren dat (da do: scale 5 -> mesh
+    /// min.y = 0.046, khong lun). Chi rieng capsule collider thop xuong duoi mat dat mot chut,
+    /// khong anh huong gi.
+    /// </summary>
+    private void LockY()
+    {
+        _yLocked = true;
+        _rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
+        Vector3 v = _rb.linearVelocity;
+        v.y = 0f;
+        _rb.linearVelocity = v;
     }
 
     void OnDestroy()

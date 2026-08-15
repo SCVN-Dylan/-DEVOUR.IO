@@ -118,6 +118,7 @@ public class SimpleSuction : MonoBehaviour
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
     private readonly List<PhysicsDevourable> _toRemove = new List<PhysicsDevourable>();
     private static readonly Collider[] _hits = new Collider[128];
+    private Collider[] _ownCols;
 
     void Awake()
     {
@@ -127,6 +128,7 @@ public class SimpleSuction : MonoBehaviour
             Transform m = transform.Find("Mouth");
             mouth = m != null ? m : transform;
         }
+        _ownCols = GetComponentsInChildren<Collider>(true);
         ApplyLevelScale();
     }
 
@@ -217,6 +219,10 @@ public class SimpleSuction : MonoBehaviour
 
             if (!useLevelGate || diff <= 0)
             {
+                // Item dang bay vao mom thi khong duoc phep DAY nguoi choi: bo qua cap va cham
+                // item x player (collider van bat nen Scan/OverlapSphere van thay item).
+                it.SetPlayerCollision(_ownCols, true);
+
                 Vector3 to = it.Center - mp;
                 float dist = to.magnitude;
                 if (dist <= swallowDistance) { Swallow(it); _toRemove.Add(it); continue; }
@@ -226,6 +232,7 @@ public class SimpleSuction : MonoBehaviour
             }
             else
             {
+                it.SetPlayerCollision(_ownCols, false);   // qua cap: van chan duong nguoi choi
                 it.Struggle(mp);   // diff == 1: rung tai cho
             }
         }

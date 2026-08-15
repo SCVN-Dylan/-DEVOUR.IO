@@ -97,6 +97,9 @@ public class PhysicsDevourable : MonoBehaviour
     private float _swirlSign;
     private float _helixPhaseOffset;   // random phase offset moi item cho spiral khong dong pha
     private float _spiralAngle;
+    private Collider[] _cols;
+    private Collider[] _ignoredCols;   // collider player dang duoc bo qua va cham
+    private bool _playerIgnored;
 
     void Awake()
     {
@@ -116,6 +119,38 @@ public class PhysicsDevourable : MonoBehaviour
     void Start()
     {
         EnterSleep();
+    }
+
+    /// <summary>
+    /// BO QUA VA CHAM voi than player trong luc item dang bay vao mom.
+    ///
+    /// Luc bi hut, item la Rigidbody DONG lao thang vao nguoi choi -> solver se day nguoi choi
+    /// van ra. Tat va cham cap collider (item x player) trong giai doan nay la het bi day, ma
+    /// collider VAN BAT (khong disable) nen OverlapSphere cua SimpleSuction van quet thay item.
+    /// Nuot van chay binh thuong nho swallowDistance trong SimpleSuction.ApplyActive.
+    ///
+    /// Item qua cap (Struggle / bi bo qua) KHONG goi ham nay -> van chan duong nguoi choi.
+    /// </summary>
+    public void SetPlayerCollision(Collider[] playerCols, bool ignore)
+    {
+        if (ignore == _playerIgnored) return;
+        Collider[] target = ignore ? playerCols : _ignoredCols;
+        if (target == null) { _playerIgnored = ignore; return; }
+
+        if (_cols == null) _cols = GetComponentsInChildren<Collider>(false);
+        for (int i = 0; i < _cols.Length; i++)
+        {
+            // Physics.IgnoreCollision bao loi neu collider dang tat / object inactive
+            if (_cols[i] == null || !_cols[i].enabled || !_cols[i].gameObject.activeInHierarchy) continue;
+            for (int j = 0; j < target.Length; j++)
+            {
+                if (target[j] == null || !target[j].enabled || !target[j].gameObject.activeInHierarchy) continue;
+                Physics.IgnoreCollision(_cols[i], target[j], ignore);
+            }
+        }
+
+        _ignoredCols = ignore ? playerCols : null;
+        _playerIgnored = ignore;
     }
 
     /// <summary>
@@ -221,6 +256,7 @@ public class PhysicsDevourable : MonoBehaviour
     /// <summary>Het bi hut/giang co: bat lai trong luc, tra ve kich thuoc goc, tu roi xuong. Sau sleepDelay ngu.</summary>
     public void Release()
     {
+        SetPlayerCollision(null, false);   // bat lai va cham voi player
         if (_state != State.Sucked && _state != State.Struggling) return;
 
         if (_state == State.Struggling) transform.rotation = _anchorRot;   // het rung, tra ve the dung
