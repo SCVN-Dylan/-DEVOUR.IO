@@ -63,7 +63,7 @@ public class SimpleSuction : MonoBehaviour
     public float xpGrowth = 1.25f;
 
     [Header("Len cap thi to len")]
-    [Range(0f, 0.5f)]
+    [Range(0f, 100f)]
     [Tooltip("Moi cap nhan vat to them bao nhieu (0.12 = +12%/cap)")]
     public float scalePerLevel = 0.12f;
 
@@ -71,7 +71,7 @@ public class SimpleSuction : MonoBehaviour
              "0 = khong gioi han (to mai theo cap)")]
     public float maxScale = 2f;
 
-    [Range(0f, 0.5f)]
+    [Range(0f, 100f)]
     [Tooltip("Moi cap non hut dai ra bao nhieu (0.15 = +15%/cap)")]
     public float rangePerLevel = 0.15f;
 
