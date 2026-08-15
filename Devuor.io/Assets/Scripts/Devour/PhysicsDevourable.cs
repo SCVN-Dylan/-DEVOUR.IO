@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -100,6 +101,14 @@ public class PhysicsDevourable : MonoBehaviour
     private Collider[] _cols;
     private Collider[] _ignoredCols;   // collider player dang duoc bo qua va cham
     private bool _playerIgnored;
+    private Tween _swallowTween;
+
+    void OnDestroy()
+    {
+        // Tween con song ma target da chet thi DOTween nem loi
+        if (_swallowTween != null && _swallowTween.IsActive()) _swallowTween.Kill();
+        _swallowTween = null;
+    }
 
     void Awake()
     {
@@ -284,13 +293,19 @@ public class PhysicsDevourable : MonoBehaviour
         if (onDevoured != null) onDevoured.Invoke();
 
         if (swallowDuration > 0f && isActiveAndEnabled)
-            StartCoroutine(SwallowAnim(swallowTarget));
+            PlaySwallow(swallowTarget);
         else
             Destroy(gameObject);
     }
 
-    /// <summary>Hieu ung nuot: xoay tit + teo nho lao thang vao mom roi bien mat.</summary>
-    private System.Collections.IEnumerator SwallowAnim(Transform target)
+    /// <summary>
+    /// Hieu ung nuot: xoay tit + teo nho lao thang vao mom roi bien mat.
+    ///
+    /// Chay bang DOTween thay cho coroutine cu. Van BAM THEO mom (doc target.position moi frame
+    /// trong callback) chu khong bay toi mot diem co dinh - nguoi choi dang chay thi mom di
+    /// chuyen, ban toi diem cu se thay item lao tret ra sau lung.
+    /// </summary>
+    private void PlaySwallow(Transform target)
     {
         _state = State.Sucked;                       // khoa: physics/suction khong con xen vao
         if (!_rb.isKinematic)
@@ -306,19 +321,19 @@ public class PhysicsDevourable : MonoBehaviour
 
         Vector3 startPos = transform.position;
         Vector3 startScale = transform.localScale;
-        float t = 0f;
-        while (t < swallowDuration)
+        Transform tf = transform;
+
+        tf.DOKill();
+        _swallowTween = DOTween.To(() => 0f, k =>
         {
-            t += Time.deltaTime;
-            float ease = Mathf.Clamp01(t / swallowDuration);
-            ease *= ease;                                                 // gia toc lao vao mom
+            if (tf == null) return;
             Vector3 tp = target != null ? target.position : startPos;
-            transform.position = Vector3.Lerp(startPos, tp, ease);
-            transform.localScale = startScale * (1f - ease);             // teo dan ve 0
-            transform.Rotate(Vector3.up, swallowSpin * Time.deltaTime, Space.Self);   // xoay tit
-            yield return null;
-        }
-        Destroy(gameObject);
+            tf.position = Vector3.Lerp(startPos, tp, k);
+            tf.localScale = startScale * (1f - k);
+            tf.Rotate(Vector3.up, swallowSpin * Time.deltaTime, Space.Self);
+        }, 1f, swallowDuration)
+            .SetEase(Ease.InQuad)                    // gia toc lao vao mom, giong ease*ease cu
+            .OnComplete(() => { if (this != null) Destroy(gameObject); });
     }
 
     void FixedUpdate()

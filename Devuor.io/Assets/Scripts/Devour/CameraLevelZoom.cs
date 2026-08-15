@@ -1,13 +1,28 @@
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
-/// Zoom camera bang FOV theo CAP DO, CONG DON qua tung moc (khong phai set tuyet doi).
+/// Zoom camera theo CAP DO, CONG DON qua tung moc (khong phai set tuyet doi).
+///
+/// Chay duoc CA HAI loai camera, tu nhan biet qua cam.orthographic:
+///   - Perspective : dieu khien fieldOfView, don vi do.
+///   - Orthographic: dieu khien orthographicSize, don vi world (baseSize..maxSize).
+/// Duong cong moc (steps/addPerLevel) dung chung, chi doi hai dau mut - tune mot lan la xong.
+///
+/// KHONG CO Update: FOV chi duoc tinh lai khi SimpleSuction goi ApplyForLevel() luc len level.
+/// Ban cu duyet tu level 2 den level hien tai + cap phat mot Dictionary MOI FRAME (o Lv150 la
+/// ~9000 vong lap/giay, cang len level cang nang). Gio la O(so moc), goi 1 lan moi khi len level.
 ///
 /// Ho tro 2 che do / ket hop:
 /// 1. zoomEveryLevel: Cong 'addPerLevel' cho moi level.
 /// 2. useSteps: Cong gia tri 'add' khi dat cac moc 'level' trong danh sach steps.
 /// 3. skipAddPerLevelOnStep: Khi bat ca 2, tai level co trong steps se dung 'add' cua Step va KHONG cong 'addPerLevel'.
+///
+/// Co HAI diem dung, cai nao toi truoc thi dung o do:
+///   - maxZoom: tran FOV do chinh minh dat.
+///   - SimpleSuction.ZoomLevel: dong bang khi than cham maxScale (than dung to thi camera
+///     cung dung zoom ra, khong thi nhan vat teo dan tren man hinh).
 /// </summary>
 [RequireComponent(typeof(Camera))]
 [DisallowMultipleComponent]
@@ -30,6 +45,22 @@ public class CameraLevelZoom : MonoBehaviour
 
     [Tooltip("FOV goc (khi chua qua moc nao). Cac moc cong don len tren nay")]
     public float baseFov = 50f;
+
+    [Range(1f, 179f)]
+    [Tooltip("TRAN ZOOM: cong don toi day thi DUNG, len bao nhieu level nua cung khong zoom them.\n" +
+             "Truoc day khong co bien nay nen FOV cong mai toi khi dam vao gioi han cung 179 do cua\n" +
+             "Unity - luc do hinh meo nang. Dat so nay de tu quyet dinh diem dung.")]
+    public float maxZoom = 80f;
+
+    [Header("Camera Orthographic")]
+    [Tooltip("Camera ortho KHONG dung fieldOfView - Unity bo qua. Khi cam.orthographic = true thi\n" +
+             "component tu chuyen sang dieu khien orthographicSize, dung Y NGUYEN duong cong moc\n" +
+             "o tren (steps/addPerLevel), chi doi hai dau mut sang don vi world.\n\n" +
+             "baseSize = co khung luc chua qua moc nao (tuong ung baseFov).")]
+    public float baseSize = 5f;
+
+    [Tooltip("Co khung khi da zoom het co (tuong ung maxZoom). Toi day thi dung.")]
+    public float maxSize = 24f;
 
     [Header("Zoom theo moc (Steps)")]
     [Tooltip("Co bat/tat su dung danh sach moc (Steps)")]
@@ -54,87 +85,139 @@ public class CameraLevelZoom : MonoBehaviour
     [Tooltip("BAT: Khi dung dong thoi Steps va AddPerLevel, tai level co trong Steps se lay data cua Step va KHONG cong addPerLevel cho level do.\nTAT: Cong ca hai tai level co Step.")]
     public bool skipAddPerLevelOnStep = true;
 
-    [Header("Muot ma")]
-    [Tooltip("Toc do doi FOV muot (he so Lerp/giay). 8-12 = phan hoi nhanh luc dau, em o cuoi. 0 = doi ngay")]
-    public float lerpSpeed = 8f;
+    [Header("Muot ma (DOTween)")]
+    [Tooltip("Thoi gian doi FOV sang gia tri moi (giay). 0 = doi ngay tuc thi.\n" +
+             "Thay cho 'lerpSpeed' cu - gio la tween chay 1 lan roi tu chet, khong con Update.")]
+    public float tweenDuration = 0.3f;
 
-    private float _fov;
+    [Tooltip("Kieu easing khi doi FOV")]
+    public Ease tweenEase = Ease.OutQuad;
+
+    private Tween _tween;
 
     void OnEnable()
     {
         if (cam == null) cam = GetComponent<Camera>();
         if (player == null) player = Object.FindAnyObjectByType<SimpleSuction>();
-        if (baseFov <= 0f && cam != null) baseFov = cam.fieldOfView;
-        _fov = TargetFov();
-        Apply();
+        if (cam != null)
+        {
+            if (baseFov <= 0f) baseFov = cam.fieldOfView;
+            if (baseSize <= 0f) baseSize = cam.orthographicSize;
+        }
+
+        ApplyForLevel(player != null ? player.ZoomLevel : 1, true);
     }
 
-    void Update()
+    void OnDisable() { KillTween(); }
+    void OnDestroy() { KillTween(); }
+
+    /// <summary>
+    /// SimpleSuction goi ham nay MOI KHI LEN LEVEL (khong co poll). Tinh FOV dich 1 lan roi
+    /// tween toi do. 'instant' = bo tween, dat thang (dung luc khoi tao / trong Edit mode).
+    /// </summary>
+    public void ApplyForLevel(int level, bool instant = false)
     {
-        if (cam == null || player == null) return;
+        if (cam == null) cam = GetComponent<Camera>();
+        if (cam == null) return;
 
-        float target = TargetFov();
-        _fov = (Application.isPlaying && lerpSpeed > 0f)
-            ? Mathf.Lerp(_fov, target, lerpSpeed * Time.deltaTime)
-            : target;
+        bool ortho = cam.orthographic;
+        float target = ortho ? TargetSizeFor(level) : TargetFovFor(level);
+        KillTween();
 
-        Apply();
+        if (instant || tweenDuration <= 0f || !Application.isPlaying)
+        {
+            if (ortho) cam.orthographicSize = target;
+            else cam.fieldOfView = target;
+            return;
+        }
+
+        _tween = ortho
+            ? cam.DOOrthoSize(target, tweenDuration).SetEase(tweenEase)
+            : cam.DOFieldOfView(target, tweenDuration).SetEase(tweenEase);
     }
 
     /// <summary>
-    /// Tinh FOV muc tieu dua tren level hien tai cua player.
-    /// Cong dồn qua tung level tu 2 den level hien tai.
+    /// orthographicSize muc tieu cho mot level. Dung CHUNG duong cong voi TargetFovFor: lay
+    /// vi tri tuong doi cua FOV trong khoang [baseFov .. maxZoom] roi anh sang [baseSize .. maxSize].
+    /// Nho vay bang 'steps' chi phai tune MOT lan, doi qua ortho khong phai lam lai.
     /// </summary>
+    public float TargetSizeFor(int level)
+    {
+        float span = Mathf.Max(0.0001f, Mathf.Clamp(maxZoom, 1f, 179f) - baseFov);
+        float t = Mathf.Clamp01((TargetFovFor(level) - baseFov) / span);
+        return Mathf.Lerp(baseSize, maxSize, t);
+    }
+
+    /// <summary>Gia tri camera dang huong toi, dung don vi cua che do hien tai.</summary>
+    public float TargetZoom()
+    {
+        int lv = player != null ? player.ZoomLevel : 1;
+        return (cam != null && cam.orthographic) ? TargetSizeFor(lv) : TargetFovFor(lv);
+    }
+
+    /// <summary>FOV muc tieu ung voi level dang hien hanh cua player.</summary>
     public float TargetFov()
     {
-        int currentLevel = player != null ? player.Level : 1;
+        return TargetFovFor(player != null ? player.ZoomLevel : 1);
+    }
+
+    /// <summary>
+    /// FOV muc tieu cho mot level bat ky. O(so moc), khong cap phat.
+    ///
+    ///   fov = baseFov
+    ///       + addPerLevel x (so level da len, TRU cac level trung moc neu skipAddPerLevelOnStep)
+    ///       + tong 'add' cua moi moc da qua
+    ///
+    /// Nhieu Step cung mot 'level' thi 'add' van cong don het, nhung chi tinh la MOT lan trung
+    /// moc (giong het ban cu dung Dictionary gop theo level).
+    /// </summary>
+    public float TargetFovFor(int level)
+    {
         float fov = baseFov;
+        int levelsGained = Mathf.Max(0, level - 1);
 
-        if (currentLevel <= 1) return Mathf.Clamp(fov, 1f, 179f);
+        float stepAdd = 0f;
+        int distinctStepLevels = 0;
 
-        // Map cac step theo level de tra cuu nhanh
-        Dictionary<int, float> stepMap = null;
-        if (useSteps && steps != null && steps.Count > 0)
+        if (useSteps && steps != null)
         {
-            stepMap = new Dictionary<int, float>();
             for (int i = 0; i < steps.Count; i++)
             {
                 Step s = steps[i];
-                if (s != null && s.level > 1)
+                if (s == null || s.level < 2 || s.level > level) continue;
+
+                stepAdd += s.add;
+
+                bool duplicate = false;
+                for (int j = 0; j < i; j++)
                 {
-                    if (stepMap.ContainsKey(s.level))
-                        stepMap[s.level] += s.add;
-                    else
-                        stepMap[s.level] = s.add;
+                    Step q = steps[j];
+                    if (q != null && q.level == s.level && q.level >= 2 && q.level <= level) { duplicate = true; break; }
                 }
+                if (!duplicate) distinctStepLevels++;
             }
         }
 
-        // Duyet qua tung level tu level 2 den currentLevel
-        for (int lvl = 2; lvl <= currentLevel; lvl++)
+        if (zoomEveryLevel)
         {
-            float stepAdd = 0f;
-            bool hasStep = stepMap != null && stepMap.TryGetValue(lvl, out stepAdd);
-
-            if (hasStep)
-            {
-                fov += stepAdd;
-                if (zoomEveryLevel && !skipAddPerLevelOnStep)
-                {
-                    fov += addPerLevel;
-                }
-            }
-            else if (zoomEveryLevel)
-            {
-                fov += addPerLevel;
-            }
+            int normal = skipAddPerLevelOnStep ? levelsGained - distinctStepLevels : levelsGained;
+            fov += addPerLevel * Mathf.Max(0, normal);
         }
+        fov += stepAdd;
 
-        return Mathf.Clamp(fov, 1f, 179f);
+        // Chan bang maxZoom (trong khoang hop le 1..179 cua Unity): toi tran thi dung han
+        return Mathf.Clamp(fov, 1f, Mathf.Clamp(maxZoom, 1f, 179f));
     }
 
-    private void Apply()
+    /// <summary>Da zoom het co chua (dung cho ca 2 che do - do tren duong cong goc).</summary>
+    public bool IsAtMaxZoom
     {
-        if (cam != null) cam.fieldOfView = _fov;
+        get { return TargetFov() >= Mathf.Clamp(maxZoom, 1f, 179f) - 0.001f; }
+    }
+
+    private void KillTween()
+    {
+        if (_tween != null && _tween.IsActive()) _tween.Kill();
+        _tween = null;
     }
 }
