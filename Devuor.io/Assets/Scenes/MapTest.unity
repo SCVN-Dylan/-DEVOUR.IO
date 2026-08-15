@@ -31621,7 +31621,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 300
-  field of view: 50
+  field of view: 20
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -31648,7 +31648,7 @@ Transform:
   m_GameObject: {fileID: 1180586913}
   serializedVersion: 2
   m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
-  m_LocalPosition: {x: 0, y: 23.71, z: -17}
+  m_LocalPosition: {x: 0, y: 24, z: -19.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -31729,13 +31729,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraLevelZoom
   player: {fileID: 6352853275198410509}
   cam: {fileID: 1180586915}
-  baseFov: 25
+  baseFov: 20
   useSteps: 1
   steps:
-  - level: 8
-    add: 10
+  - level: 10
+    add: 5
+  - level: 25
+    add: 5
+  - level: 50
+    add: 5
+  - level: 50
+    add: 5
+  - level: 90
+    add: 5
+  - level: 150
+    add: 5
   zoomEveryLevel: 1
-  addPerLevel: 3
+  addPerLevel: 0.2
   skipAddPerLevelOnStep: 1
   lerpSpeed: 8
 --- !u!1001 &1188805234
@@ -55531,8 +55541,12 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1180586917}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: level
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: range
-      value: 2
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: maxLevel
@@ -55544,15 +55558,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: coneAngle
-      value: 55
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: pullAccel
-      value: 80
+      value: 78.5
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: pullSpeed
       value: 200
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: useTierGate
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: stageUpPunch
+      value: 0.92
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: xpToNextBase
@@ -55560,15 +55582,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: rangePerLevel
-      value: 0.2
+      value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: scalePerLevel
-      value: 0.5
+      value: 0.01
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: farSpeedFactor
-      value: 0.5
+      value: 0.26
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: stageLerpSpeed
+      value: 2.34
       objectReference: {fileID: 0}
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
@@ -55604,7 +55630,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -2.3
       objectReference: {fileID: 0}
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalRotation.w
@@ -55633,6 +55659,12 @@ PrefabInstance:
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4971381581295975268, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_text
+      value: 'Player
+
+        <size=65%>Lv 1</size>'
       objectReference: {fileID: 0}
     - target: {fileID: 4971381581295975268, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_TextStyleHashCode

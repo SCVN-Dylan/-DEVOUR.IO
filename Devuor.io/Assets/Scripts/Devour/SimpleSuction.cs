@@ -9,12 +9,24 @@ using UnityEngine.Events;
 /// (Pull) cac PhysicsDevourable trong non ve phia mieng. Cham mieng thi nuot (cong XP/diem).
 /// Item ra khoi non thi duoc Release de tu roi.
 ///
-/// Len cap: an du XP thi level++, nhan vat SCALE to len dong thoi NON HUT cung dai ra
-/// (scalePerLevel / rangePerLevel).
+/// LEVEL = 1 + TONG XP da an. An 1 XP la len 1 level, KHONG CO TRAN, reset moi van.
+/// Mon cang to (xpValue cang lon) thi nhay cang nhieu level trong mot mieng an.
+/// Level hien thi tren PlayerNameTag ("Lv N" tren dau nhan vat).
 /// </summary>
 [DisallowMultipleComponent]
 public class SimpleSuction : MonoBehaviour
 {
+    /// <summary>Mot moc to len: dat 'level' thi cong them 'add' vao he so scale.</summary>
+    [System.Serializable]
+    public class ScaleStep
+    {
+        [Tooltip("Level dat toi")]
+        public int level = 10;
+
+        [Tooltip("CONG THEM bao nhieu vao he so scale khi dat level nay (cong don)")]
+        public float add = 0.5f;
+    }
+
     [Header("Vung hut (non phia truoc)")]
     [Tooltip("De trong se tu tim object con 'Mouth'. Non toa theo mouth.forward.")]
     public Transform mouth;
@@ -52,24 +64,40 @@ public class SimpleSuction : MonoBehaviour
 
     [Header("Cap do")]
     public bool useLevelGate = true;
+
+    [Tooltip("LEVEL HIEN THI = 1 + TONG XP da an. An 1 XP la len 1 level, KHONG CO TRAN.\n" +
+             "Do to cho nhieu xpValue thi nhay nhieu level mot phat. Reset moi van.\n" +
+             "Chinh o day = dat level khoi dau.")]
     public int level = 1;
-    public int maxLevel = 10;
-
-    [Tooltip("XP can de len cap 2")]
-    public int xpToNextBase = 3;
-
-    [Range(1f, 2f)]
-    [Tooltip("Moi cap sau can nhieu XP hon bao nhieu lan")]
-    public float xpGrowth = 1.25f;
 
     [Header("Len cap thi to len")]
     [Range(0f, 100f)]
-    [Tooltip("Moi cap nhan vat to them bao nhieu (0.12 = +12%/cap)")]
-    public float scalePerLevel = 0.12f;
+    [Tooltip("Moi cap thuong nhan vat to them bao nhieu (0.015 = +1.5%/cap).\n" +
+             "Level trung MOC trong scaleSteps thi KHONG cong khoan nay, chi cong 'add' cua moc.")]
+    public float scalePerLevel = 0.015f;
+
+    [Tooltip("Cac MOC to len: dat level nay thi CONG THEM 'add' vao he so scale. CONG DON qua nhieu moc.\n" +
+             "Giua 2 moc van to dan deu theo scalePerLevel, toi moc thi cong nguyen mot cuc.")]
+    public List<ScaleStep> scaleSteps = new List<ScaleStep>
+    {
+        new ScaleStep { level = 10,  add = 0.50f },
+        new ScaleStep { level = 25,  add = 0.60f },
+        new ScaleStep { level = 50,  add = 0.85f },
+        new ScaleStep { level = 90,  add = 1.00f },
+        new ScaleStep { level = 150, add = 1.00f },
+    };
 
     [Tooltip("TRAN kich thuoc: to toi da = scale goc x so nay, du level bao nhieu cung khong vuot.\n" +
              "0 = khong gioi han (to mai theo cap)")]
-    public float maxScale = 2f;
+    public float maxScale = 20f;
+
+    [Range(0f, 2f)]
+    [Tooltip("TOC DO DI CHUYEN bam theo co than: speed = speed goc x (1 + (he so scale - 1) x so nay).\n" +
+             "Tu co san ca phan nhich moi mieng an lan cu nhay o moc, vi he so scale da co san.\n" +
+             "  0    = toc do dung im -> cang to cang i (chậm gap 7 lan o Lv150)\n" +
+             "  0.25 = nang gap ~2.8 lan luc dau (mac dinh)\n" +
+             "  1    = toc tang dung bang co -> to ma khong i ti nao, nhung map thanh be")]
+    public float speedFollowScale = 0.25f;
 
     [Range(0f, 100f)]
     [Tooltip("Moi cap non hut dai ra bao nhieu (0.15 = +15%/cap)")]
@@ -92,8 +120,9 @@ public class SimpleSuction : MonoBehaviour
     public UnityEvent onLevelUp;
 
     public int Level { get { return level; } }
+
+    /// <summary>Tong XP da an trong van nay. Level = 1 + Xp.</summary>
     public int Xp { get { return _xp; } }
-    public int XpToNext { get { return XpToNextAt(level); } }
     public float CurrentRange { get { return range * (1f + rangePerLevel * (level - 1)); } }
 
     /// <summary>Dang co it nhat 1 item nam trong vung/non hut hay khong.</summary>
@@ -111,6 +140,8 @@ public class SimpleSuction : MonoBehaviour
     }
 
     private Vector3 _baseScale;
+    private float _scaleFactor = 1f;   // cache, chi tinh lai khi level doi
+    private RbMovement _movement;
     private int _xp;
     private float _scanTimer;
     private float _gulpTimer;
@@ -129,6 +160,12 @@ public class SimpleSuction : MonoBehaviour
             mouth = m != null ? m : transform;
         }
         _ownCols = GetComponentsInChildren<Collider>(true);
+        _movement = GetComponent<RbMovement>();
+
+        // Giu bat bien Level = 1 + Xp ngay tu dau (level authored tren prefab = level khoi dau)
+        if (level < 1) level = 1;
+        _xp = level - 1;
+
         ApplyLevelScale();
     }
 
@@ -256,52 +293,84 @@ public class SimpleSuction : MonoBehaviour
         _gulpTimer = gulpDuration;
     }
 
-    public int XpToNextAt(int lvl)
-    {
-        if (lvl >= maxLevel) return 0;
-        return Mathf.Max(1, Mathf.CeilToInt(xpToNextBase * Mathf.Pow(xpGrowth, lvl - 1)));
-    }
-
+    /// <summary>
+    /// 1 XP = 1 LEVEL. Khong con duong cong XP, khong con tran: Level = 1 + tong XP da an.
+    /// An mon to (xpValue lon) thi nhay nhieu level trong mot mieng.
+    /// </summary>
     private void AddXp(int amount)
     {
-        if (level >= maxLevel) return;
         _xp += Mathf.Max(1, amount);
-        while (level < maxLevel)
-        {
-            int need = XpToNext;
-            if (need <= 0 || _xp < need) break;
-            _xp -= need;
-            LevelUp();
-        }
-        if (level >= maxLevel) _xp = 0;
-    }
 
-    private void LevelUp()
-    {
-        level++;
+        int newLevel = 1 + _xp;
+        if (newLevel == level) return;
+
+        level = newLevel;
         ApplyLevelScale();
         if (onLevelUp != null) onLevelUp.Invoke();
     }
 
-    /// <summary>Dat thang cap (cheat/test).</summary>
+    /// <summary>Dat thang cap (cheat/test). XP dong bo theo cho dung Level = 1 + Xp.</summary>
     public void SetLevel(int value)
     {
-        level = Mathf.Clamp(value, 1, maxLevel);
-        _xp = 0;
+        level = Mathf.Max(1, value);
+        _xp = level - 1;
         ApplyLevelScale();
+    }
+
+    /// <summary>
+    /// Toc do di chuyen bam theo he so scale (da bi maxScale chan) - than dung to thi toc
+    /// cung dung tang. Khong co bang moc rieng: scale da chua san creep + cu nhay o moc.
+    /// </summary>
+    private void ApplySpeed()
+    {
+        if (_movement == null) return;
+        _movement.SetSpeedMultiplier(1f + (_scaleFactor - 1f) * speedFollowScale);
     }
 
     private void ApplyLevelScale()
     {
+        RecalcScaleFactor();
+        ApplySpeed();
         ApplyScale(Vector3.one);
     }
 
     /// <summary>Dat scale = base * (he so cap do, chan tran maxScale) * (punch squash-stretch cua gulp).</summary>
+    /// <summary>
+    /// Tinh lai he so scale theo level. CHI goi khi level doi (khong goi moi frame): duyet
+    /// het danh sach moc chu khong duyet tung level, nen bao nhieu level cung la O(so moc).
+    ///
+    ///   he so = 1
+    ///         + scalePerLevel x (so level da len, TRU cac level trung moc)
+    ///         + tong 'add' cua moi moc ma level da qua
+    ///
+    /// Level trung moc thi khong cong scalePerLevel nua - chi an 'add' cua moc do.
+    /// </summary>
+    private void RecalcScaleFactor()
+    {
+        int levelsGained = Mathf.Max(0, level - 1);
+
+        float stepAdd = 0f;
+        int stepHits = 0;
+        if (scaleSteps != null)
+        {
+            for (int i = 0; i < scaleSteps.Count; i++)
+            {
+                ScaleStep s = scaleSteps[i];
+                if (s == null || s.level < 2 || s.level > level) continue;
+                stepAdd += s.add;
+                stepHits++;
+            }
+        }
+
+        int normalLevels = Mathf.Max(0, levelsGained - stepHits);
+        float f = 1f + scalePerLevel * normalLevels + stepAdd;
+        if (maxScale > 0f) f = Mathf.Min(f, maxScale);
+        _scaleFactor = f;
+    }
+
     private void ApplyScale(Vector3 punch)
     {
-        float lvl = 1f + scalePerLevel * (level - 1);
-        if (maxScale > 0f) lvl = Mathf.Min(lvl, maxScale);
-        transform.localScale = Vector3.Scale(_baseScale * lvl, punch);
+        transform.localScale = Vector3.Scale(_baseScale * _scaleFactor, punch);
     }
 
     void OnDrawGizmosSelected()

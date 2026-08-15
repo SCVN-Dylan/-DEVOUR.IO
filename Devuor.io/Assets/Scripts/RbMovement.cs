@@ -41,6 +41,8 @@ public class RbMovement : MonoBehaviour
     private Vector3 _dir;
     private Vector3 _planarVelocity;
     private bool _yLocked;
+    private float _baseSpeed;
+    private bool _baseSpeedCached;
 
     /// <summary>Da cham dat va khoa truc Y chua.</summary>
     public bool IsYLocked { get { return _yLocked; } }
@@ -49,6 +51,31 @@ public class RbMovement : MonoBehaviour
     {
         get { return _speed; }
         set { _speed = value > 0f ? value : 0f; }
+    }
+
+    /// <summary>Toc do goc authored tren prefab, khong bi he so cap do ghi de.</summary>
+    public float BaseSpeed { get { CacheBaseSpeed(); return _baseSpeed; } }
+
+    /// <summary>
+    /// Dat toc do = toc do GOC x he so. Goi bao nhieu lan cung ra cung ket qua, khong
+    /// nhan chong len nhau (khac voi ghi thang vao Speed).
+    /// </summary>
+    public void SetSpeedMultiplier(float multiplier)
+    {
+        CacheBaseSpeed();
+        _speed = _baseSpeed * Mathf.Max(0f, multiplier);
+    }
+
+    /// <summary>
+    /// Chot toc do goc. Goi ca trong Awake lan trong SetSpeedMultiplier vi thu tu Awake giua
+    /// cac component tren cung GameObject la khong dam bao - neu SimpleSuction.Awake chay truoc
+    /// ma chua chot thi _baseSpeed = 0 va nhan vat dung im.
+    /// </summary>
+    private void CacheBaseSpeed()
+    {
+        if (_baseSpeedCached) return;
+        _baseSpeed = _speed;
+        _baseSpeedCached = true;
     }
 
     /// <summary>Tat de khoa cung nhan vat (cutscene, ket thuc van...).</summary>
@@ -67,6 +94,7 @@ public class RbMovement : MonoBehaviour
     void Awake()
     {
         if (_rb == null) _rb = GetComponent<Rigidbody>();
+        CacheBaseSpeed();
 
         // Khoa toan bo xoay vat ly: dam vao toa nha hay xe khong the lam nhan vat quay.
         _rb.constraints = RigidbodyConstraints.FreezeRotation;
