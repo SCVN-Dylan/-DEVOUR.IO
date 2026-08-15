@@ -4,6 +4,8 @@ using UnityEngine;
 /// Ve VUNG HUT ra man hinh: mot hinh quat (fan) ban trong suot trai tren mat dat truoc
 /// nhan vat, khop dung range + coneAngle cua SimpleSuction va NO RA khi len cap.
 ///
+/// Dai mau (gradient): Sat mieng (hut nhanh) = MAU DO, o xa (hut cham) = MAU XANH DUNG.
+///
 /// Chay ca trong Edit mode (ExecuteAlways) de xem truoc trong Scene/Game view. Mesh va
 /// material tao runtime, danh dau DontSave nen khong ghi rac vao scene/prefab.
 /// </summary>
@@ -18,13 +20,21 @@ public class SuctionZoneVisual : MonoBehaviour
     [Tooltip("Goc non (mac dinh lay tu suction.mouth)")]
     public Transform mouth;
 
-    [Tooltip("Mau vung hut (co alpha)")]
-    public Color color = new Color(1f, 0.35f, 0.05f, 0.32f);
+    [Header("Dai mau theo khoang cach")]
+    [Tooltip("Mau vung gan mieng (sat mouth, hut nhanh) - Do")]
+    public Color nearColor = new Color(1f, 0.15f, 0.15f, 0.55f);
 
-    [Tooltip("So mieng tam giac cua quat - cao = muot hon")]
+    [Tooltip("Mau vung o xa (ria ngoai, hut cham) - Xanh duong")]
+    public Color farColor = new Color(0f, 0.55f, 1f, 0.35f);
+
+    [Header("Do chi tiet Mesh")]
+    [Tooltip("So mieng tam giac theo chieu ngang quat - cao = muot hon")]
     [Range(6, 64)] public int segments = 28;
 
-    [Tooltip("Ve cao hon mat dat mot chut cho khoi z-fighting")]
+    [Tooltip("So vong dong tam tu trong ra ngoai - cao = chuyen mau min hon")]
+    [Range(1, 32)] public int rings = 8;
+
+    [Tooltip("Ve cao hon chan/pivot player mot chut cho khoi z-fighting")]
     public float groundY = 0.06f;
 
     private MeshFilter _mf;
@@ -32,12 +42,14 @@ public class SuctionZoneVisual : MonoBehaviour
     private Mesh _mesh;
     private Material _mat;
 
-    // Cache de KHONG dung lai mesh moi frame (tranh GC tren mobile) - chi rebuild khi thong so doi
+    // Cache de KHONG dung lai mesh moi frame (tranh GC tren mobile)
     private Vector3[] _verts;
+    private Color32[] _colors;
     private int[] _tris;
     private int _lastSeg = -1;
+    private int _lastRings = -1;
     private float _lastRadius = -1f, _lastAngle = -1f, _lastInvSx = -1f, _lastInvSz = -1f;
-    private Color _lastColor;
+    private Color _lastNearColor, _lastFarColor;
 
     void OnEnable()
     {
@@ -56,7 +68,7 @@ public class SuctionZoneVisual : MonoBehaviour
         _mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         _mr.receiveShadows = false;
 
-        Refresh(); // dung mesh ngay, khong cho tick dau tien
+        Refresh();
     }
 
     void OnDisable()
@@ -76,7 +88,6 @@ public class SuctionZoneVisual : MonoBehaviour
         if (mouth == null) mouth = suction.mouth != null ? suction.mouth : suction.transform;
         if (_mesh == null) return;
 
-        // Dat tam quat tai CHAN PLAYER (suction.transform), chieu xuong mat dat; huong theo mouth.forward phang tren XZ
         Transform originTF = suction.transform;
         Vector3 p = originTF.position;
         Vector3 fwd = mouth != null ? mouth.forward : originTF.forward;
@@ -85,83 +96,110 @@ public class SuctionZoneVisual : MonoBehaviour
         fwd.y = 0f;
         fwd.Normalize();
 
-        transform.position = new Vector3(p.x, groundY, p.z);
+        transform.position = new Vector3(p.x, p.y + groundY, p.z);
         transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
 
-        // Bu lai scale cua cha (player scale khi len cap) de radius the giu dung don vi world
         Vector3 ls = transform.lossyScale;
         float sx = Mathf.Approximately(ls.x, 0f) ? 1f : 1f / ls.x;
         float sz = Mathf.Approximately(ls.z, 0f) ? 1f : 1f / ls.z;
 
         Rebuild(suction.CurrentRange, suction.coneAngle, sx, sz);
-
-        // Mau chi set khi doi (tranh SetColor moi frame)
-        if (_mat != null && color != _lastColor)
-        {
-            _mat.color = color;
-            if (_mat.HasProperty("_BaseColor")) _mat.SetColor("_BaseColor", color);
-            _lastColor = color;
-        }
     }
 
-    /// <summary>Dung lai mesh CHI KHI thong so doi (range/angle/scale/segments) - con lai skip, khong ton gi.</summary>
     private void Rebuild(float radius, float angle, float invSx, float invSz)
     {
         if (_mesh == null) return;
 
         int seg = Mathf.Clamp(segments, 6, 64);
-        if (seg == _lastSeg
+        int rng = Mathf.Clamp(rings, 1, 32);
+
+        if (seg == _lastSeg && rng == _lastRings
             && Mathf.Approximately(radius, _lastRadius) && Mathf.Approximately(angle, _lastAngle)
-            && Mathf.Approximately(invSx, _lastInvSx) && Mathf.Approximately(invSz, _lastInvSz))
-            return;   // khong doi -> khoi dung lai
+            && Mathf.Approximately(invSx, _lastInvSx) && Mathf.Approximately(invSz, _lastInvSz)
+            && nearColor == _lastNearColor && farColor == _lastFarColor)
+            return;
 
-        _lastSeg = seg; _lastRadius = radius; _lastAngle = angle; _lastInvSx = invSx; _lastInvSz = invSz;
+        _lastSeg = seg; _lastRings = rng;
+        _lastRadius = radius; _lastAngle = angle;
+        _lastInvSx = invSx; _lastInvSz = invSz;
+        _lastNearColor = nearColor; _lastFarColor = farColor;
 
-        if (_verts == null || _verts.Length != seg + 2)
+        int vertCount = (rng + 1) * (seg + 1);
+        int triCount = rng * seg * 6;
+
+        if (_verts == null || _verts.Length != vertCount)
         {
-            _verts = new Vector3[seg + 2];
-            _tris = new int[seg * 3];
-            for (int i = 0; i < seg; i++)   // topology co dinh, chi tinh 1 lan
+            _verts = new Vector3[vertCount];
+            _colors = new Color32[vertCount];
+            _tris = new int[triCount];
+
+            int tIdx = 0;
+            for (int r = 0; r < rng; r++)
             {
-                _tris[i * 3] = 0;
-                _tris[i * 3 + 1] = i + 1;
-                _tris[i * 3 + 2] = i + 2;
+                for (int s = 0; s < seg; s++)
+                {
+                    int curr = r * (seg + 1) + s;
+                    int next = curr + seg + 1;
+
+                    _tris[tIdx++] = curr;
+                    _tris[tIdx++] = next;
+                    _tris[tIdx++] = curr + 1;
+
+                    _tris[tIdx++] = curr + 1;
+                    _tris[tIdx++] = next;
+                    _tris[tIdx++] = next + 1;
+                }
             }
         }
 
         float half = angle * 0.5f * Mathf.Deg2Rad;
-        _verts[0] = Vector3.zero;
-        for (int i = 0; i <= seg; i++)
+        Color32 nearC = nearColor;
+        Color32 farC = farColor;
+
+        int vIdx = 0;
+        for (int r = 0; r <= rng; r++)
         {
-            float a = Mathf.Lerp(-half, half, i / (float)seg);
-            _verts[i + 1] = new Vector3(Mathf.Sin(a) * radius * invSx, 0f, Mathf.Cos(a) * radius * invSz);
+            float rFrac = (float)r / rng;
+            float currentR = radius * rFrac;
+            Color32 c = Color32.Lerp(nearC, farC, rFrac);
+
+            for (int s = 0; s <= seg; s++)
+            {
+                float a = Mathf.Lerp(-half, half, (float)s / seg);
+                _verts[vIdx] = new Vector3(Mathf.Sin(a) * currentR * invSx, 0f, Mathf.Cos(a) * currentR * invSz);
+                _colors[vIdx] = c;
+                vIdx++;
+            }
         }
 
         _mesh.Clear();
         _mesh.vertices = _verts;
+        _mesh.colors32 = _colors;
         _mesh.triangles = _tris;
         _mesh.RecalculateBounds();
     }
 
     private Material BuildMaterial()
     {
-        Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
+        Shader sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
         if (sh == null) sh = Shader.Find("Sprites/Default");
         Material m = new Material(sh);
         m.hideFlags = HideFlags.DontSave;
 
-        // Cau hinh trong suot cho URP/Unlit
-        if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f);           // Transparent
-        if (m.HasProperty("_Blend")) m.SetFloat("_Blend", 0f);              // Alpha
+        if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f);
+        if (m.HasProperty("_Blend")) m.SetFloat("_Blend", 0f);
         if (m.HasProperty("_ZWrite")) m.SetFloat("_ZWrite", 0f);
         if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
         if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (m.HasProperty("_Cull")) m.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);
+
         m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         m.DisableKeyword("_ALPHATEST_ON");
         m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
 
-        m.color = color;
-        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+        if (m.HasProperty("_Color")) m.SetColor("_Color", Color.white);
+        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Color.white);
+
         return m;
     }
 
