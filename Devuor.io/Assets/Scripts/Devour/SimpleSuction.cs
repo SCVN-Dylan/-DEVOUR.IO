@@ -83,6 +83,40 @@ public class SimpleSuction : MonoBehaviour
              "0 = khong gioi han, hut het moi thu trong non.")]
     public int maxActiveItems = 64;
 
+    [Range(0.5f, 1f)]
+    [Tooltip("GIANH ITEM tu tay con khac: phai gan mom hon chu cu it nhat bay nhieu lan moi gianh\n" +
+             "duoc (0.85 = phai gan hon 15%). Mot item chi duoc DUNG MOT con keo.\n\n" +
+             "De 1 = ai gan hon mot ti cung gianh -> hai con xap xi nhau se giat item qua lai moi\n" +
+             "lan quet. Cang nho cang 'lo lang', chu cu giu chac hon.\n" +
+             "Rieng con AN DUOC thi gianh dut khoi tay con chi lam item giay, khong xet khoang cach.")]
+    public float itemStealMargin = 0.85f;
+
+    [Header("Hut SINH VAT khac (combat)")]
+    [Tooltip("BAT: con nao lot vao non hut cua minh thi bi rut XP -> teo dan.\n" +
+             "KHONG co gate cap do: con yeu van hut duoc con manh, hai con hut nhau thi ca hai cung tut.")]
+    public bool drainCreatures = true;
+
+    [Range(0f, 1f)]
+    [Tooltip("Moi giay rut bao nhieu PHAN TRAM level cua NAN NHAN (0.12 = 12%/giay).\n\n" +
+             "Tinh theo % chu khong phai so cung, de tran danh KHONG PHU THUOC LEVEL: Lv100 danh\n" +
+             "Lv100 va Lv1000 danh Lv1000 deu het chung mot so giay. Neu rut so cung thi o level\n" +
+             "cao hai con dung hut nhau ca buoi khong suy suyen gi.")]
+    public float creatureDrainPercent = 0.12f;
+
+    [Tooltip("San duoi: du % ra it hon thi van rut bang nay XP/giay. Cho level thap, luc 12% cua\n" +
+             "Lv5 chi la 0.6 xp/giay - cham den muc nhu khong co gi xay ra")]
+    public float creatureDrainMin = 2f;
+
+    [Range(0.05f, 1f)]
+    [Tooltip("Ti le toc do rut o RIA XA nhat cua non so voi sat mom. Dung chung duong cong voi\n" +
+             "farSpeedFactor cua item: dung ria thi bi gam nhe, bi dua vao sat mom thi tan rat nhanh")]
+    public float creatureFarDrainFactor = 0.35f;
+
+    [Tooltip("Van toc KEO nan nhan ve phia mom (u/s). Phai NHO HON toc do chay cua nan nhan, khong\n" +
+             "thi vao vung hut la chet chac, khong con cua giay ra.\n" +
+             "Cong THEM vao van toc di chuyen chu khong thay the -> nan nhan van tu chay thoat duoc.")]
+    public float creaturePullSpeed = 2.5f;
+
     [Header("An khi cham than")]
     [Tooltip("Item cham vao than nhan vat la nuot luon - NHUNG VAN PHAI DAT CAP (requiredLevel <= level).\n" +
              "Item qua cap thi cham vao khong an duoc (PhysicsDevourable tu bat va cham roi goi EatByContact).")]
@@ -258,13 +292,23 @@ public class SimpleSuction : MonoBehaviour
     private int _evolutionCount;       // so moc isEvolution da qua
     private int _zoomLevel = 1;
     private Tween _scaleTween;
+    /// <summary>
+    /// HE SO NHAN XP khi nuot. GameManager chinh so nay cho AI de giu level bot bam quanh level
+    /// nguoi choi (xem GameManager.BalanceAiLevels). Nguoi choi luon = 1.
+    ///
+    /// Chinh TOC DO AN chu khong chinh thang level: keo level nhay phat mot thi nguoi choi nhin
+    /// thay ngay, va no pha luong XP di qua te bao.
+    /// </summary>
+    [System.NonSerialized] public float xpGainMultiplier = 1f;
+
     private int _xp;
+    private float _gainRemainder;      // phan XP le khi he so nhan khac 1
     private float _drainRemainder;     // phan XP le chua du 1 don vi khi bi hut lien tuc
     private float _scanTimer;
     private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
     private readonly List<PhysicsDevourable> _toRemove = new List<PhysicsDevourable>();
-    private struct Candidate { public PhysicsDevourable item; public float dist; }
+    private struct Candidate { public PhysicsDevourable item; public float dist; public bool canEat; }
     private readonly List<Candidate> _candidates = new List<Candidate>();
 
     private const int MaxOverlapBuffer = 4096;   // chan tren, phong truong hop map dien ro
@@ -320,6 +364,17 @@ public class SimpleSuction : MonoBehaviour
         if (_scaleTween != null && _scaleTween.IsActive()) _scaleTween.Kill();
         _scaleTween = null;
         if (punchTarget != null) punchTarget.DOKill();
+
+        // Dang go ca scene (thoat Play, doi man) thi khoi tra item: moi thu sap bi huy het,
+        // dung vao Physics.IgnoreCollision luc nay chi to sinh loi.
+        if (!gameObject.scene.isLoaded) return;
+
+        // Chet giua chung (bi con khac nuot) thi phai TRA het item dang giu. Khong tra thi chung
+        // ket vinh vien o trang thai Sucked - kinematic, khong trong luc, dang teo nho - va treo
+        // lo lung giua khong trung vi khong con ai keo nua.
+        foreach (PhysicsDevourable it in _active)
+            if (it != null && it.Owner == this) it.Release(this);
+        _active.Clear();
     }
 
     /// <summary>
@@ -381,6 +436,65 @@ public class SimpleSuction : MonoBehaviour
         if (_scanTimer <= 0f) { Scan(); _scanTimer = Mathf.Max(0f, scanInterval); }
 
         ApplyActive();
+        DrainCreatures();
+    }
+
+    /// <summary>
+    /// Huong truc cua non hut, da lam phang xuong mat dat. Dung chung cho ca quet item lan quet
+    /// sinh vat de hai ben khong bao gio lech nhau mot goc nao.
+    /// </summary>
+    private Vector3 ConeForward()
+    {
+        Vector3 fwd = mouth != null ? mouth.forward : transform.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f) fwd = transform.forward;
+        fwd.y = 0f;
+        fwd.Normalize();
+        return fwd;
+    }
+
+    /// <summary>
+    /// RUT XP cac sinh vat khac dang nam trong non hut cua minh.
+    ///
+    /// KHONG di qua OverlapSphere: danh sach sinh vat chi co vai con va da nam san trong
+    /// GameManager, duyet thang la xong. Nhet chung vao vong quet item se phai them mot
+    /// GetComponentInParent&lt;Creature&gt;() cho TUNG collider trong vong lap nong nhat cua game -
+    /// dat gap nhieu lan ma khong duoc them gi.
+    ///
+    /// Chay moi FixedUpdate (khong theo scanInterval nhu item): phep tinh chi la vai phep tru
+    /// vector, ma rut XP thi can lien tuc cho muot.
+    /// </summary>
+    private void DrainCreatures()
+    {
+        if (!drainCreatures || _creature == null || !GameManager.HasInstance) return;
+
+        var all = GameManager.Instance.Creatures;
+        if (all.Count < 2) return;
+
+        Vector3 origin = transform.position;
+        Vector3 mp = mouth != null ? mouth.position : origin;
+        Vector3 fwd = ConeForward();
+        float eff = CurrentRange;
+        float half = coneAngle * 0.5f;
+        float dt = Time.fixedDeltaTime;
+
+        for (int i = 0; i < all.Count; i++)
+        {
+            Creature c = all[i];
+            if (c == null || c == _creature) continue;
+
+            Vector3 to = c.Center - origin;
+            to.y = 0f;
+            float dist = to.magnitude;
+            if (dist > eff) continue;
+            if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
+
+            float nearness = 1f - Mathf.Clamp01(dist / eff);
+            float prox = Mathf.Lerp(creatureFarDrainFactor, 1f, nearness);
+            float perSecond = Mathf.Max(creatureDrainMin, c.Level * creatureDrainPercent) * prox;
+
+            c.ReceiveDrain(_creature, perSecond * dt, mp, creaturePullSpeed * prox);
+        }
     }
 
     // KHONG CO Update: cai giat 'uc' gio la DOPunchScale, scale/speed/camera chi tinh lai
@@ -415,11 +529,7 @@ public class SimpleSuction : MonoBehaviour
     private void Scan()
     {
         Vector3 origin = transform.position;   // Vi tri chân player
-        Vector3 fwd = mouth != null ? mouth.forward : transform.forward;
-        fwd.y = 0f;
-        if (fwd.sqrMagnitude < 0.0001f) fwd = transform.forward;
-        fwd.y = 0f;
-        fwd.Normalize();
+        Vector3 fwd = ConeForward();
 
         float eff = CurrentRange, half = coneAngle * 0.5f;
 
@@ -442,7 +552,8 @@ public class SimpleSuction : MonoBehaviour
             if (dist > eff) continue;
             if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
 
-            if (_found.Add(it)) _candidates.Add(new Candidate { item = it, dist = dist });
+            if (_found.Add(it))
+                _candidates.Add(new Candidate { item = it, dist = dist, canEat = !useLevelGate || diff <= 0 });
         }
 
         // Qua dong thi CAT THEO KHOANG CACH: giu cac item gan nhat, bo phan ngoai ria truoc.
@@ -453,8 +564,20 @@ public class SimpleSuction : MonoBehaviour
             for (int i = 0; i < maxActiveItems; i++) _found.Add(_candidates[i].item);
         }
 
+        // GIANH QUYEN GIU: item nao con khac dang giu chac hon thi loai khoi danh sach cua minh.
+        // Phai lam SAU khi cat theo maxActiveItems - khong thi minh di gianh ca nhung item ma
+        // chinh minh cung se vut di, cuop khong cua con khac roi bo do.
+        for (int i = 0; i < _candidates.Count; i++)
+        {
+            Candidate c = _candidates[i];
+            if (!_found.Contains(c.item)) continue;
+            if (!c.item.TryClaim(this, c.dist, c.canEat, itemStealMargin)) _found.Remove(c.item);
+        }
+
+        // Tha nhung item da ra khoi non - nhung CHI nhung cai MINH con dang giu. Cai da bi con
+        // khac gianh mat thi de yen: no dang duoc keo do dang, tha ra la no rot xuong dat.
         foreach (PhysicsDevourable it in _active)
-            if (it != null && !_found.Contains(it)) it.Release();
+            if (it != null && !_found.Contains(it) && it.Owner == this) it.Release(this);
 
         _active.Clear();
         foreach (PhysicsDevourable it in _found) _active.Add(it);
@@ -472,7 +595,9 @@ public class SimpleSuction : MonoBehaviour
 
         foreach (PhysicsDevourable it in _active)
         {
-            if (it == null || it.Consumed) { _toRemove.Add(it); continue; }
+            // Owner != this = vua bi con khac gianh mat giua hai lan quet. Bo ra ngay va KHONG
+            // goi Release: chu moi dang keo, minh tha ra la pha cua no.
+            if (it == null || it.Consumed || it.Owner != this) { _toRemove.Add(it); continue; }
 
             int diff = StageAtLevel(it.RequiredLevel) - _stage;   // len hang thi item giang co tu chuyen sang hut
 
@@ -537,7 +662,18 @@ public class SimpleSuction : MonoBehaviour
     /// </summary>
     private void AddXp(int amount)
     {
-        SetXp(_xp + Mathf.Max(1, amount));
+        int a = Mathf.Max(1, amount);
+
+        if (xpGainMultiplier == 1f) { SetXp(_xp + a); return; }
+
+        // He so co the < 1 (bot dang vuot moc, bi ham lai) nen phai giu phan le - lam tron moi
+        // mieng an se thanh "he so 0.4 va 0.9 deu = 1 XP", ca bang can bang mat tac dung.
+        _gainRemainder += a * Mathf.Max(0f, xpGainMultiplier);
+        int whole = Mathf.FloorToInt(_gainRemainder);
+        if (whole <= 0) return;
+
+        _gainRemainder -= whole;
+        SetXp(_xp + whole);
     }
 
     /// <summary>

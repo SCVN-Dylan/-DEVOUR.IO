@@ -6,6 +6,9 @@ using UnityEngine.InputSystem;
 /// roi day xuong RbMovement.
 ///
 /// Pipeline: Joystick -> MovePlayerByInput -> RbMovement.SetDir -> rb.velocity
+///
+/// CHI lo phan INPUT. Animation da tach sang CreatureAnimator de bot (khong dung
+/// PlayerController vi khong doc joystick) van co animation nhu nguoi choi.
 /// </summary>
 [RequireComponent(typeof(RbMovement))]
 public class PlayerController : MonoBehaviour
@@ -21,16 +24,10 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Camera dung de doi input sang huong the gioi. De trong se tu lay Camera.main")]
     public Transform cameraTransform;
 
-    [Header("Animation")]
-    [Tooltip("Animator xu ly animation cho player. De trong se tu tim o child")]
-    public Animator animator;
+    [Tooltip("Bo di chuyen nhan huong. De trong = tu lay tren chinh object nay")]
+    [SerializeField] private RbMovement _movement;
 
-    [Tooltip("De trong se tu tim SimpleSuction tren nhan vat")]
-    public SimpleSuction suction;
-
-    private RbMovement _movement;
-    private static readonly int RunSuckingHash = Animator.StringToHash("RunSucking");
-    private static readonly int RunHash = Animator.StringToHash("Run");
+    void Reset() { EnsureReferences(); }
 
     void Awake()
     {
@@ -44,46 +41,11 @@ public class PlayerController : MonoBehaviour
 
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
-
-        if (animator == null)
-            animator = GetComponentInChildren<Animator>();
-
-        if (suction == null)
-            suction = GetComponent<SimpleSuction>();
     }
 
     void Update()
     {
         MovePlayerByInput(ReadInput());
-        UpdateAnimation();
-    }
-
-    public void UpdateAnimation()
-    {
-        EnsureReferences();
-        if (animator == null || _movement == null) return;
-
-        bool isMoving = _movement.IsMoving;
-        bool hasItems = suction != null && suction.HasItemsInRange;
-
-        if (hasItems)
-        {
-            // Co item trong vung -> bat RunSucking, tat Run
-            animator.SetBool(RunSuckingHash, true);
-            animator.SetBool(RunHash, false);
-        }
-        else if (isMoving)
-        {
-            // Di chuyen va KO co item -> bat Run, tat RunSucking
-            animator.SetBool(RunSuckingHash, false);
-            animator.SetBool(RunHash, true);
-        }
-        else
-        {
-            // Khong di chuyen va KO co item -> tat ca 2 de ve Idle
-            animator.SetBool(RunSuckingHash, false);
-            animator.SetBool(RunHash, false);
-        }
     }
 
     public void MovePlayerByInput(Vector2 input)

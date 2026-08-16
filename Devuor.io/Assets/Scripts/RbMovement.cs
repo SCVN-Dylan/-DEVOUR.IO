@@ -27,6 +27,13 @@ public class RbMovement : MonoBehaviour
     [Header("Speed")]
     [SerializeField] private float _speed = 8f;
 
+    [Range(0.1f, 2f)]
+    [Tooltip("HE SO CO HUU cua con nay, nhan chong len moi he so khac (AI de 0.85 = chay cham hon\n" +
+             "nguoi choi 15%).\n\n" +
+             "Phai la mot bien RIENG chu khong sua thang _speed: SimpleSuction ghi de toc do moi lan\n" +
+             "len cap (theo co than) nen moi chinh sua truc tiep vao _speed deu bi xoa ngay sau do.")]
+    [SerializeField] private float _speedHandicap = 1f;
+
     [Header("Rotation")]
     [Tooltip("Do/giay khi quay mat theo huong di. 0 = snap tuc thi")]
     [SerializeField] private float _turnSpeed = 0f;
@@ -40,6 +47,7 @@ public class RbMovement : MonoBehaviour
 
     private Vector3 _dir;
     private Vector3 _planarVelocity;
+    private Vector3 _externalVelocity;
     private bool _yLocked;
     private float _baseSpeed;
     private bool _baseSpeedCached;
@@ -63,7 +71,14 @@ public class RbMovement : MonoBehaviour
     public void SetSpeedMultiplier(float multiplier)
     {
         CacheBaseSpeed();
-        _speed = _baseSpeed * Mathf.Max(0f, multiplier);
+        _speed = _baseSpeed * Mathf.Max(0f, multiplier) * Mathf.Max(0.01f, _speedHandicap);
+    }
+
+    /// <summary>He so co huu (AI cham hon nguoi choi). Doi luc chay cung duoc.</summary>
+    public float SpeedHandicap
+    {
+        get { return _speedHandicap; }
+        set { _speedHandicap = Mathf.Max(0.01f, value); }
     }
 
     /// <summary>
@@ -77,6 +92,24 @@ public class RbMovement : MonoBehaviour
         _baseSpeed = _speed;
         _baseSpeedCached = true;
     }
+
+    /// <summary>
+    /// CONG THEM mot van toc tu ben ngoai cho FixedUpdate ke tiep (vd: bi con khac hut keo ve
+    /// phia mom no). Tieu thu xong la tu xoa, nen ben goi phai goi lai moi frame khi con muon keo.
+    ///
+    /// Phai co ham nay vi Move() GHI DE thang linearVelocity moi FixedUpdate - moi luc/van toc
+    /// do noi khac dat vao deu bi xoa sach ngay frame sau, AddForce cung vo dung.
+    ///
+    /// Cong don: hai con cung hut mot nan nhan thi luc keo cong lai chu khong phai cai sau de len
+    /// cai truoc.
+    /// </summary>
+    public void AddExternalVelocity(Vector3 velocity)
+    {
+        _externalVelocity += velocity;
+    }
+
+    /// <summary>Van toc ngoai dang cho ap vao FixedUpdate ke tiep (dung de doc/debug).</summary>
+    public Vector3 ExternalVelocity { get { return _externalVelocity; } }
 
     /// <summary>Tat de khoa cung nhan vat (cutscene, ket thuc van...).</summary>
     public bool IsMovable { get; set; } = true;
@@ -115,13 +148,17 @@ public class RbMovement : MonoBehaviour
     void OnCollisionStay(Collision collision) { TryLockY(collision); }
 
     /// <summary>
-    /// Cham mat dat lan dau -> khoa truc Y vinh vien. Va cham voi ITEM khong tinh la dat
-    /// (item bay vao mom van co the co contact normal huong len).
+    /// Cham mat dat lan dau -> khoa truc Y vinh vien.
+    ///
+    /// MOI vat co Rigidbody deu KHONG tinh la dat: dat va nha cua deu la vat tinh (khong
+    /// Rigidbody), con item bay vao mom hay mot con khac dam vao suon deu co the tao contact
+    /// normal huong len. Ban cu chi loai tru PhysicsDevourable nen dam vao SINH VAT khac cung
+    /// bi tinh la "tiep dat".
     /// </summary>
     private void TryLockY(Collision collision)
     {
         if (_yLocked || !_lockYOnGround) return;
-        if (collision.rigidbody != null && collision.rigidbody.GetComponent<PhysicsDevourable>() != null) return;
+        if (collision.rigidbody != null) return;
 
         for (int i = 0; i < collision.contactCount; i++)
         {
@@ -165,6 +202,7 @@ public class RbMovement : MonoBehaviour
         {
             _dir = Vector3.zero;
             _planarVelocity = Vector3.zero;
+            _externalVelocity = Vector3.zero;
             Vector3 stopped = _rb.linearVelocity;
             _rb.linearVelocity = new Vector3(0f, stopped.y, 0f);
             return;
@@ -182,8 +220,15 @@ public class RbMovement : MonoBehaviour
             ? Vector3.MoveTowards(_planarVelocity, target, _speed / rampTime * Time.fixedDeltaTime)
             : target;
 
+        // Van toc ngoai CONG THEM chu khong thay the: dang chay tron ma bi hut thi van thoat duoc,
+        // chi cham lai - do la cho de nguoi choi con cua giay giua.
         Vector3 velocity = _rb.linearVelocity;
-        _rb.linearVelocity = new Vector3(_planarVelocity.x, velocity.y, _planarVelocity.z);
+        _rb.linearVelocity = new Vector3(
+            _planarVelocity.x + _externalVelocity.x,
+            velocity.y,
+            _planarVelocity.z + _externalVelocity.z);
+
+        _externalVelocity = Vector3.zero;   // tieu thu xong, ai con muon keo thi frame sau goi lai
     }
 
     /// <summary>

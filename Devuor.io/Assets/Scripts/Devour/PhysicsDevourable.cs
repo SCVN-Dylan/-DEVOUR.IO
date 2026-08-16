@@ -82,6 +82,20 @@ public class PhysicsDevourable : MonoBehaviour
     /// <summary>Cap yeu cau, cho SimpleSuction doc.</summary>
     public int RequiredLevel { get { return requiredLevel; } }
 
+    /// <summary>
+    /// Con dang GIU item nay - CHI DUY NHAT mot con. null = dang tu do.
+    ///
+    /// Co no vi item chay bang mot bo trang thai vat ly DUNG NHAT (kinematic, gravity, scale,
+    /// velocity). Hai con cung tac dong thi:
+    ///   - ca hai cung ghi linearVelocity moi FixedUpdate -> item giat qua giat lai giua 2 mom
+    ///   - mot con Pull (kinematic = false) con mot con Struggle (kinematic = true) -> lat trang
+    ///     thai moi frame, item vua bay vua dung hinh
+    ///   - con A ra khoi tam goi Release -> bat lai trong luc, tra ve co goc, trong khi con B
+    ///     dang keo do dang
+    /// Nen quyen dieu khien phai la doc quyen, cac con khac chi duoc DANH nhau de gianh.
+    /// </summary>
+    public SimpleSuction Owner { get { return _owner; } }
+
     /// <summary>Tam thuc te (tam bounds) de suction keo cho dung, khong lech theo pivot.</summary>
     public Vector3 Center { get { return transform.TransformPoint(_centerLocal); } }
 
@@ -99,9 +113,13 @@ public class PhysicsDevourable : MonoBehaviour
     private float _helixPhaseOffset;   // random phase offset moi item cho spiral khong dong pha
     private float _spiralAngle;
     private Collider[] _cols;
-    private Collider[] _ignoredCols;   // collider player dang duoc bo qua va cham
-    private bool _playerIgnored;
+    private Collider[] _ignoredCols;   // collider cua CHU dang duoc bo qua va cham (null = khong bo qua ai)
     private Tween _swallowTween;
+
+    private bool _launched;            // vua duoc Launch() -> Start() khong duoc cho ngu
+    private SimpleSuction _owner;
+    private float _ownerDist;          // khoang cach chu -> item, chu tu cap nhat moi lan quet
+    private bool _ownerCanEat;         // chu du cap NUOT hay chi lam item giay tai cho
 
     void OnDestroy()
     {
@@ -127,7 +145,110 @@ public class PhysicsDevourable : MonoBehaviour
 
     void Start()
     {
-        EnterSleep();
+        // Vua duoc BAN ra (te bao vang khoi than nan nhan) thi khong duoc ngu ngay: EnterSleep
+        // xoa sach van toc va goi rb.Sleep(), vien te bao se dung khong giua troi.
+        if (!_launched) EnterSleep();
+    }
+
+    /// <summary>
+    /// BAN object ra voi mot van toc ban dau (te bao bat ra khoi than nan nhan).
+    ///
+    /// Phai co ham rieng chu khong gan thang rb.linearVelocity tu ben ngoai: object vua
+    /// Instantiate thi Start() chay SAU do va se goi EnterSleep(), xoa sach van toc vua gan.
+    /// </summary>
+    public void Launch(Vector3 velocity)
+    {
+        EnsureReferences();
+        _launched = true;
+        _state = State.Falling;
+        _rb.isKinematic = false;
+        _rb.useGravity = true;
+        _rb.WakeUp();
+        _rb.linearVelocity = velocity;
+        _sleepAt = Time.time + sleepDelay;
+    }
+
+    /// <summary>
+    /// Ai muon TAI SU DUNG object thay vi huy thi gan callback nay (CellPool). De trong thi
+    /// item bi nuot se Destroy nhu cu - item thuong tren map khong dinh gi toi pool.
+    /// </summary>
+    public System.Action<PhysicsDevourable> onReleaseToPool;
+
+    /// <summary>
+    /// Tra ve trang thai nhu vua ra lo, de lay tu pool ra dung lai.
+    /// Phai tu tay bat lai collider: PlaySwallow da TAT het collider luc bay vao mom.
+    /// </summary>
+    public void ResetForReuse()
+    {
+        EnsureReferences();
+
+        if (_swallowTween != null && _swallowTween.IsActive()) _swallowTween.Kill();
+        _swallowTween = null;
+        transform.DOKill();
+
+        _consumed = false;
+        _owner = null;
+        _launched = false;
+        _ignoredCols = null;
+        transform.localScale = _startScale;
+
+        if (_cols == null) _cols = GetComponentsInChildren<Collider>(false);
+        for (int i = 0; i < _cols.Length; i++)
+            if (_cols[i] != null) _cols[i].enabled = true;
+
+        _state = State.Falling;
+        _rb.isKinematic = false;
+        _rb.useGravity = true;
+        _rb.linearVelocity = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
+        _sleepAt = Time.time + sleepDelay;
+    }
+
+    /// <summary>Bien mat: ve pool neu co, khong thi huy han.</summary>
+    private void Vanish()
+    {
+        if (onReleaseToPool != null) onReleaseToPool(this);
+        else Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// XIN QUYEN GIU item. SimpleSuction goi moi lan quet, cho MOI item nam trong non.
+    /// Tra ve true = duoc keo con nay frame nay; false = con khac dang giu, dung dong vao.
+    ///
+    /// Luat gianh, xet theo thu tu:
+    ///   1. AN DUOC an dut CHI LAM NO GIAY. Neu khong co luat nay thi mot con nhoc chi du suc
+    ///      lam cai xe rung tai cho van khoa duoc cai xe do, con to dung ngay ben canh khong
+    ///      dong vao duoc - vo ly va rat uc che.
+    ///   2. Cung hang thi GAN MOM HON thang, nhung phai gan hon HAN mot khoang (stealMargin),
+    ///      khong thi hai con xap xi nhau se giat qua giat lai moi lan quet.
+    /// </summary>
+    public bool TryClaim(SimpleSuction claimer, float dist, bool canEat, float stealMargin)
+    {
+        if (claimer == null || _consumed) return false;
+
+        // Dang la chu roi: chi cap nhat lai so lieu cho ke thach dau sau nay so
+        if (_owner == claimer)
+        {
+            _ownerDist = dist;
+            _ownerCanEat = canEat;
+            return true;
+        }
+
+        if (_owner != null)
+        {
+            bool win = canEat != _ownerCanEat
+                ? canEat                                   // an duoc thi gianh dut, khong can gan hon
+                : dist < _ownerDist * stealMargin;         // cung hang: phai gan hon han moi gianh
+            if (!win) return false;
+            // KHONG goi nguoc vao chu cu o day: no tu thay minh mat quyen o vong lap ke tiep
+            // (Owner != this) roi tu bo ra khoi danh sach - tranh sua collection cua object khac
+            // ngay giua luc no co the dang duyet.
+        }
+
+        _owner = claimer;
+        _ownerDist = dist;
+        _ownerCanEat = canEat;
+        return true;
     }
 
     /// <summary>
@@ -142,11 +263,22 @@ public class PhysicsDevourable : MonoBehaviour
     /// </summary>
     public void SetPlayerCollision(Collider[] playerCols, bool ignore)
     {
-        if (ignore == _playerIgnored) return;
-        Collider[] target = ignore ? playerCols : _ignoredCols;
-        if (target == null) { _playerIgnored = ignore; return; }
+        Collider[] want = ignore ? playerCols : null;
+        if (want == _ignoredCols) return;
 
+        // Doi chu: phai TRA LAI va cham cho chu cu truoc roi moi bo qua cho chu moi.
+        // Ban cu chi co mot co bool nen doi chu la sai ca hai dau - chu cu vinh vien khong bi
+        // item dam nua, con chu moi thi bi item lao vao day van ra.
+        ApplyIgnore(_ignoredCols, false);
+        ApplyIgnore(want, true);
+        _ignoredCols = want;
+    }
+
+    private void ApplyIgnore(Collider[] target, bool ignore)
+    {
+        if (target == null) return;
         if (_cols == null) _cols = GetComponentsInChildren<Collider>(false);
+
         for (int i = 0; i < _cols.Length; i++)
         {
             // Physics.IgnoreCollision bao loi neu collider dang tat / object inactive
@@ -157,9 +289,6 @@ public class PhysicsDevourable : MonoBehaviour
                 Physics.IgnoreCollision(_cols[i], target[j], ignore);
             }
         }
-
-        _ignoredCols = ignore ? playerCols : null;
-        _playerIgnored = ignore;
     }
 
     /// <summary>
@@ -262,9 +391,17 @@ public class PhysicsDevourable : MonoBehaviour
         }
     }
 
-    /// <summary>Het bi hut/giang co: bat lai trong luc, tra ve kich thuoc goc, tu roi xuong. Sau sleepDelay ngu.</summary>
-    public void Release()
+    /// <summary>
+    /// Het bi hut/giang co: bat lai trong luc, tra ve kich thuoc goc, tu roi xuong. Sau sleepDelay ngu.
+    ///
+    /// CHI CHU moi tha duoc. Con khac goi vao day khong co tac dung - neu khong thi con A vua di
+    /// ngang qua het tam la tha luon cai item con B dang keo do dang.
+    /// </summary>
+    public void Release(SimpleSuction by)
     {
+        if (by != null && _owner != null && _owner != by) return;
+
+        _owner = null;
         SetPlayerCollision(null, false);   // bat lai va cham voi player
         if (_state != State.Sucked && _state != State.Struggling) return;
 
@@ -290,12 +427,13 @@ public class PhysicsDevourable : MonoBehaviour
     {
         if (_consumed) return;
         _consumed = true;
+        _owner = null;                 // da bi nuot, khong con gi de gianh
         if (onDevoured != null) onDevoured.Invoke();
 
         if (swallowDuration > 0f && isActiveAndEnabled)
             PlaySwallow(swallowTarget);
         else
-            Destroy(gameObject);
+            Vanish();
     }
 
     /// <summary>
@@ -333,7 +471,7 @@ public class PhysicsDevourable : MonoBehaviour
             tf.Rotate(Vector3.up, swallowSpin * Time.deltaTime, Space.Self);
         }, 1f, swallowDuration)
             .SetEase(Ease.InQuad)                    // gia toc lao vao mom, giong ease*ease cu
-            .OnComplete(() => { if (this != null) Destroy(gameObject); });
+            .OnComplete(() => { if (this != null) Vanish(); });
     }
 
     void FixedUpdate()
@@ -399,6 +537,7 @@ public class PhysicsDevourable : MonoBehaviour
     private void EnterSleep()
     {
         _state = State.Asleep;
+        _owner = null;             // nam yen tren dat roi thi ai gianh cung duoc
         if (_rb.isKinematic) _rb.isKinematic = false;
         _rb.useGravity = true;
         transform.localScale = _startScale;   // phong to lai neu vua bi hut do

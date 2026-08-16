@@ -1,0 +1,162 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &747895160810854641
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_Name
+      value: AI
+      objectReference: {fileID: 0}
+    - target: {fileID: 3995865763585234974, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: isPlayer
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3995865763585234974, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: displayName
+      value: Bot
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4971381581295975268, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_text
+      value: 'Bot
+
+        <size=65%>Lv 1</size>'
+      objectReference: {fileID: 0}
+    - target: {fileID: 5305163158164827225, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5503119593727810502, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: playerName
+      value: Bot
+      objectReference: {fileID: 0}
+    - target: {fileID: 7715685529842263537, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: _speedHandicap
+      value: 0.85
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5348004699116742288}
+  m_SourcePrefab: {fileID: 100100000, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+--- !u!1 &2384491501142814017 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+  m_PrefabInstance: {fileID: 747895160810854641}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5348004699116742288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2384491501142814017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6493400df15704788b9e652d76bdb9d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AIController
+  _movement: {fileID: 7021834969316326656}
+  _suction: {fileID: 3266639472561187519}
+  _creature: {fileID: 4401463871055446255}
+  thinkInterval: 0.35
+  searchRangeMul: 3
+  searchRangeMax: 25
+  maxSearchHits: 48
+  detectRangeMul: 4
+  detectRangeMax: 30
+  huntLevelRatio: 0.9
+  huntDuration: 5
+  huntCooldown: 8
+  fleeLevelRatio: 1.1
+  fleeDuration: 3
+  wanderRadius: 20
+  wanderRepickTime: 5
+  arriveDistance: 1.5
+  whiskerLength: 3
+  whiskerAngle: 35
+  obstacleLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  stuckCheckTime: 1.5
+  stuckDistance: 0.4
+--- !u!114 &3266639472561187519 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+  m_PrefabInstance: {fileID: 747895160810854641}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2384491501142814017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d17d085a05aea4dd992c0996d8ab0899, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SimpleSuction
+--- !u!114 &4401463871055446255 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3995865763585234974, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+  m_PrefabInstance: {fileID: 747895160810854641}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2384491501142814017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73da20e34f92a4b91b2ee05791223d2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Creature
+--- !u!114 &7021834969316326656 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7715685529842263537, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+  m_PrefabInstance: {fileID: 747895160810854641}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2384491501142814017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69770ddbffbce4661b9b82be892ae56b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RbMovement

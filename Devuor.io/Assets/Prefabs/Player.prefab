@@ -1199,6 +1199,7 @@ GameObject:
   - component: {fileID: 2824990503888106062}
   - component: {fileID: 463955257305386523}
   - component: {fileID: 3995865763585234974}
+  - component: {fileID: 4246801617173372038}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1267,8 +1268,7 @@ MonoBehaviour:
   joystick: {fileID: 0}
   useKeyboard: 1
   cameraTransform: {fileID: 0}
-  animator: {fileID: 2343988516375719957}
-  suction: {fileID: 2824990503888106062}
+  _movement: {fileID: 7715685529842263537}
 --- !u!114 &7715685529842263537
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1335,6 +1335,7 @@ MonoBehaviour:
     m_Bits: 4294967295
   scanInterval: 0.05
   maxActiveItems: 64
+  itemStealMargin: 0.85
   eatOnContact: 1
   useLevelGate: 1
   level: 1
@@ -1451,6 +1452,21 @@ MonoBehaviour:
   centerOffset: {x: 0, y: 0.33, z: 0}
   _suction: {fileID: 2824990503888106062}
   _movement: {fileID: 7715685529842263537}
+--- !u!114 &4246801617173372038
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3131801423903421872}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 930707ea050824cd58c689b62c924e7a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreatureAnimator
+  _animator: {fileID: 2343988516375719957}
+  _movement: {fileID: 7715685529842263537}
+  _suction: {fileID: 2824990503888106062}
 --- !u!1 &3352540807144611663
 GameObject:
   m_ObjectHideFlags: 0
