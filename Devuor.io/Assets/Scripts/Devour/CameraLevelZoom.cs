@@ -84,7 +84,7 @@ public class CameraLevelZoom : MonoBehaviour
     void OnEnable()
     {
         if (cam == null) cam = GetComponent<Camera>();
-        if (player == null) player = Object.FindAnyObjectByType<SimpleSuction>();
+        if (player == null) player = ResolvePlayer();
         if (cam != null)
         {
             if (baseFov <= 0f) baseFov = cam.fieldOfView;
@@ -96,6 +96,27 @@ public class CameraLevelZoom : MonoBehaviour
 
     void OnDisable() { KillTween(); }
     void OnDestroy() { KillTween(); }
+
+    /// <summary>
+    /// Tim SimpleSuction cua NGUOI CHOI.
+    ///
+    /// FindAnyObjectByType tra ve con DAU TIEN no gap, khong he uu tien ai - scene co them 3 con
+    /// AI thi camera hoan toan co the di zoom theo mot con bot ma khong bao loi gi. Nen uu tien
+    /// hoi Creature.Player (con co co isPlayer), het cach moi quay ve kieu cu cho scene test
+    /// chua gan Creature.
+    ///
+    /// Binh thuong khong toi luot ham nay chay: SimpleSuction cua nguoi choi tu gan minh vao
+    /// camera ngay trong Awake (som hon OnEnable nay).
+    /// </summary>
+    private SimpleSuction ResolvePlayer()
+    {
+        if (GameManager.HasInstance)
+        {
+            Creature p = GameManager.Instance.Player;
+            if (p != null && p.Suction != null) return p.Suction;
+        }
+        return Object.FindAnyObjectByType<SimpleSuction>();
+    }
 
     /// <summary>
     /// SimpleSuction goi ham nay MOI KHI LEN LEVEL (khong co poll). Tinh FOV dich 1 lan roi

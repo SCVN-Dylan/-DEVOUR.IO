@@ -162,6 +162,11 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Kieu easing khi phong to")]
     public Ease scaleTweenEase = Ease.OutBack;
 
+    [Tooltip("Kieu easing khi TEO LAI (bi con khac hut mat level). Tach rieng khoi luc to ra:\n" +
+             "OutBack vot qua diem dich roi moi ve - luc to ra thi day la cai nay 'bung' ra dep,\n" +
+             "nhung luc teo lai se thanh co qua muc roi phinh nguoc, nhin nhu bi giat.")]
+    public Ease shrinkTweenEase = Ease.OutQuad;
+
     [Tooltip("De trong = tu tim CameraLevelZoom trong scene. Len level thi day FOV moi sang no")]
     public CameraLevelZoom cameraZoom;
 
@@ -169,9 +174,19 @@ public class SimpleSuction : MonoBehaviour
              "day so lan tien hoa sang no de doi hinh dang")]
     public PlayerVisual playerVisual;
 
+    [Header("Tham chieu (keo vao Inspector)")]
+    [Tooltip("Bo di chuyen - nhan he so toc do theo co than. Reset/them component la tu dien san")]
+    [SerializeField] private RbMovement _movement;
+
+    [Tooltip("Danh tinh cua con nay (nguoi choi hay AI). Thieu = coi nhu nguoi choi")]
+    [SerializeField] private Creature _creature;
+
     [Header("Su kien")]
     public UnityEvent onDevour;
     public UnityEvent onLevelUp;
+
+    [Tooltip("Ban khi TUT level (bi con khac hut mat XP). Cam VFX/SFX 'bi teo' vao day")]
+    public UnityEvent onLevelDown;
 
     public int Level { get { return level; } }
 
@@ -242,9 +257,9 @@ public class SimpleSuction : MonoBehaviour
     private int _stage = 1;            // cache, tinh lai cung luc voi _scaleFactor
     private int _evolutionCount;       // so moc isEvolution da qua
     private int _zoomLevel = 1;
-    private RbMovement _movement;
     private Tween _scaleTween;
     private int _xp;
+    private float _drainRemainder;     // phan XP le chua du 1 don vi khi bi hut lien tuc
     private float _scanTimer;
     private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
@@ -256,23 +271,41 @@ public class SimpleSuction : MonoBehaviour
     private static Collider[] _hits = new Collider[128];
     private Collider[] _ownCols;
 
-    void Awake()
+    /// <summary>Chay khi VUA GAN component trong Editor: dien san ref de khoi phai keo tay.</summary>
+    void Reset() { AutoFill(); }
+
+    /// <summary>
+    /// LUOI AN TOAN cho ref bi quen keo (prefab cu, object dung tay trong scene test).
+    /// Ref da co san tren prefab thi khong ham nao o day dong toi.
+    /// </summary>
+    private void AutoFill()
     {
-        _baseScale = transform.localScale;
+        if (_movement == null) _movement = GetComponent<RbMovement>();
+        if (_creature == null) _creature = GetComponent<Creature>();
+        if (playerVisual == null) playerVisual = GetComponent<PlayerVisual>();
         if (mouth == null)
         {
             Transform m = transform.Find("Mouth");
             mouth = m != null ? m : transform;
         }
-        _ownCols = GetComponentsInChildren<Collider>(true);
-        _movement = GetComponent<RbMovement>();
-        if (cameraZoom == null) cameraZoom = Object.FindAnyObjectByType<CameraLevelZoom>();
-        if (playerVisual == null) playerVisual = GetComponent<PlayerVisual>();
         if (punchTarget == null)
         {
             Transform g = transform.Find("Graphic");
             punchTarget = g != null ? g : transform;
         }
+    }
+
+    void Awake()
+    {
+        _baseScale = transform.localScale;
+        AutoFill();
+
+        // KHONG serialize mang nay: no la toan bo collider con cua chinh minh, quet mot lan luc
+        // Awake. Keo tay thi them/bot mot collider trong prefab la mang nam im khong ai biet,
+        // va loi do (item van dam vao nguoi choi) rat kho lan ra.
+        _ownCols = GetComponentsInChildren<Collider>(true);
+
+        ResolveCameraZoom();
 
         // Giu bat bien Level = 1 + Xp ngay tu dau (level authored tren prefab = level khoi dau)
         if (level < 1) level = 1;
@@ -287,6 +320,29 @@ public class SimpleSuction : MonoBehaviour
         if (_scaleTween != null && _scaleTween.IsActive()) _scaleTween.Kill();
         _scaleTween = null;
         if (punchTarget != null) punchTarget.DOKill();
+    }
+
+    /// <summary>
+    /// Con nay co phai NGUOI CHOI khong. Chua gan Creature (scene cu, scene test) thi coi nhu
+    /// LA nguoi choi - de nhung scene dang chay khong doi hanh vi gi sau khi them he AI.
+    /// </summary>
+    private bool IsPlayerOwned { get { return _creature == null || _creature.isPlayer; } }
+
+    /// <summary>
+    /// CHI nguoi choi moi duoc cam camera.
+    ///
+    /// Ban cu: moi SimpleSuction deu tu FindAnyObjectByType&lt;CameraLevelZoom&gt;() - luc scene chi
+    /// co 1 con thi dung, nhung 3 con AI (clone tu chinh prefab player, mang theo ca tham chieu
+    /// da serialize) cung se nam chung mot camera va bot len level la camera zoom theo bot.
+    /// Nen o day AI bi CAT hang thang, con nguoi choi thi tu dang ky nguoc lai vao camera de
+    /// CameraLevelZoom khong phai di do xem ai la player.
+    /// </summary>
+    private void ResolveCameraZoom()
+    {
+        if (!IsPlayerOwned) { cameraZoom = null; return; }
+
+        if (cameraZoom == null) cameraZoom = Object.FindAnyObjectByType<CameraLevelZoom>();
+        if (cameraZoom != null) cameraZoom.player = this;
     }
 
     /// <summary>
@@ -445,7 +501,9 @@ public class SimpleSuction : MonoBehaviour
 
     private void Swallow(PhysicsDevourable it)
     {
-        if (UIManager.Instance != null) UIManager.Instance.AddScore(it.scoreValue);
+        // Diem tren HUD la diem cua NGUOI CHOI. Bo gate nay thi 3 con AI an item cung nhay diem
+        // cho nguoi choi - van chua choi gi diem da tu chay.
+        if (IsPlayerOwned && UIManager.Instance != null) UIManager.Instance.AddScore(it.scoreValue);
         AddXp(it.xpValue);
         it.Devour(mouth);        // item xoay tit + teo lao vao mom
         PlayGulp();              // than nhan vat 'uc' mot cai
@@ -479,23 +537,87 @@ public class SimpleSuction : MonoBehaviour
     /// </summary>
     private void AddXp(int amount)
     {
-        _xp += Mathf.Max(1, amount);
+        SetXp(_xp + Mathf.Max(1, amount));
+    }
 
-        int newLevel = 1 + _xp;
-        if (newLevel == level) return;
+    /// <summary>
+    /// MAT XP - bi con khac hut. Tra ve so XP THUC SU mat duoc (da bi san Lv1 chan lai), de ben
+    /// goi biet phai de ra bao nhieu te bao: rot ra dung bang so mat di, khong sinh XP tu khong.
+    /// </summary>
+    public int LoseXp(int amount)
+    {
+        if (amount <= 0) return 0;
+        int before = _xp;
+        SetXp(_xp - amount);
+        return before - _xp;
+    }
 
-        level = newLevel;
-        ApplyProgression(false);
-        if (onLevelUp != null) onLevelUp.Invoke();
+    /// <summary>
+    /// RUT XP LIEN TUC - goi moi frame khi dang bi hut, amount = (xp/giay) x deltaTime.
+    ///
+    /// Level la so NGUYEN con luc hut la LIEN TUC, nen phan le phai duoc giu lai trong
+    /// _drainRemainder, du 1 moi tru mot cai. Lam tron moi frame se sai nang: FloorToInt thi
+    /// rut duoi 1 xp/frame la mai mai khong mat gi, con RoundToInt/Ceil thi rut nhanh gap
+    /// vai chuc lan tuy framerate - may yeu va may khoe se an nhau khac han.
+    ///
+    /// Tra ve so XP nguyen thuc su mat trong lan goi nay (thuong la 0, thinh thoang 1).
+    /// </summary>
+    public int DrainXp(float amount)
+    {
+        if (amount <= 0f) return 0;
+
+        _drainRemainder += amount;
+        int whole = Mathf.FloorToInt(_drainRemainder);
+        if (whole <= 0) return 0;
+
+        _drainRemainder -= whole;
+
+        int lost = LoseXp(whole);
+        if (lost <= 0) _drainRemainder = 0f;   // da cham san Lv1: dung tich luy vo ich
+        return lost;
     }
 
     /// <summary>Dat thang cap (cheat/test). XP dong bo theo cho dung Level = 1 + Xp.</summary>
     public void SetLevel(int value)
     {
-        level = Mathf.Max(1, value);
-        _xp = level - 1;
-        ApplyProgression(false);
+        SetXp(Mathf.Max(1, value) - 1);
     }
+
+    /// <summary>
+    /// CUA DUY NHAT de doi tong XP. Moi duong (an item / bi hut / cheat) deu chui qua day nen
+    /// khong the co chuyen mot duong nao do quen cap nhat scale - camera - hinh dang.
+    ///
+    /// Chieu XUONG khong can code rieng: RecalcScaleFactor, CameraLevelZoom.ApplyForLevel va
+    /// PlayerVisual.SetForm deu tinh theo level tuyet doi chu khong cong don, nen tra level ve
+    /// nho la ca ba tu lui theo - ke ca TUT TIEN HOA (SetForm nhan index nho hon thi tat lai
+    /// nhung object da bat va tra material ve dang truoc).
+    /// </summary>
+    private void SetXp(int value)
+    {
+        int newXp = Mathf.Max(0, value);
+        if (newXp == _xp) return;
+
+        bool up = newXp > _xp;
+        _xp = newXp;
+        level = 1 + _xp;
+
+        ApplyProgression(false);
+
+        if (up)
+        {
+            if (onLevelUp != null) onLevelUp.Invoke();
+        }
+        else if (onLevelDown != null)
+        {
+            onLevelDown.Invoke();
+        }
+    }
+
+    [ContextMenu("TEST - Level +10")]
+    private void DebugLevelUp() { SetLevel(level + 10); }
+
+    [ContextMenu("TEST - Level -10")]
+    private void DebugLevelDown() { SetLevel(level - 10); }
 
     /// <summary>
     /// Toc do di chuyen bam theo he so scale (da bi maxScale chan) - than dung to thi toc
@@ -521,7 +643,7 @@ public class SimpleSuction : MonoBehaviour
         RecalcScaleFactor();
         ApplySpeed();
         ApplyScaleTween(instant);
-        if (cameraZoom != null) cameraZoom.ApplyForLevel(_zoomLevel, instant);
+        if (cameraZoom != null && IsPlayerOwned) cameraZoom.ApplyForLevel(_zoomLevel, instant);
         if (playerVisual != null) playerVisual.SetForm(_evolutionCount);   // SetForm tu bo qua neu khong doi
     }
 
@@ -537,7 +659,11 @@ public class SimpleSuction : MonoBehaviour
             transform.localScale = target;
             return;
         }
-        _scaleTween = transform.DOScale(target, scaleTweenDuration).SetEase(scaleTweenEase);
+
+        // To ra va teo lai dung hai kieu easing khac nhau - xem tooltip cua shrinkTweenEase
+        bool shrinking = target.sqrMagnitude < transform.localScale.sqrMagnitude;
+        _scaleTween = transform.DOScale(target, scaleTweenDuration)
+            .SetEase(shrinking ? shrinkTweenEase : scaleTweenEase);
     }
     /// <summary>
     /// Tinh lai he so scale theo level. CHI goi khi level doi (khong goi moi frame): duyet

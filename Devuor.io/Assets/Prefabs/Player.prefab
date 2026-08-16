@@ -1198,6 +1198,7 @@ GameObject:
   - component: {fileID: 5461470869397219201}
   - component: {fileID: 2824990503888106062}
   - component: {fileID: 463955257305386523}
+  - component: {fileID: 3995865763585234974}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1390,15 +1391,21 @@ MonoBehaviour:
   gulpPunch: 0.18
   gulpDuration: 0.22
   gulpWobbles: 1.3
-  punchTarget: {fileID: 0}
+  punchTarget: {fileID: 6238914334231488491}
   scaleTweenDuration: 0.25
   scaleTweenEase: 27
+  shrinkTweenEase: 6
   cameraZoom: {fileID: 0}
   playerVisual: {fileID: 463955257305386523}
+  _movement: {fileID: 7715685529842263537}
+  _creature: {fileID: 3995865763585234974}
   onDevour:
     m_PersistentCalls:
       m_Calls: []
   onLevelUp:
+    m_PersistentCalls:
+      m_Calls: []
+  onLevelDown:
     m_PersistentCalls:
       m_Calls: []
 --- !u!114 &463955257305386523
@@ -1427,6 +1434,23 @@ MonoBehaviour:
   onFormChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3995865763585234974
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3131801423903421872}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73da20e34f92a4b91b2ee05791223d2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Creature
+  isPlayer: 1
+  displayName: Player
+  centerOffset: {x: 0, y: 0.33, z: 0}
+  _suction: {fileID: 2824990503888106062}
+  _movement: {fileID: 7715685529842263537}
 --- !u!1 &3352540807144611663
 GameObject:
   m_ObjectHideFlags: 0
@@ -2147,7 +2171,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5648563887185035439}
-  m_LocalRotation: {x: 0.43370515, y: -0, z: -0, w: 0.90105486}
+  m_LocalRotation: {x: 0.40530255, y: -0, z: -0, w: 0.9141826}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 0
