@@ -73,6 +73,11 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Giay giua 2 lan QUET vung hut (OverlapSphere - phan dat nhat). Keo item van muot moi frame. 0 = quet moi frame")]
     public float scanInterval = 0.05f;
 
+    [Tooltip("TRAN so item duoc hut cung luc. Vuot qua thi CAT THEO KHOANG CACH: giu nhung cai\n" +
+             "GAN nhat, bo phan ngoai ria truoc (khong phai bo ngau nhien).\n" +
+             "0 = khong gioi han, hut het moi thu trong non.")]
+    public int maxActiveItems = 64;
+
     [Header("An khi cham than")]
     [Tooltip("Item cham vao than nhan vat la nuot luon - NHUNG VAN PHAI DAT CAP (requiredLevel <= level).\n" +
              "Item qua cap thi cham vao khong an duoc (PhysicsDevourable tu bat va cham roi goi EatByContact).")]
@@ -231,7 +236,11 @@ public class SimpleSuction : MonoBehaviour
     private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
     private readonly List<PhysicsDevourable> _toRemove = new List<PhysicsDevourable>();
-    private static readonly Collider[] _hits = new Collider[128];
+    private struct Candidate { public PhysicsDevourable item; public float dist; }
+    private readonly List<Candidate> _candidates = new List<Candidate>();
+
+    private const int MaxOverlapBuffer = 4096;   // chan tren, phong truong hop map dien ro
+    private static Collider[] _hits = new Collider[128];
     private Collider[] _ownCols;
 
     void Awake()
@@ -307,6 +316,31 @@ public class SimpleSuction : MonoBehaviour
     // KHONG CO Update: cai giat 'uc' gio la DOPunchScale, scale/speed/camera chi tinh lai
     // trong ApplyProgression() luc len level.
 
+    /// <summary>
+    /// Quet het collider trong ban kinh, TU NOI BUFFER neu chat.
+    ///
+    /// OverlapSphereNonAlloc khong bao gio ghi qua kich thuoc mang: day 200 collider vao mang 128
+    /// thi no tra ve dung 128 va IM LANG bo 72 cai - khong loi, khong warning. Ma thu tu dien mang
+    /// la thu tu broadphase cua PhysX, khong theo khoang cach, nen 72 cai bi bo la ngau nhien:
+    /// con xe ngay truoc mom hoan toan co the bi loai. Phai nhin thay HET thi moi chon duoc
+    /// "gan nhat" cho dung.
+    ///
+    /// Dau hieu day khit (n == Length) = gan nhu chac chan da bi cat -> nhan doi mang, quet lai.
+    /// Mang la static nen chi phinh vai lan dau van, sau do dung lai, khong sinh rac moi frame.
+    /// </summary>
+    private int OverlapAll(Vector3 origin, float radius)
+    {
+        int n = Physics.OverlapSphereNonAlloc(origin, radius, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
+        while (n >= _hits.Length && _hits.Length < MaxOverlapBuffer)
+        {
+            _hits = new Collider[Mathf.Min(_hits.Length * 2, MaxOverlapBuffer)];
+            n = Physics.OverlapSphereNonAlloc(origin, radius, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
+        }
+        return n;
+    }
+
+    private static int CompareByDist(Candidate a, Candidate b) { return a.dist.CompareTo(b.dist); }
+
     /// <summary>Quet lai danh sach item nam trong non (phan dat tien). Item roi khoi non -> tha ra.</summary>
     private void Scan()
     {
@@ -320,12 +354,14 @@ public class SimpleSuction : MonoBehaviour
         float eff = CurrentRange, half = coneAngle * 0.5f;
 
         _found.Clear();
-        int n = Physics.OverlapSphereNonAlloc(origin, eff, _hits, suckableLayers, QueryTriggerInteraction.Ignore);
+        _candidates.Clear();
+
+        int n = OverlapAll(origin, eff);
         for (int i = 0; i < n; i++)
         {
             if (_hits[i] == null) continue;
             PhysicsDevourable it = _hits[i].GetComponentInParent<PhysicsDevourable>();
-            if (it == null || it.Consumed || _found.Contains(it)) continue;
+            if (it == null || it.Consumed) continue;
 
             int diff = StageAtLevel(it.RequiredLevel) - _stage;   // HIEU HANG, khong phai hieu level
             if (useLevelGate && diff >= 2) continue;   // hon 2+ hang: khong tac dong gi
@@ -336,7 +372,15 @@ public class SimpleSuction : MonoBehaviour
             if (dist > eff) continue;
             if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
 
-            _found.Add(it);
+            if (_found.Add(it)) _candidates.Add(new Candidate { item = it, dist = dist });
+        }
+
+        // Qua dong thi CAT THEO KHOANG CACH: giu cac item gan nhat, bo phan ngoai ria truoc.
+        if (maxActiveItems > 0 && _candidates.Count > maxActiveItems)
+        {
+            _candidates.Sort(CompareByDist);
+            _found.Clear();
+            for (int i = 0; i < maxActiveItems; i++) _found.Add(_candidates[i].item);
         }
 
         foreach (PhysicsDevourable it in _active)
