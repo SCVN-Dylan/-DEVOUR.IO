@@ -28,16 +28,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class CameraLevelZoom : MonoBehaviour
 {
-    [System.Serializable]
-    public class Step
-    {
-        [Tooltip("Cap do dat toi")]
-        public int level = 1;
-        [Tooltip("CONG THEM bao nhieu do FOV khi dat cap nay (cong don)")]
-        public float add = 12f;
-    }
-
-    [Tooltip("De trong = tu tim SimpleSuction trong scene")]
+    [Tooltip("De trong = tu tim SimpleSuction trong scene.\n" +
+             "BAT BUOC co de lay danh sach moc - moc gio khai bao ben SimpleSuction.levelSteps")]
     public SimpleSuction player;
 
     [Tooltip("De trong = lay Camera tren chinh object nay")]
@@ -63,16 +55,10 @@ public class CameraLevelZoom : MonoBehaviour
     public float maxSize = 24f;
 
     [Header("Zoom theo moc (Steps)")]
-    [Tooltip("Co bat/tat su dung danh sach moc (Steps)")]
+    [Tooltip("Co bat/tat su dung danh sach moc.\n" +
+             "Danh sach moc gio nam ben SimpleSuction.levelSteps (cot 'zoomAdd') - khai bao mot lan\n" +
+             "cho ca scale lan camera, doi moc khong phai sua 2 noi nua.")]
     public bool useSteps = true;
-
-    [Tooltip("Danh sach moc: dat level nay thi CONG THEM 'add' do. Cong don qua nhieu moc.")]
-    public List<Step> steps = new List<Step>
-    {
-        new Step { level = 4, add = 12f },
-        new Step { level = 7, add = 12f },
-        new Step { level = 10, add = 14f },
-    };
 
     [Header("Zoom nho moi cap (Add Per Level)")]
     [Tooltip("BAT: moi lan len cap deu CONG THEM addPerLevel do FOV.\nTAT: khong cong per level.")]
@@ -179,20 +165,22 @@ public class CameraLevelZoom : MonoBehaviour
         float stepAdd = 0f;
         int distinctStepLevels = 0;
 
-        if (useSteps && steps != null)
+        List<SimpleSuction.LevelStep> steps = (useSteps && player != null) ? player.levelSteps : null;
+        if (steps != null)
         {
             for (int i = 0; i < steps.Count; i++)
             {
-                Step s = steps[i];
+                SimpleSuction.LevelStep s = steps[i];
                 if (s == null || s.level < 2 || s.level > level) continue;
+                if (s.zoomAdd == 0f) continue;   // moc chi dong toi scale -> khong tinh la moc cua camera
 
-                stepAdd += s.add;
+                stepAdd += s.zoomAdd;
 
                 bool duplicate = false;
                 for (int j = 0; j < i; j++)
                 {
-                    Step q = steps[j];
-                    if (q != null && q.level == s.level && q.level >= 2 && q.level <= level) { duplicate = true; break; }
+                    SimpleSuction.LevelStep q = steps[j];
+                    if (q != null && q.zoomAdd != 0f && q.level == s.level && q.level >= 2 && q.level <= level) { duplicate = true; break; }
                 }
                 if (!duplicate) distinctStepLevels++;
             }

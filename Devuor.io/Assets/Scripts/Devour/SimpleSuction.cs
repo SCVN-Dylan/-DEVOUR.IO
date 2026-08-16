@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Vung hut hinh NON phia truoc nhan vat - ban gon, it thong so (thay cho MouthSuction cu).
@@ -17,15 +18,29 @@ using UnityEngine.Events;
 [DisallowMultipleComponent]
 public class SimpleSuction : MonoBehaviour
 {
-    /// <summary>Mot moc to len: dat 'level' thi cong them 'add' vao he so scale.</summary>
+    /// <summary>
+    /// MOT MOC LEN CAP - khai bao DUY NHAT o day, ca scale lan camera deu doc chung.
+    /// Truoc kia moc nam o 2 noi (SimpleSuction.scaleSteps + CameraLevelZoom.steps) nen doi
+    /// mot moc phai sua 2 cho, quen la hai ben lech nhau.
+    /// </summary>
     [System.Serializable]
-    public class ScaleStep
+    public class LevelStep
     {
         [Tooltip("Level dat toi")]
         public int level = 10;
 
-        [Tooltip("CONG THEM bao nhieu vao he so scale khi dat level nay (cong don)")]
+        [Tooltip("CONG THEM bao nhieu vao he so SCALE khi dat level nay (cong don).\n0 = moc nay khong lam to them")]
         public float add = 0.5f;
+
+        [Tooltip("CONG THEM bao nhieu vao ZOOM CAMERA khi dat level nay (cong don).\n" +
+                 "Don vi = do FOV (camera ortho se tu quy doi sang orthographicSize).\n" +
+                 "0 = moc nay khong dong toi camera")]
+        public float zoomAdd = 0f;
+
+        [Tooltip("CONG THEM bao nhieu vao TAM HUT khi dat level nay (cong don), don vi world.\n" +
+                 "Cong THEM tren phan tang deu theo rangePerLevel, khong thay the.\n" +
+                 "0 = moc nay khong lam dai non hut (mac dinh hien tai)")]
+        public float rangeAdd = 0f;
     }
 
     [Header("Vung hut (non phia truoc)")]
@@ -64,6 +79,12 @@ public class SimpleSuction : MonoBehaviour
     public bool eatOnContact = true;
 
     [Header("Cap do")]
+    [Tooltip("BAT: an theo MA TRAN HANG. So sanh HANG cua item voi STAGE cua player (deu suy ra tu\n" +
+             "levelSteps), khong phai so sanh level tho:\n" +
+             "  hang - stage <= 0 : an duoc\n" +
+             "  hang - stage == 1 : giay tai cho lam moi\n" +
+             "  hang - stage >= 2 : bat dong\n" +
+             "TAT: an tuot, khong khoa gi.")]
     public bool useLevelGate = true;
 
     [Tooltip("LEVEL HIEN THI = 1 + TONG XP da an. An 1 XP la len 1 level, KHONG CO TRAN.\n" +
@@ -77,15 +98,17 @@ public class SimpleSuction : MonoBehaviour
              "Level trung MOC trong scaleSteps thi KHONG cong khoan nay, chi cong 'add' cua moc.")]
     public float scalePerLevel = 0.015f;
 
-    [Tooltip("Cac MOC to len: dat level nay thi CONG THEM 'add' vao he so scale. CONG DON qua nhieu moc.\n" +
-             "Giua 2 moc van to dan deu theo scalePerLevel, toi moc thi cong nguyen mot cuc.")]
-    public List<ScaleStep> scaleSteps = new List<ScaleStep>
+    [Tooltip("DANH SACH MOC DUY NHAT cho ca scale, camera va gate an item.\n" +
+             "Giua 2 moc van to dan deu theo scalePerLevel, toi moc thi cong nguyen mot cuc.\n" +
+             "Doi mot moc o day la ca ba thu tu theo, khong phai sua cho nao khac.")]
+    [FormerlySerializedAs("scaleSteps")]
+    public List<LevelStep> levelSteps = new List<LevelStep>
     {
-        new ScaleStep { level = 10,  add = 0.50f },
-        new ScaleStep { level = 25,  add = 0.60f },
-        new ScaleStep { level = 50,  add = 0.85f },
-        new ScaleStep { level = 90,  add = 1.00f },
-        new ScaleStep { level = 150, add = 1.00f },
+        new LevelStep { level = 10,  add = 0.50f, zoomAdd = 2f },
+        new LevelStep { level = 25,  add = 0.60f, zoomAdd = 2f },
+        new LevelStep { level = 50,  add = 0.85f, zoomAdd = 4f },
+        new LevelStep { level = 90,  add = 1.00f, zoomAdd = 2f },
+        new LevelStep { level = 150, add = 1.00f, zoomAdd = 10f },
     };
 
     [Tooltip("TRAN kich thuoc: to toi da = scale goc x so nay, du level bao nhieu cung khong vuot.\n" +
@@ -142,12 +165,46 @@ public class SimpleSuction : MonoBehaviour
     public int Xp { get { return _xp; } }
 
     /// <summary>
+    /// STAGE noi bo (1..so moc + 1), KHONG hien thi cho nguoi choi.
+    /// = 1 + so moc trong levelSteps ma Level da voi toi.
+    ///   Lv 1-9 -> stage 1 | Lv 10-24 -> stage 2 | Lv 25-49 -> stage 3 | ...
+    /// Dung lam COT TRAI cua ma tran gate an item.
+    /// </summary>
+    public int Stage { get { return _stage; } }
+
+    /// <summary>
     /// Level dung de tinh zoom camera. Bang Level binh thuong, NHUNG NGUNG TANG ngay khi he so
     /// scale bi maxScale chan lai - than da dung to thi camera cung phai dung zoom ra, khong thi
     /// nhan vat teo dan tren man hinh.
     /// </summary>
     public int ZoomLevel { get { return _zoomLevel; } }
-    public float CurrentRange { get { return range * (1f + rangePerLevel * (level - 1)); } }
+    /// <summary>
+    /// Chieu dai non hut hien tai.
+    ///
+    ///   = range x (1 + rangePerLevel x (level-1))   <- phan tang deu, GIU NGUYEN cach cu
+    ///   + tong rangeAdd cua moi moc da qua          <- phan giat o moc, cong THEM len tren
+    ///
+    /// Hien tai moi rangeAdd deu = 0 nen ket qua y het truoc khi co cot nay.
+    /// Khac voi scale: level trung moc o day VAN duoc cong rangePerLevel (khong tru di), de
+    /// phan tang deu dung y nguyen cong thuc cu.
+    /// </summary>
+    public float CurrentRange
+    {
+        get
+        {
+            float r = range * (1f + rangePerLevel * (level - 1));
+            if (levelSteps != null)
+            {
+                for (int i = 0; i < levelSteps.Count; i++)
+                {
+                    LevelStep s = levelSteps[i];
+                    if (s == null || s.level < 2 || s.level > level) continue;
+                    r += s.rangeAdd;
+                }
+            }
+            return r;
+        }
+    }
 
     /// <summary>Dang co it nhat 1 item nam trong vung/non hut hay khong.</summary>
     public bool HasItemsInRange
@@ -165,6 +222,7 @@ public class SimpleSuction : MonoBehaviour
 
     private Vector3 _baseScale;
     private float _scaleFactor = 1f;   // cache, chi tinh lai khi level doi
+    private int _stage = 1;            // cache, tinh lai cung luc voi _scaleFactor
     private int _zoomLevel = 1;
     private RbMovement _movement;
     private Tween _scaleTween;
@@ -208,11 +266,31 @@ public class SimpleSuction : MonoBehaviour
         if (punchTarget != null) punchTarget.DOKill();
     }
 
-    /// <summary>PhysicsDevourable goi khi no cham vao than nhan vat: an neu du cap.</summary>
+    /// <summary>
+    /// Nac thu may (1..n) ung voi mot moc level bat ky. Dung chung cho ca player lan item:
+    ///   player: StageAtLevel(level)          -> dang o nac nao
+    ///   item  : StageAtLevel(requiredLevel)  -> thuoc HANG nao (A=1, B=2, ... F=6)
+    /// Nho vay khong phai them field 'tier' vao item - requiredLevel 1/10/25/50/90/150 tu no
+    /// da chi ra hang roi, doi moc trong levelSteps la ca hai ben tu theo.
+    /// </summary>
+    public int StageAtLevel(int lv)
+    {
+        int s = 1;
+        if (levelSteps == null) return s;
+        for (int i = 0; i < levelSteps.Count; i++)
+        {
+            LevelStep st = levelSteps[i];
+            if (st == null || st.level < 2 || lv < st.level) continue;
+            s++;
+        }
+        return s;
+    }
+
+    /// <summary>PhysicsDevourable goi khi no cham vao than nhan vat: an neu du HANG.</summary>
     public void EatByContact(PhysicsDevourable it)
     {
         if (!eatOnContact || it == null || it.Consumed) return;
-        if (useLevelGate && it.RequiredLevel > level) return;   // qua cap thi cham cung khong an
+        if (useLevelGate && StageAtLevel(it.RequiredLevel) > _stage) return;   // qua hang thi cham cung khong an
         Swallow(it);
     }
 
@@ -249,8 +327,8 @@ public class SimpleSuction : MonoBehaviour
             PhysicsDevourable it = _hits[i].GetComponentInParent<PhysicsDevourable>();
             if (it == null || it.Consumed || _found.Contains(it)) continue;
 
-            int diff = it.RequiredLevel - level;
-            if (useLevelGate && diff >= 2) continue;   // hon 2+ cap: khong tac dong gi
+            int diff = StageAtLevel(it.RequiredLevel) - _stage;   // HIEU HANG, khong phai hieu level
+            if (useLevelGate && diff >= 2) continue;   // hon 2+ hang: khong tac dong gi
 
             Vector3 to = it.Center - origin;
             to.y = 0f;   // Kiem tra goc va khoang cach phang tren mat dat
@@ -282,7 +360,7 @@ public class SimpleSuction : MonoBehaviour
         {
             if (it == null || it.Consumed) { _toRemove.Add(it); continue; }
 
-            int diff = it.RequiredLevel - level;   // len cap thi item giang co tu chuyen sang hut
+            int diff = StageAtLevel(it.RequiredLevel) - _stage;   // len hang thi item giang co tu chuyen sang hut
 
             if (!useLevelGate || diff <= 0)
             {
@@ -418,16 +496,19 @@ public class SimpleSuction : MonoBehaviour
 
         float stepAdd = 0f;
         int stepHits = 0;
-        if (scaleSteps != null)
+        if (levelSteps != null)
         {
-            for (int i = 0; i < scaleSteps.Count; i++)
+            for (int i = 0; i < levelSteps.Count; i++)
             {
-                ScaleStep s = scaleSteps[i];
+                LevelStep s = levelSteps[i];
                 if (s == null || s.level < 2 || s.level > level) continue;
+                if (s.add == 0f) continue;        // moc chi dong toi camera -> khong tinh la moc cua scale
                 stepAdd += s.add;
                 stepHits++;
             }
         }
+
+        _stage = StageAtLevel(level);
 
         int normalLevels = Mathf.Max(0, levelsGained - stepHits);
         float raw = 1f + scalePerLevel * normalLevels + stepAdd;
@@ -443,7 +524,7 @@ public class SimpleSuction : MonoBehaviour
     void OnDrawGizmosSelected()
     {
         Transform m = mouth != null ? mouth : transform;
-        float eff = range * (1f + rangePerLevel * (Mathf.Max(1, level) - 1));
+        float eff = CurrentRange;   // dung chung nguon voi gameplay, khong chep lai cong thuc
         Vector3 f = m.forward;
         Vector3 p = m.position;
 
