@@ -41,6 +41,11 @@ public class SimpleSuction : MonoBehaviour
                  "Cong THEM tren phan tang deu theo rangePerLevel, khong thay the.\n" +
                  "0 = moc nay khong lam dai non hut (mac dinh hien tai)")]
         public float rangeAdd = 0f;
+
+        [Tooltip("Moc nay co TIEN HOA khong (doi hinh dang player).\n" +
+                 "Bat len thi PlayerVisual se chuyen sang dang ke tiep khi qua moc nay.\n" +
+                 "Theo thiet ke: bat o stage 2 / 4 / 6, tuc Lv10 / Lv50 / Lv150.")]
+        public bool isEvolution = false;
     }
 
     [Header("Vung hut (non phia truoc)")]
@@ -160,6 +165,10 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("De trong = tu tim CameraLevelZoom trong scene. Len level thi day FOV moi sang no")]
     public CameraLevelZoom cameraZoom;
 
+    [Tooltip("De trong = tu tim PlayerVisual tren chinh object nay. Qua moc co isEvolution thi\n" +
+             "day so lan tien hoa sang no de doi hinh dang")]
+    public PlayerVisual playerVisual;
+
     [Header("Su kien")]
     public UnityEvent onDevour;
     public UnityEvent onLevelUp;
@@ -176,6 +185,9 @@ public class SimpleSuction : MonoBehaviour
     /// Dung lam COT TRAI cua ma tran gate an item.
     /// </summary>
     public int Stage { get { return _stage; } }
+
+    /// <summary>So lan TIEN HOA da qua (so moc isEvolution ma Level da voi toi). 0 = dang goc.</summary>
+    public int EvolutionCount { get { return _evolutionCount; } }
 
     /// <summary>
     /// Level dung de tinh zoom camera. Bang Level binh thuong, NHUNG NGUNG TANG ngay khi he so
@@ -228,6 +240,7 @@ public class SimpleSuction : MonoBehaviour
     private Vector3 _baseScale;
     private float _scaleFactor = 1f;   // cache, chi tinh lai khi level doi
     private int _stage = 1;            // cache, tinh lai cung luc voi _scaleFactor
+    private int _evolutionCount;       // so moc isEvolution da qua
     private int _zoomLevel = 1;
     private RbMovement _movement;
     private Tween _scaleTween;
@@ -254,6 +267,7 @@ public class SimpleSuction : MonoBehaviour
         _ownCols = GetComponentsInChildren<Collider>(true);
         _movement = GetComponent<RbMovement>();
         if (cameraZoom == null) cameraZoom = Object.FindAnyObjectByType<CameraLevelZoom>();
+        if (playerVisual == null) playerVisual = GetComponent<PlayerVisual>();
         if (punchTarget == null)
         {
             Transform g = transform.Find("Graphic");
@@ -508,6 +522,7 @@ public class SimpleSuction : MonoBehaviour
         ApplySpeed();
         ApplyScaleTween(instant);
         if (cameraZoom != null) cameraZoom.ApplyForLevel(_zoomLevel, instant);
+        if (playerVisual != null) playerVisual.SetForm(_evolutionCount);   // SetForm tu bo qua neu khong doi
     }
 
     private void ApplyScaleTween(bool instant)
@@ -540,17 +555,22 @@ public class SimpleSuction : MonoBehaviour
 
         float stepAdd = 0f;
         int stepHits = 0;
+        int evo = 0;
         if (levelSteps != null)
         {
             for (int i = 0; i < levelSteps.Count; i++)
             {
                 LevelStep s = levelSteps[i];
                 if (s == null || s.level < 2 || s.level > level) continue;
+
+                if (s.isEvolution) evo++;         // dem TRUOC khi loc theo add, moc tien hoa co the khong lam to them
+
                 if (s.add == 0f) continue;        // moc chi dong toi camera -> khong tinh la moc cua scale
                 stepAdd += s.add;
                 stepHits++;
             }
         }
+        _evolutionCount = evo;
 
         _stage = StageAtLevel(level);
 
