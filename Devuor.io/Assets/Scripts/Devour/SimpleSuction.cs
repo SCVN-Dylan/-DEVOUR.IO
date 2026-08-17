@@ -112,10 +112,11 @@ public class SimpleSuction : MonoBehaviour
              "farSpeedFactor cua item: dung ria thi bi gam nhe, bi dua vao sat mom thi tan rat nhanh")]
     public float creatureFarDrainFactor = 0.35f;
 
-    [Tooltip("Van toc KEO nan nhan ve phia mom (u/s). Phai NHO HON toc do chay cua nan nhan, khong\n" +
-             "thi vao vung hut la chet chac, khong con cua giay ra.\n" +
-             "Cong THEM vao van toc di chuyen chu khong thay the -> nan nhan van tu chay thoat duoc.")]
-    public float creaturePullSpeed = 2.5f;
+    // KHONG CON creaturePullSpeed. Nan nhan khong bi keo ve phia mom nua, chi bi CHAM LAI
+    // (Creature.victimSlow). Luc keo cu la 2.5 u/s - chinh theo toc do 5 cua Player.prefab, nhung
+    // AI.prefab ha speed xuong 2.5 x 0.85 = 2.13 nen luc keo thanh xap xi 100% toc do chay: hai
+    // ben triet tieu nhau va nhan vat dung im giua khong trung. Chinh cho no yeu di thi nan nhan
+    // luon di ra xa (hut ma khong lai gan). Bo han thi khong con bai toan can luc nao nua.
 
     [Header("An khi cham than")]
     [Tooltip("Item cham vao than nhan vat la nuot luon - NHUNG VAN PHAI DAT CAP (requiredLevel <= level).\n" +
@@ -472,7 +473,6 @@ public class SimpleSuction : MonoBehaviour
         if (all.Count < 2) return;
 
         Vector3 origin = transform.position;
-        Vector3 mp = mouth != null ? mouth.position : origin;
         Vector3 fwd = ConeForward();
         float eff = CurrentRange;
         float half = coneAngle * 0.5f;
@@ -493,7 +493,12 @@ public class SimpleSuction : MonoBehaviour
             float prox = Mathf.Lerp(creatureFarDrainFactor, 1f, nearness);
             float perSecond = Mathf.Max(creatureDrainMin, c.Level * creatureDrainPercent) * prox;
 
-            c.ReceiveDrain(_creature, perSecond * dt, mp, creaturePullSpeed * prox);
+            c.ReceiveDrain(_creature, perSecond * dt);
+
+            // Ghi so cho CHINH MINH nua: ReceiveDrain chi bao cho nan nhan biet no dang danh nhau
+            // voi ai. Khong co dong nay thi con di hut khong he biet minh dang o trong tran, va
+            // bo phan vai (VaiTro theo level) khong co du lieu de chay.
+            _creature.NoteCombat(c);
         }
     }
 

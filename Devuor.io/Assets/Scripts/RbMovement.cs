@@ -51,6 +51,7 @@ public class RbMovement : MonoBehaviour
     private bool _yLocked;
     private float _baseSpeed;
     private bool _baseSpeedCached;
+    private float _combatMultiplier = 1f;
 
     /// <summary>Da cham dat va khoa truc Y chua.</summary>
     public bool IsYLocked { get { return _yLocked; } }
@@ -79,6 +80,19 @@ public class RbMovement : MonoBehaviour
     {
         get { return _speedHandicap; }
         set { _speedHandicap = Mathf.Max(0.01f, value); }
+    }
+
+    /// <summary>
+    /// HE SO LUC DANH NHAU (bi ghi, hoac dang ghi con khac). 1 = binh thuong.
+    ///
+    /// PHAI la mot kenh RIENG chu khong duoc di qua SetSpeedMultiplier: SimpleSuction ghi de kenh
+    /// do moi lan LEVEL DOI, ma trong lue dang bi hut thi level doi lien tuc - he so combat nhet
+    /// vao day se bi xoa ngay frame sau. Hai kenh nhan voi nhau trong Move(), khong ai de ai.
+    /// </summary>
+    public float CombatSpeedMultiplier
+    {
+        get { return _combatMultiplier; }
+        set { _combatMultiplier = Mathf.Clamp(value, 0f, 1f); }
     }
 
     /// <summary>
@@ -208,7 +222,8 @@ public class RbMovement : MonoBehaviour
             return;
         }
 
-        Vector3 target = _dir * _speed;
+        float speed = _speed * _combatMultiplier;
+        Vector3 target = _dir * speed;
 
         // Ca hai thoi gian = 0 thi gan thang nhu ban goc.
         // Dat > 0 neu muon truot nhe luc chay/dung.
@@ -217,7 +232,7 @@ public class RbMovement : MonoBehaviour
             : _decelerationTime;
 
         _planarVelocity = rampTime > 0.0001f
-            ? Vector3.MoveTowards(_planarVelocity, target, _speed / rampTime * Time.fixedDeltaTime)
+            ? Vector3.MoveTowards(_planarVelocity, target, speed / rampTime * Time.fixedDeltaTime)
             : target;
 
         // Van toc ngoai CONG THEM chu khong thay the: dang chay tron ma bi hut thi van thoat duoc,
