@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -100,16 +101,21 @@ public class Creature : MonoBehaviour
     // thanh nan nhan luon di ra xa (hut ma khong lai gan). Bo han di thi khong con bai toan can
     // luc nao ca - chi con MOT thu duy nhat lam cham: he so toc do.
 
-    [Header("Bi nuot")]
-    [Range(0.01f, 0.99f)]
-    [Tooltip("Tut xuong duoi bao nhieu PHAN TRAM so voi level luc BAT DAU bi hut thi bi nuot.\n" +
-             "0.2 = vao tran o Lv100, con duoi Lv20 la bi nuot.")]
-    public float eatPercent = 0.2f;
+    [Header("Bi nuot vao mom")]
+    [Range(0.05f, 0.99f)]
+    [Tooltip("HET THANH GHI thi xet: level minh duoi bao nhieu PHAN TRAM level KE HUT thi bi nuot.\n" +
+             "0.5 = yeu hon nua level ke hut la bi hut thang vao mom nhu mot mon do an.\n\n" +
+             "Con >= muc nay thi het thanh la duoc THA, tra ve 100% toc do va chay thoat. Thanh ghi\n" +
+             "vi the la 'cua so chung minh minh khong phai do an' - het gio ma van qua yeu thi bi an.\n\n" +
+             "Van bi rut XP tiep sau khi duoc tha, nen tut dan xuong duoi muc nay thi van bi nuot -\n" +
+             "phep kiem tra chay lien tuc chu khong chi dung mot lan luc thanh vua can.")]
+    public float devourLevelRatio = 0.5f;
 
-    [Tooltip("Thoat khoi moi vung hut bao lau (giay) thi MOC LEVEL duoc dat lai - coi nhu tran moi.\n\n" +
-             "Tach rieng khoi drainMemory (chi 0.5s, dung cho animation/co trang thai): neu dung\n" +
-             "chung thi chi can lach ra khoi non nua giay la 'thanh mau' day lai, danh nhau vo nghia.")]
-    public float anchorResetDelay = 3f;
+    [Tooltip("Thoi gian xac bay xoay + teo lao vao mom (giay). Dung kieu voi luc nuot item")]
+    public float devouredDuration = 0.35f;
+
+    [Tooltip("Toc do xoay tit khi bi hut vao mom (do/giay)")]
+    public float devouredSpin = 900f;
 
     [Tooltip("BAT: cham than nhau la con thap level hon CHET NGAY. TAT (mac dinh): cham nhau chi\n" +
              "day nhau ra, MUON AN THI PHAI HUT.\n\n" +
@@ -130,25 +136,12 @@ public class Creature : MonoBehaviour
     /// <summary>Da bi nuot chua (chong xu ly chet hai lan trong cung mot frame).</summary>
     public bool IsDead { get { return _dead; } }
 
-    /// <summary>Level luc BAT DAU bi hut - moc de tinh nguong bi nuot. 0 = khong o trong tran nao.</summary>
-    public int AnchorLevel { get { return _anchorLevel; } }
-
-    /// <summary>Duoi muc nay la bi nuot. 0 = khong o trong tran nao.</summary>
-    public int EatThreshold
-    {
-        get
-        {
-            if (_anchorLevel <= 0) return 0;
-            return Mathf.Max(1, Mathf.CeilToInt(_anchorLevel * eatPercent));
-        }
-    }
-
     private Creature _lastAttacker;
     private float _lastDrainTime = -999f;
     private int _drainedTotal;
-    private int _anchorLevel;
     private bool _dead;
-    private int _rivalLevel;              // level cao nhat trong so doi thu cua tran DANG dien ra
+    private Creature _rival;              // doi thu MANH NHAT cua tran DANG dien ra
+    private int _rivalLevel;
     private float _lastCombatTime = -999f;
     private float _struggle = 1f;
     private float _refillDelayLeft;
@@ -193,8 +186,8 @@ public class Creature : MonoBehaviour
     {
         if (other == null || other == this || other.IsDead) return;
 
-        if (!InCombat) _rivalLevel = 0;   // tran truoc da nguoi han -> quen doi thu cu di
-        if (other.Level > _rivalLevel) _rivalLevel = other.Level;
+        if (!InCombat) { _rivalLevel = 0; _rival = null; }   // tran truoc da nguoi -> quen doi thu cu
+        if (other.Level > _rivalLevel || _rival == null) { _rivalLevel = other.Level; _rival = other; }
         _lastCombatTime = Time.time;
     }
 
@@ -217,11 +210,6 @@ public class Creature : MonoBehaviour
         // Thoat duoc mot luc roi bi hut lai = tran moi, dem lai tu dau
         if (!IsBeingDrained) _drainedTotal = 0;
 
-        // MOC LEVEL cua tran nay - phai chot TRUOC khi tru XP dau tien, va phai so voi
-        // _lastDrainTime CU (truoc khi ghi de o duoi)
-        if (_anchorLevel <= 0 || Time.time - _lastDrainTime > anchorResetDelay) _anchorLevel = Level;
-        else if (Level > _anchorLevel) _anchorLevel = Level;   // an te bao len lai giua tran thi moc dang theo
-
         _lastAttacker = attacker;
         _lastDrainTime = Time.time;
         NoteCombat(attacker);   // ghi so doi thu -> bo phan vai biet minh la ke hut hay nan nhan
@@ -241,7 +229,10 @@ public class Creature : MonoBehaviour
             if (attacker.Vfx != null) attacker.Vfx.EmitDrain(Center, lost);
         }
 
-        if (lost > 0 && EatThreshold > 0 && Level <= EatThreshold) Die(attacker);
+        // KHONG con cua chet nao o day. Chet chi xay ra o mot cho duy nhat: TickDevourCheck(),
+        // khi thanh ghi da can VA minh qua yeu so voi ke hut. Truoc day co them mot cua nua (tut
+        // duoi eatPercent cua moc level dau tran) - hai luat chet song song thi khong bao gio doan
+        // duoc con nao se chet luc nao, va do chinh la kieu "sua xong lai ra bug moi".
     }
 
     /// <summary>
@@ -275,13 +266,22 @@ public class Creature : MonoBehaviour
     ///
     /// killer co the null (chet khong do ai): luc do XP bien mat cung nan nhan, khong ai duoc gi.
     /// </summary>
-    public void Die(Creature killer)
+    public void Die(Creature killer) { Die(killer, false); }
+
+    /// <summary>
+    /// swallowIntoMouth = xac bay xoay tit + teo lao vao mom ke giet roi moi bien mat, dung kieu
+    /// voi luc nuot mot mon item. Tat thi bien mat ngay tai cho.
+    /// </summary>
+    public void Die(Creature killer, bool swallowIntoMouth)
     {
         if (_dead) return;
         _dead = true;
 
+        // XP + hat trao NGAY, khong doi animation xong: neu doi thi tween bi ngat giua chung
+        // (ke giet chet theo, doi scene) la XP boc hoi mat.
         int remain = _suction != null ? _suction.Xp : 0;
-        if (killer != null && !killer.IsDead)
+        bool killerAlive = killer != null && !killer.IsDead;
+        if (killerAlive)
         {
             if (remain > 0 && killer.Suction != null) killer.Suction.GainXp(remain);
             if (killer.Vfx != null) killer.Vfx.EmitDeath(Center);
@@ -289,8 +289,77 @@ public class Creature : MonoBehaviour
 
         if (onDied != null) onDied.Invoke();
 
+        if (swallowIntoMouth && killerAlive && devouredDuration > 0f && isActiveAndEnabled)
+        {
+            PlaySwallowedInto(killer);   // ReportDeath se duoc goi khi bay xong
+            return;
+        }
+
         if (GameManager.HasInstance) GameManager.Instance.ReportDeath(this, killer);
         else Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// Xac bay vao mom ke giet - sao chep dung cach item lam (PhysicsDevourable.PlaySwallow):
+    /// kinematic, tat collider, tween vi tri + teo + xoay tit, xong thi bien mat.
+    ///
+    /// BAM THEO mom moi frame chu khong ban toi mot diem co dinh: ke giet dang chay thi mom di
+    /// chuyen, ban toi diem cu se thay xac lao tret ra sau lung no.
+    ///
+    /// RUT TEN khoi GameManager NGAY tu dau chu khong doi bay xong: trong lue bay no khong con la
+    /// muc tieu hop le nua, de lai trong danh sach thi cac con khac van ngam vao no de di/tron, va
+    /// SimpleSuction cua chung van rut XP mot cai xac.
+    /// </summary>
+    private void PlaySwallowedInto(Creature killer)
+    {
+        if (GameManager.HasInstance) GameManager.Instance.Unregister(this);
+
+        // Cat moi duong con nay con tu tac dong ra ben ngoai
+        if (_movement != null) { _movement.CombatSpeedMultiplier = 1f; _movement.enabled = false; }
+        if (_suction != null) _suction.enabled = false;   // dang bi nuot ma van di rut XP con khac thi vo ly
+        AIController ai = GetComponent<AIController>();
+        if (ai != null) ai.enabled = false;
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            rb.isKinematic = true;
+        }
+
+        Collider[] cols = GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < cols.Length; i++)
+            if (cols[i] != null) cols[i].enabled = false;   // khong xo day gi tren duong bay
+
+        Transform mouth = killer.Suction != null && killer.Suction.mouth != null
+            ? killer.Suction.mouth : killer.transform;
+
+        Transform tf = transform;
+        Vector3 startPos = tf.position;
+        Vector3 startScale = tf.localScale;
+
+        tf.DOKill();
+        DOTween.To(() => 0f, k =>
+        {
+            if (tf == null) return;
+            Vector3 tp = mouth != null ? mouth.position : startPos;
+            tf.position = Vector3.Lerp(startPos, tp, k);
+            tf.localScale = startScale * (1f - k);
+            tf.Rotate(Vector3.up, devouredSpin * Time.deltaTime, Space.Self);
+        }, 1f, devouredDuration)
+            .SetEase(Ease.InQuad)
+            .SetTarget(tf)
+            .OnComplete(() =>
+            {
+                if (this == null) return;
+                if (GameManager.HasInstance) GameManager.Instance.ReportDeath(this, killer);
+                else Destroy(gameObject);
+            });
+    }
+
+    void OnDestroy()
+    {
+        transform.DOKill();   // tween con song ma target da chet thi DOTween nem loi
     }
 
     /// <summary>Chay khi VUA GAN component trong Editor: dien san ref de khoi phai keo tay.</summary>
@@ -312,8 +381,27 @@ public class Creature : MonoBehaviour
 
     void Update()
     {
+        if (_dead) return;   // dang bay vao mom roi, dung tinh toc do/thanh nua
+
         TickStruggle();
         ApplyCombatSpeed();
+        TickDevourCheck();
+    }
+
+    /// <summary>
+    /// HET THANH GHI thi xet: qua yeu so voi ke hut thi bi hut thang vao mom.
+    ///
+    /// Chay MOI FRAME chu khong chi mot lan tai khoanh khac thanh vua can: duoc tha roi minh van
+    /// bi rut XP tiep, tut dan xuong duoi nguong luc nao la bi an luc do. Neu chi xet mot lan thi
+    /// con nao qua duoc dung giay do se mien nhiem vinh vien trong ca tran.
+    /// </summary>
+    private void TickDevourCheck()
+    {
+        if (_struggle > 0f) return;              // con thanh = con cua chung minh minh khong phai do an
+        if (!IsVictimRole || _rival == null || _rival.IsDead) return;
+        if (Level >= _rival.Level * devourLevelRatio) return;   // van du suc, duoc tha cho chay
+
+        Die(_rival, true);
     }
 
     /// <summary>
