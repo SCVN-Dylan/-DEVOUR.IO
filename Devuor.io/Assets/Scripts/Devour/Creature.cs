@@ -127,6 +127,19 @@ public class Creature : MonoBehaviour
     private CellPool _pool;
 
     /// <summary>
+    /// Da keu ve chuyen scene thieu CellPool chua. STATIC va chi keu MOT lan ca van: bon con
+    /// deu goi EmitCells moi frame, khong chan thi console ngap warning va che het log that.
+    /// </summary>
+    private static bool _warnedNoPool;
+
+    /// <summary>
+    /// Xoa co warning khi vao van moi. Bat buoc phai co neu du an tat domain reload - khong thi
+    /// lan chay thu hai tro di se im lang tro lai, dung cai loi ma no sinh ra de canh bao.
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() { _warnedNoPool = false; }
+
+    /// <summary>
     /// BI CON KHAC HUT. Ke hut goi ham nay moi FixedUpdate khi minh nam trong non hut cua no.
     ///
     ///   xpAmount  = luong XP bi rut trong frame nay (da nhan fixedDeltaTime)
@@ -245,7 +258,21 @@ public class Creature : MonoBehaviour
         if (_pendingCells <= 0) return;
 
         if (_pool == null) _pool = CellPool.Instance;
-        if (_pool == null) { _pendingCells = 0; return; }   // scene khong co kho te bao: khong tich rac
+        if (_pool == null)
+        {
+            // Scene quen dat CellPool: XP van bi tru dung, nhung te bao thi bien mat khong dau vet.
+            // Ban cu return im lang o day - nhin ngoai giong het "combat khong nha te bao", ma cai
+            // sai lai nam o scene chu khong nam trong code, nen do rat lau moi ra. Keu mot tieng.
+            if (!_warnedNoPool)
+            {
+                _warnedNoPool = true;
+                Debug.LogWarning("[Creature] Scene khong co CellPool -> te bao bi huy, con bi hut se " +
+                                 "khong roi ra vien nao. Them mot GameObject gan CellPool va keo " +
+                                 "Cell.prefab vao o cellPrefab.", this);
+            }
+            _pendingCells = 0;   // khong tich rac cho mot cai kho khong ton tai
+            return;
+        }
 
         _cellTimer -= Time.deltaTime;
         if (_cellTimer > 0f) return;

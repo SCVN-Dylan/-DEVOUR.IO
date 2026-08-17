@@ -25295,6 +25295,57 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4422793138971760930, guid: d63f8d508df8b422b98ea9193427b65b, type: 3}
   m_PrefabInstance: {fileID: 946736804}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &947798164
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 947798166}
+  - component: {fileID: 947798165}
+  m_Layer: 0
+  m_Name: CellPool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &947798165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947798164}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f03cf17eaa1134dadaf9e78690de81ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CellPool
+  _cellPrefab: {fileID: 13657407547179762, guid: fbcfd89d8916f4705acc75d1e0df2126, type: 3}
+  _maxAlive: 80
+  _lifetime: 6
+  _prewarm: 24
+  _popSpeed: 2.5
+  _popUp: 2.5
+  _popSpread: 0.55
+--- !u!4 &947798166
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947798164}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &948099132
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -55886,3 +55937,4 @@ SceneRoots:
   - {fileID: 1696491262}
   - {fileID: 1784587079}
   - {fileID: 392214661}
+  - {fileID: 947798166}
