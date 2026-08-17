@@ -40,8 +40,15 @@ public class Creature : MonoBehaviour
     [Tooltip("Bo di chuyen cua chinh con nay")]
     [SerializeField] private RbMovement _movement;
 
+    [Tooltip("He hat 'hut' cua chinh con nay - ban khi CON NAY di hut con khac.\n" +
+             "De trong = tu tim DevourVfx trong cac object con")]
+    [SerializeField] private DevourVfx _vfx;
+
     public SimpleSuction Suction { get { return _suction; } }
     public RbMovement Movement { get { return _movement; } }
+
+    /// <summary>He hat cua con nay. Ke hut goi vao day de rac hat tu than nan nhan ve mom minh.</summary>
+    public DevourVfx Vfx { get { return _vfx; } }
 
     /// <summary>Cap do hien tai (lay tu SimpleSuction, khong luu ban sao rieng de khoi lech).</summary>
     public int Level { get { return _suction != null ? _suction.Level : 1; } }
@@ -65,17 +72,6 @@ public class Creature : MonoBehaviour
     [Tooltip("Bao lau khong bi hut them thi moi coi la DA THOAT (giay). Xem IsBeingDrained")]
     public float drainMemory = 0.5f;
 
-    [Header("Te bao roi ra khi bi hut")]
-    [Tooltip("Cach nhau it nhat bao nhieu giay moi nha 1 vien (0.05 = toi da 20 vien/giay).\n" +
-             "Day la VAN AN TOAN: mat 1 XP la rot 1 vien, ma o level cao moi giay mat hang chuc XP -\n" +
-             "khong chan nhip thi mot minh nan nhan co the de ra ca tram Rigidbody moi giay.")]
-    public float cellInterval = 0.05f;
-
-    [Tooltip("Do dai toi da cua HANG DOI te bao chua kip nha. Vuot qua thi vien nha ra se ganh\n" +
-             "NHIEU HON 1 XP de don cho kip - choi binh thuong khong bao gio cham toi muc nay.\n" +
-             "Khong co tran thi tran danh xong roi te bao van con rot ra ca phut sau.")]
-    public int maxPendingCells = 60;
-
     [Header("Bi nuot")]
     [Range(0.01f, 0.99f)]
     [Tooltip("Tut xuong duoi bao nhieu PHAN TRAM so voi level luc BAT DAU bi hut thi bi nuot.\n" +
@@ -92,11 +88,6 @@ public class Creature : MonoBehaviour
              "0 = chi can cao hon mot chut la nuot (Lv101 nuot Lv100).\n" +
              "0.1 = phai hon 10% moi nuot, hai con xap xi thi hue nhau.")]
     public float contactEatMargin = 0f;
-
-    [Tooltip("Luc CHET thi no ra bao nhieu vien te bao, chia deu XP con lai.\n\n" +
-             "Phai chot so vien co dinh chu khong theo '1 vien = 1 XP' nhu luc bi rut dan: con Lv800\n" +
-             "chet ma de ra 799 Rigidbody trong mot frame la treo may.")]
-    public int deathCellCount = 12;
 
     [Tooltip("Ban khi con nay bi nuot. Cam VFX/SFX vao day")]
     public UnityEvent onDied;
@@ -122,22 +113,6 @@ public class Creature : MonoBehaviour
     private int _drainedTotal;
     private int _anchorLevel;
     private bool _dead;
-    private int _pendingCells;
-    private float _cellTimer;
-    private CellPool _pool;
-
-    /// <summary>
-    /// Da keu ve chuyen scene thieu CellPool chua. STATIC va chi keu MOT lan ca van: bon con
-    /// deu goi EmitCells moi frame, khong chan thi console ngap warning va che het log that.
-    /// </summary>
-    private static bool _warnedNoPool;
-
-    /// <summary>
-    /// Xoa co warning khi vao van moi. Bat buoc phai co neu du an tat domain reload - khong thi
-    /// lan chay thu hai tro di se im lang tro lai, dung cai loi ma no sinh ra de canh bao.
-    /// </summary>
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetStatics() { _warnedNoPool = false; }
 
     /// <summary>
     /// BI CON KHAC HUT. Ke hut goi ham nay moi FixedUpdate khi minh nam trong non hut cua no.
@@ -146,8 +121,10 @@ public class Creature : MonoBehaviour
     ///   mouthPos  = mom ke hut, de biet keo ve huong nao
     ///   pullSpeed = van toc keo, CONG THEM vao van toc di chuyen chu khong thay the
     ///
-    /// KHONG cong XP cho ke hut o day: so XP mat di se bien thanh TE BAO (M6) roi ke hut phai
-    /// hap thu moi an duoc - cong thang o day nua la cong doi.
+    /// XP CHUYEN THANG sang ke hut. Ban truoc thi khong: XP mat di bien thanh TE BAO vat ly nam
+    /// ngoai the gioi, ke hut phai hut lai moi an duoc - co y de con thu ba co cua chen vao cuop.
+    /// Da bo cua do (xem DevourVfx): doi lai khong con hang tram Rigidbody moi tran, va so lieu
+    /// khop tuyet doi - do thuc te ban cu chi co 28/30 vien toi duoc mom, 2 XP boc hoi.
     /// </summary>
     public void ReceiveDrain(Creature attacker, float xpAmount, Vector3 mouthPos, float pullSpeed)
     {
@@ -168,7 +145,15 @@ public class Creature : MonoBehaviour
         if (lost > 0)
         {
             _drainedTotal += lost;
-            _pendingCells += lost;   // 1 XP mat di = 1 vien te bao se rot ra
+
+            // Minh tut bao nhieu, ke hut an dung bay nhieu - va an NGAY, khong qua trung gian nao.
+            // Van di qua GainXp de con dinh xpGainMultiplier: GameManager.BalanceAiLevels ghim
+            // level bot bang he so do, bo qua la bot an cua nhau se vot len khong ai ham duoc.
+            if (attacker.Suction != null) attacker.Suction.GainXp(lost);
+
+            // Hat bay tu than MINH ve mom KE HUT. He hat nam ben ke hut nen moi hat trong do deu
+            // ve cung mot mom - khong phai gan dich cho tung hat.
+            if (attacker.Vfx != null) attacker.Vfx.EmitDrain(Center, lost);
         }
 
         if (_movement != null && pullSpeed > 0f)
@@ -203,8 +188,13 @@ public class Creature : MonoBehaviour
     }
 
     /// <summary>
-    /// BI NUOT. XP con lai no thanh te bao - ke giet KHONG duoc cong thang XP, phai hut duoc thi
-    /// moi an, va con thu ba van co cua chen vao cuop.
+    /// BI NUOT. TOAN BO XP con lai ve thang ke giet, kem mot phat hat that da.
+    ///
+    /// Ban cu no thanh 12 vien te bao vat ly de con thu ba con cua cuop. Da bo cua do cung luc voi
+    /// he te bao (xem DevourVfx) - doi lai khoanh khac chet khong con de ra mot lot Rigidbody, va
+    /// ke giet an dung so chu khong phu thuoc no nhat lai duoc may vien.
+    ///
+    /// killer co the null (chet khong do ai): luc do XP bien mat cung nan nhan, khong ai duoc gi.
     /// </summary>
     public void Die(Creature killer)
     {
@@ -212,10 +202,10 @@ public class Creature : MonoBehaviour
         _dead = true;
 
         int remain = _suction != null ? _suction.Xp : 0;
-        if (remain > 0 && deathCellCount > 0)
+        if (killer != null && !killer.IsDead)
         {
-            if (_pool == null) _pool = CellPool.Instance;
-            if (_pool != null) _pool.SpawnBurst(Center, remain, deathCellCount);
+            if (remain > 0 && killer.Suction != null) killer.Suction.GainXp(remain);
+            if (killer.Vfx != null) killer.Vfx.EmitDeath(Center);
         }
 
         if (onDied != null) onDied.Invoke();
@@ -231,62 +221,18 @@ public class Creature : MonoBehaviour
     {
         // Ref da keo san tren prefab thi khong dong toi. AutoFill chi la LUOI AN TOAN cho
         // truong hop quen keo (prefab cu, object dung tay trong scene test).
-        if (_suction == null || _movement == null) AutoFill();
+        if (_suction == null || _movement == null || _vfx == null) AutoFill();
     }
 
     private void AutoFill()
     {
         if (_suction == null) _suction = GetComponent<SimpleSuction>();
         if (_movement == null) _movement = GetComponent<RbMovement>();
+        if (_vfx == null) _vfx = GetComponentInChildren<DevourVfx>(true);
     }
 
-    void Update()
-    {
-        EmitCells();
-    }
-
-    /// <summary>
-    /// Nha te bao ra tu hang doi. XP mat di KHONG bay thang sang ke hut - no bien thanh vien te
-    /// bao nam ngoai the gioi, ke hut phai hut duoc thi moi an duoc. Nho vay con thu ba luon co
-    /// cua chen vao cuop.
-    ///
-    /// Binh thuong 1 vien = 1 XP. Chi khi rut nhanh hon nhip nha (hang doi vuot maxPendingCells)
-    /// thi vien moi ganh nhieu XP hon - de hang doi khong dai vo tan.
-    /// </summary>
-    private void EmitCells()
-    {
-        if (_pendingCells <= 0) return;
-
-        if (_pool == null) _pool = CellPool.Instance;
-        if (_pool == null)
-        {
-            // Scene quen dat CellPool: XP van bi tru dung, nhung te bao thi bien mat khong dau vet.
-            // Ban cu return im lang o day - nhin ngoai giong het "combat khong nha te bao", ma cai
-            // sai lai nam o scene chu khong nam trong code, nen do rat lau moi ra. Keu mot tieng.
-            if (!_warnedNoPool)
-            {
-                _warnedNoPool = true;
-                Debug.LogWarning("[Creature] Scene khong co CellPool -> te bao bi huy, con bi hut se " +
-                                 "khong roi ra vien nao. Them mot GameObject gan CellPool va keo " +
-                                 "Cell.prefab vao o cellPrefab.", this);
-            }
-            _pendingCells = 0;   // khong tich rac cho mot cai kho khong ton tai
-            return;
-        }
-
-        _cellTimer -= Time.deltaTime;
-        if (_cellTimer > 0f) return;
-        _cellTimer = Mathf.Max(0f, cellInterval);
-
-        int xp = 1;
-        if (maxPendingCells > 0 && _pendingCells > maxPendingCells)
-            xp = Mathf.CeilToInt((float)_pendingCells / maxPendingCells);
-        xp = Mathf.Min(xp, _pendingCells);
-
-        Vector3 toward = _lastAttacker != null ? (_lastAttacker.Center - Center) : Vector3.zero;
-        _pool.Spawn(Center, toward, xp);
-        _pendingCells -= xp;
-    }
+    // KHONG CON Update: hang doi te bao da bo, XP di thang sang ke hut ngay trong ReceiveDrain.
+    // Bon con nhan mot Update rong moi frame chi de kiem tra mot bien luon bang 0 la lang phi.
 
     void OnEnable()
     {
