@@ -75,6 +75,10 @@ PrefabInstance:
       value: Bot
       objectReference: {fileID: 0}
     - target: {fileID: 7715685529842263537, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: _speed
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7715685529842263537, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: _speedHandicap
       value: 0.85
       objectReference: {fileID: 0}
