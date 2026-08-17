@@ -116,7 +116,6 @@ public class PhysicsDevourable : MonoBehaviour
     private Collider[] _ignoredCols;   // collider cua CHU dang duoc bo qua va cham (null = khong bo qua ai)
     private Tween _swallowTween;
 
-    private bool _launched;            // vua duoc Launch() -> Start() khong duoc cho ngu
     private SimpleSuction _owner;
     private float _ownerDist;          // khoang cach chu -> item, chu tu cap nhat moi lan quet
     private bool _ownerCanEat;         // chu du cap NUOT hay chi lam item giay tai cho
@@ -145,70 +144,13 @@ public class PhysicsDevourable : MonoBehaviour
 
     void Start()
     {
-        // Vua duoc BAN ra (te bao vang khoi than nan nhan) thi khong duoc ngu ngay: EnterSleep
-        // xoa sach van toc va goi rb.Sleep(), vien te bao se dung khong giua troi.
-        if (!_launched) EnterSleep();
+        EnterSleep();
     }
 
-    /// <summary>
-    /// BAN object ra voi mot van toc ban dau (te bao bat ra khoi than nan nhan).
-    ///
-    /// Phai co ham rieng chu khong gan thang rb.linearVelocity tu ben ngoai: object vua
-    /// Instantiate thi Start() chay SAU do va se goi EnterSleep(), xoa sach van toc vua gan.
-    /// </summary>
-    public void Launch(Vector3 velocity)
-    {
-        EnsureReferences();
-        _launched = true;
-        _state = State.Falling;
-        _rb.isKinematic = false;
-        _rb.useGravity = true;
-        _rb.WakeUp();
-        _rb.linearVelocity = velocity;
-        _sleepAt = Time.time + sleepDelay;
-    }
-
-    /// <summary>
-    /// Ai muon TAI SU DUNG object thay vi huy thi gan callback nay (CellPool). De trong thi
-    /// item bi nuot se Destroy nhu cu - item thuong tren map khong dinh gi toi pool.
-    /// </summary>
-    public System.Action<PhysicsDevourable> onReleaseToPool;
-
-    /// <summary>
-    /// Tra ve trang thai nhu vua ra lo, de lay tu pool ra dung lai.
-    /// Phai tu tay bat lai collider: PlaySwallow da TAT het collider luc bay vao mom.
-    /// </summary>
-    public void ResetForReuse()
-    {
-        EnsureReferences();
-
-        if (_swallowTween != null && _swallowTween.IsActive()) _swallowTween.Kill();
-        _swallowTween = null;
-        transform.DOKill();
-
-        _consumed = false;
-        _owner = null;
-        _launched = false;
-        _ignoredCols = null;
-        transform.localScale = _startScale;
-
-        if (_cols == null) _cols = GetComponentsInChildren<Collider>(false);
-        for (int i = 0; i < _cols.Length; i++)
-            if (_cols[i] != null) _cols[i].enabled = true;
-
-        _state = State.Falling;
-        _rb.isKinematic = false;
-        _rb.useGravity = true;
-        _rb.linearVelocity = Vector3.zero;
-        _rb.angularVelocity = Vector3.zero;
-        _sleepAt = Time.time + sleepDelay;
-    }
-
-    /// <summary>Bien mat: ve pool neu co, khong thi huy han.</summary>
+    /// <summary>Bien mat sau khi bi nuot.</summary>
     private void Vanish()
     {
-        if (onReleaseToPool != null) onReleaseToPool(this);
-        else Destroy(gameObject);
+        Destroy(gameObject);
     }
 
     /// <summary>

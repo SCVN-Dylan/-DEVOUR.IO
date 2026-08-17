@@ -677,8 +677,21 @@ public class SimpleSuction : MonoBehaviour
     }
 
     /// <summary>
+    /// AN XP RUT DUOC tu con khac. Cua duy nhat de cong XP tu ben ngoai.
+    ///
+    /// Di qua dung AddXp nhu luc nuot item, chu khong ghi thang vao _xp: co vay moi con dinh
+    /// xpGainMultiplier - GameManager.BalanceAiLevels ghim level bot bang he so do, bo qua no la
+    /// bot an cua nhau se vot len khong ai ham lai duoc.
+    /// </summary>
+    public void GainXp(int amount)
+    {
+        if (amount <= 0) return;
+        AddXp(amount);
+    }
+
+    /// <summary>
     /// MAT XP - bi con khac hut. Tra ve so XP THUC SU mat duoc (da bi san Lv1 chan lai), de ben
-    /// goi biet phai de ra bao nhieu te bao: rot ra dung bang so mat di, khong sinh XP tu khong.
+    /// goi biet nan nhan tut dung bao nhieu: ke hut an dung bang so do, khong sinh XP tu khong.
     /// </summary>
     public int LoseXp(int amount)
     {
