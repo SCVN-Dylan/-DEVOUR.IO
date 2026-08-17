@@ -1285,6 +1285,7 @@ MonoBehaviour:
   _lockYOnGround: 1
   _groundNormalY: 0.5
   _speed: 5
+  _speedHandicap: 1
   _turnSpeed: 0
   _accelerationTime: 0
   _decelerationTime: 0
@@ -1336,6 +1337,11 @@ MonoBehaviour:
   scanInterval: 0.05
   maxActiveItems: 64
   itemStealMargin: 0.85
+  drainCreatures: 1
+  creatureDrainPercent: 0.12
+  creatureDrainMin: 2
+  creatureFarDrainFactor: 0.35
+  creaturePullSpeed: 2.5
   eatOnContact: 1
   useLevelGate: 1
   level: 1
@@ -1449,9 +1455,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Creature
   isPlayer: 1
   displayName: Player
+  levelBias: 0
   centerOffset: {x: 0, y: 0.33, z: 0}
   _suction: {fileID: 2824990503888106062}
   _movement: {fileID: 7715685529842263537}
+  drainMemory: 0.5
+  cellInterval: 0.05
+  maxPendingCells: 60
+  eatPercent: 0.2
+  anchorResetDelay: 3
+  contactEatMargin: 0
+  deathCellCount: 12
+  onDied:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &4246801617173372038
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2187,7 +2204,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5648563887185035439}
-  m_LocalRotation: {x: 0.40530255, y: -0, z: -0, w: 0.9141826}
+  m_LocalRotation: {x: 0.37601054, y: 0.29775032, z: 0.18137598, w: 0.8585241}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 0
@@ -2764,7 +2781,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 9276635d97d1c46e0948ad8a63fce246, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
