@@ -320,7 +320,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &8158343178690369287
 Transform:
   m_ObjectHideFlags: 0
@@ -432,7 +432,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1079792741291861170
 Transform:
   m_ObjectHideFlags: 0
@@ -603,7 +603,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &6033187876848054802
 Transform:
   m_ObjectHideFlags: 0
@@ -810,7 +810,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &7163264268374973369
 Transform:
   m_ObjectHideFlags: 0
@@ -1469,7 +1469,7 @@ MonoBehaviour:
     rangeAdd: 0
     isEvolution: 0
   maxScale: 50
-  speedFollowScale: 0.25
+  speedFollowScale: 0.59
   rangePerLevel: 0.05
   gulpPunch: 0.18
   gulpDuration: 0.22
@@ -1542,8 +1542,9 @@ MonoBehaviour:
   struggleTime: 2.5
   struggleRefillDelay: 1
   struggleRefillTime: 3
-  eatPercent: 0.2
-  anchorResetDelay: 3
+  devourLevelRatio: 0.5
+  devouredDuration: 0.35
+  devouredSpin: 900
   eatOnBodyContact: 0
   contactEatMargin: 0
   onDied:
@@ -1564,6 +1565,10 @@ MonoBehaviour:
   _animator: {fileID: 2343988516375719957}
   _movement: {fileID: 7715685529842263537}
   _suction: {fileID: 2824990503888106062}
+  _creature: {fileID: 3995865763585234974}
+  attackerAnimSpeed: 0.7
+  victimAnimSpeed: 1.6
+  combatDrivesSuckAnim: 1
 --- !u!1 &3352540807144611663
 GameObject:
   m_ObjectHideFlags: 0
@@ -1582,7 +1587,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &227441785668006093
 Transform:
   m_ObjectHideFlags: 0
@@ -1726,7 +1731,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &5088183908790841065
 Transform:
   m_ObjectHideFlags: 0
@@ -1991,7 +1996,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &9200261062762001669
 Transform:
   m_ObjectHideFlags: 0
@@ -7206,7 +7211,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5648563887185035439}
-  m_LocalRotation: {x: 0.40530255, y: -0, z: -0, w: 0.9141826}
+  m_LocalRotation: {x: 0.43370515, y: -0, z: -0, w: 0.90105486}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 0
@@ -7411,7 +7416,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &5907905896004768227
 Transform:
   m_ObjectHideFlags: 0
