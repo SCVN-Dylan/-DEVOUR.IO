@@ -71,6 +71,12 @@ public class DevourVfx : MonoBehaviour
              "tu tat khi cham mom. Co no de hat khong ket lai vinh vien neu mom bien mat giua chung")]
     public float maxFlyTime = 3f;
 
+    [Header("Mau hat")]
+    [Tooltip("BAT: hat mang mau skin cua NAN NHAN (Creature.skinColor) - an con xanh thi thay hat\n" +
+             "xanh bay vao mom, hut nhieu con cung luc thi phan biet duoc tung luong.\n" +
+             "TAT: giu nguyen mau dat trong ParticleSystem, de art tu chinh")]
+    public bool tintByVictim = true;
+
     [Header("Co hat")]
     [Tooltip("Co hat luc than con hut o co goc (scale 1)")]
     public float size = 0.25f;
@@ -163,26 +169,26 @@ public class DevourVfx : MonoBehaviour
 
     /// <summary>
     /// RUT: nan nhan vua tut 'levelsLost' cap -> rac ra mot nhum hat tu than no.
-    /// Goi tren VFX cua KE HUT, truyen vao tam than NAN NHAN.
+    /// Goi tren VFX cua KE HUT, truyen vao tam than va MAU SKIN cua NAN NHAN.
     /// </summary>
-    public void EmitDrain(Vector3 fromWorld, int levelsLost)
+    public void EmitDrain(Vector3 fromWorld, int levelsLost, Color victimColor)
     {
         if (levelsLost <= 0) return;
         int n = Mathf.Clamp(levelsLost * particlesPerLevel, 1, Mathf.Max(1, maxPerEmit));
-        Spawn(fromWorld, n);
+        Spawn(fromWorld, n, victimColor);
     }
 
     /// <summary>CHET: mot phat that da, tat ca XP con lai da ve ke giet.</summary>
-    public void EmitDeath(Vector3 fromWorld)
+    public void EmitDeath(Vector3 fromWorld, Color victimColor)
     {
-        Spawn(fromWorld, Mathf.Max(1, deathParticles));
+        Spawn(fromWorld, Mathf.Max(1, deathParticles), victimColor);
     }
 
     /// <summary>
     /// Ban 'count' hat quanh mot diem. Ban TUNG hat mot chu khong Emit(params, count):
     /// mot lan goi voi count &gt; 1 se de moi hat vao DUNG MOT diem, nhin nhu mot cham duy nhat.
     /// </summary>
-    private void Spawn(Vector3 center, int count)
+    private void Spawn(Vector3 center, int count, Color color)
     {
         if (!IsReady) return;
 
@@ -191,6 +197,10 @@ public class DevourVfx : MonoBehaviour
         ep.applyShapeToPosition = false;
         ep.startLifetime = Mathf.Max(0.1f, maxFlyTime);
         ep.velocity = Vector3.zero;    // duong bay do LateUpdate lo, khong de physics cua PS xen vao
+
+        // Chi ghi mau khi duoc bat: tat thi EmitParams khong mang startColor, hat lay mau cua
+        // ParticleSystem nhu cu - art chinh tay van an
+        if (tintByVictim) ep.startColor = color;
 
         for (int i = 0; i < count; i++)
         {

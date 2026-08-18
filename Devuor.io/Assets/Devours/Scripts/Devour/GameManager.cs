@@ -63,6 +63,10 @@ public class GameManager : MonoBehaviour
     [Tooltip("So bot trong mot van")]
     [SerializeField] private int _aiCount = 3;
 
+    [Tooltip("Kho skin cho bot. De trong = bot giu nguyen material tren prefab (tat ca giong nhau).\n" +
+             "Skin duoc boc kieu 'tui xao' nen so bot <= so skin thi chac chan khong con nao trung")]
+    [SerializeField] private SkinSet _aiSkins;
+
     [Tooltip("Bot sinh ra trong vanh khan quanh tam: tu spawnMinDistance den spawnRadius.\n" +
              "Co vanh trong de bot khong de ngay tren dau nguoi choi luc bat dau van")]
     [SerializeField] private float _spawnRadius = 35f;
@@ -196,6 +200,10 @@ public class GameManager : MonoBehaviour
             ? _spawnCenter.position
             : (_player != null ? _player.transform.position : transform.position);
 
+        // Tui skin song xuyen cac lan Play trong Editor (ScriptableObject khong bi huy) - do lai
+        // de van nao cung bat dau bang mot luot day du, khong dau vao khuc thua cua van truoc
+        if (_aiSkins != null) _aiSkins.ResetBag();
+
         for (int i = 0; i < _aiCount; i++)
         {
             Vector3 pos;
@@ -214,7 +222,33 @@ public class GameManager : MonoBehaviour
 
             PlayerNameTag tag = go.GetComponentInChildren<PlayerNameTag>(true);
             if (tag != null) tag.playerName = go.name;
+
+            ApplyRandomSkin(go, c);
         }
+    }
+
+    /// <summary>
+    /// Boc mot skin trong _aiSkins gan cho bot vua sinh: material cho than + mau cho hat VFX.
+    ///
+    /// PlayerVisual.SetSkin dung sharedMaterial chu khong phai material, nen cac bot trung skin
+    /// van dung CHUNG mot material - khong sinh material instance, khong pha batch/GPU instancing.
+    /// Do la ly do o day khong dung MaterialPropertyBlock hay to mau tung con.
+    /// </summary>
+    private void ApplyRandomSkin(GameObject go, Creature c)
+    {
+        if (_aiSkins == null) return;
+
+        SkinSet.Skin skin = _aiSkins.Draw();
+        if (skin == null) return;
+
+        if (skin.material != null)
+        {
+            PlayerVisual visual = go.GetComponentInChildren<PlayerVisual>(true);
+            if (visual != null) visual.SetSkin(skin.material);
+        }
+
+        // Mau nay duoc doc luc con NAY bi hut, de hat bay ra mang mau cua no
+        if (c != null) c.skinColor = skin.particleColor;
     }
 
     /// <summary>

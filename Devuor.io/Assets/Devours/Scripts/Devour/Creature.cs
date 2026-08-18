@@ -20,6 +20,12 @@ public class Creature : MonoBehaviour
     [Tooltip("Ten hien thi (dung chung voi PlayerNameTag khi can). Khong anh huong logic")]
     public string displayName = "Player";
 
+    [Tooltip("MAU HAT VFX bay ra khi con NAY bi hut - hat mang mau cua nan nhan, khong phai\n" +
+             "cua ke hut, nen nhin la biet dang an thang nao.\n\n" +
+             "BOT: GameManager ghi de theo skin boc duoc luc sinh.\n" +
+             "PLAYER: khong ai ghi de, nen dat san o day cho khop material tren prefab.")]
+    public Color skinColor = Color.white;
+
     [Tooltip("CHI DUNG CHO AI - 'tinh cach' cua con bot nay: no nham toi level bang\n" +
              "level_nguoi_choi x (1 + bias).\n" +
              "  -0.25 = con nay chiu yeu hon nguoi choi 25%\n" +
@@ -226,7 +232,8 @@ public class Creature : MonoBehaviour
 
             // Hat bay tu than MINH ve mom KE HUT. He hat nam ben ke hut nen moi hat trong do deu
             // ve cung mot mom - khong phai gan dich cho tung hat.
-            if (attacker.Vfx != null) attacker.Vfx.EmitDrain(Center, lost);
+            // skinColor la cua MINH - tuc cua nan nhan, dung y do: nhin luong hat la biet ai dang bi an
+            if (attacker.Vfx != null) attacker.Vfx.EmitDrain(Center, lost, skinColor);
         }
 
         // KHONG con cua chet nao o day. Chet chi xay ra o mot cho duy nhat: TickDevourCheck(),
@@ -284,7 +291,7 @@ public class Creature : MonoBehaviour
         if (killerAlive)
         {
             if (remain > 0 && killer.Suction != null) killer.Suction.GainXp(remain);
-            if (killer.Vfx != null) killer.Vfx.EmitDeath(Center);
+            if (killer.Vfx != null) killer.Vfx.EmitDeath(Center, skinColor);
         }
 
         if (onDied != null) onDied.Invoke();
