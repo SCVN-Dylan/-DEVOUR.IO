@@ -643,7 +643,7 @@ public class SimpleSuction : MonoBehaviour
 
                 // Truyen 'capture' chu khong phai swallowDistance: day moi la nguong item THUC SU
                 // bien mat o frame nay. Item teo ve 0 dung tai do, khong hut chet mot cuc.
-                it.Pull(mp, speed, pullAccel, capture);
+                it.Pull(mp, originPos, coneAngle, speed, pullAccel, capture);
             }
             else
             {

@@ -44,6 +44,41 @@ public class PhysicsDevourable : MonoBehaviour
              "(fix vat level cao khong kip co lai vi bi an tu xa)")]
     public float shrinkRadiusMul = 2.5f;
 
+    [Header("Xoan nhe khi bay vao")]
+    [Tooltip("BAT: item luon nhe quanh truc toi mom cho do don. TAT: bay thang tap")]
+    public bool useSwirl = true;
+
+    [Tooltip("Do rong xoan = KHOANG CACH CON LAI x he so nay.\n\n" +
+             "Vi ban kinh ti le voi khoang cach nen no TU VE 0 khi cham mom - hoi tu duoc bao dam\n" +
+             "ve mat toan hoc, khac han ban cu cong van toc tiep tuyen (van toc khong tu triet tieu\n" +
+             "nen item lech mai roi bay xuyen qua nguoi choi).\n\n" +
+             "0.12 = luon rong bang 12% quang duong con lai. Tren 0.25 la bat dau nhin loan.")]
+    [Range(0f, 0.4f)] public float swirlAmount = 0.2f;
+
+    [Tooltip("So vong luon moi giay. Cao qua thi item rung chu khong con ra hinh xoan")]
+    public float swirlTurnsPerSecond = 1.8f;
+
+    [Tooltip("KEP do rong xoan trong bao nhieu phan ban kinh non hut tai cho do.\n" +
+             "0.5 = khong bao gio ra qua nua non -> item luon nam trong vung hut, khong bi Scan tha ra")]
+    [Range(0.1f, 1f)] public float swirlConeFraction = 0.5f;
+
+    [Tooltip("Item XOAY quanh dung truc dang bi keo (do/giay) - khong phai quay lung tung.\n" +
+             "De THAP de con nhin ro do vat la gi. Tren ~600 la thanh vet mo, khong doc duoc hinh")]
+    public float swirlSpin = 360f;
+
+    [Header("Nghieng theo luc hut")]
+    [Tooltip("Item NGHIENG DAU ve phia mom khi bi hut - nhin nhu bi giat di chu khong phai troi\n" +
+             "deu giu nguyen the.\n\n" +
+             "0 = giu nguyen tu the luc bi tom (nhu cu)\n" +
+             "1 = cam thang dau vao mom\n" +
+             "0.6-0.8 thuong dep nhat: co huong ro nhung van con nhan ra hinh dang goc")]
+    [Range(0f, 1f)] public float leanIntoPull = 0.8f;
+
+    [Tooltip("Toc do quay dau theo huong hut (do/giay).\n" +
+             "THAP = nang ne, item lieng tu tu moi bat duoc huong (do vat to nen de thap)\n" +
+             "CAO = giat ngay vao huong, dut khoat")]
+    public float leanSpeed = 540f;
+
     [Header("Giang co (item hon player dung 1 cap)")]
     [Tooltip("Bien do RUNG tai cho (don vi world). Item hon 1 cap chi rung, khong bi hut/di chuyen")]
     public float struggleShake = 0.08f;
@@ -101,6 +136,12 @@ public class PhysicsDevourable : MonoBehaviour
     private Quaternion _anchorRot;
     private float _noiseSeed;
     private float _sleepAt;
+    private float _swirlAngle;
+    private float _swirlSign;          // moi item luon mot chieu, cho khong dong loat giong nhau
+    private float _swirlPhase;         // lech pha ban dau, cung ly do
+    private Quaternion _grabRot = Quaternion.identity;   // the cua item luc vua bi tom
+    private Quaternion _leanRot = Quaternion.identity;   // huong dau dang nghieng toi
+    private float _spinAngle;
     private Collider[] _cols;
     private Collider[] _ignoredCols;   // collider cua CHU dang duoc bo qua va cham (null = khong bo qua ai)
     private Tween _swallowTween;
@@ -122,6 +163,8 @@ public class PhysicsDevourable : MonoBehaviour
         _centerLocal = CalcCenterLocal();
         _startScale = transform.localScale;
         _noiseSeed = Random.value * 10f;
+        _swirlSign = Random.value < 0.5f ? -1f : 1f;
+        _swirlPhase = Random.value * Mathf.PI * 2f;
     }
 
     private void EnsureReferences()
@@ -221,16 +264,22 @@ public class PhysicsDevourable : MonoBehaviour
     }
 
     /// <summary>
-    /// Overload tuong thich cu - khong biet swallowDistance nen dung 0 (teo het o dung tam mom).
+    /// Overload tuong thich cu - khong biet non hut nen bay thang, teo het o dung tam mom.
     /// </summary>
     public void Pull(Vector3 target, float targetSpeed, float accel)
     {
-        Pull(target, targetSpeed, accel, 0f);
+        Pull(target, target, 0f, targetSpeed, accel, 0f);
     }
 
     /// <summary>
-    /// SimpleSuction goi moi FixedUpdate khi item nam trong non. Item bay THANG mot duong vao mom,
-    /// vua bay vua teo - va teo het DUNG LUC bi nuot.
+    /// SimpleSuction goi moi FixedUpdate khi item nam trong non. Item bay vao mom (thang, hoac
+    /// luon nhe neu bat useSwirl), vua bay vua teo - va teo het DUNG LUC bi nuot.
+    ///
+    /// XOAN BANG CACH DOI DIEM NGAM, khong phai cong van toc tiep tuyen nhu ban cu. Khac biet
+    /// quan trong: ban kinh xoan ti le voi khoang cach con lai nen no tu ve 0 khi item cham mom,
+    /// tuc diem ngam hoi tu ve dung mom -> item chac chan toi noi. Ban cu cong van toc ngang ma
+    /// van toc thi khong tu triet tieu, item lech truc 20-25 do suot duong bay roi vong qua mom,
+    /// khong bao gio cham nguong nuot va bay xuyen qua nguoi choi.
     ///
     /// TEO NEO VAO swallowDistance, KHONG PHAI vao tam mom. Item bien mat tai
     /// dist == swallowDistance chu khong phai tai dist == 0, nen neo vao tam mom thi luc bien mat
@@ -242,23 +291,90 @@ public class PhysicsDevourable : MonoBehaviour
     /// Toc do hut o ria chi bang farSpeedFactor (~26%) con sat mom la 100%, nen item tu dong teo
     /// cham o ngoai va gap ~4 lan khi vao vung hut manh.
     /// </summary>
-    public void Pull(Vector3 mouthPos, float targetSpeed, float accel, float swallowDistance)
+    public void Pull(Vector3 mouthPos, Vector3 originPos, float coneAngleDeg,
+                     float targetSpeed, float accel, float swallowDistance)
     {
         EnsureReferences();
         if (_state != State.Sucked) EnterSucked();
 
-        Vector3 toMouth = mouthPos - Center;
+        Vector3 center = Center;
+        Vector3 toMouth = mouthPos - center;
         float distToMouth = toMouth.magnitude;
         Vector3 pullDir = distToMouth > 0.001f ? toMouth / distToMouth : Vector3.up;
 
-        // Bay thang: van toc ramp dan toi targetSpeed theo accel (quan tinh), khong lech truc
-        _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, pullDir * targetSpeed,
+        // DIEM NGAM: mom, hoac mot diem luon quanh mom neu bat xoan
+        Vector3 aim = mouthPos;
+
+        if (useSwirl && swirlAmount > 0.0001f && distToMouth > 0.001f)
+        {
+            _swirlAngle += swirlTurnsPerSecond * 2f * Mathf.PI * Time.fixedDeltaTime;
+
+            // Ban kinh TI LE KHOANG CACH CON LAI -> tien toi mom thi tu co ve 0, hoi tu bao dam
+            float r = distToMouth * swirlAmount;
+
+            // Kep trong non hut de Scan khong tha item ra giua chung
+            if (coneAngleDeg > 0.01f)
+            {
+                Vector2 flat = new Vector2(center.x - originPos.x, center.z - originPos.z);
+                float coneR = flat.magnitude * Mathf.Sin(coneAngleDeg * 0.5f * Mathf.Deg2Rad);
+                r = Mathf.Min(r, coneR * swirlConeFraction);
+            }
+
+            Vector3 right = Vector3.Cross(Vector3.up, pullDir);
+            if (right.sqrMagnitude < 0.0001f) right = Vector3.right;    // pull thang dung
+            right.Normalize();
+            Vector3 upPerp = Vector3.Cross(pullDir, right);
+
+            float a = _swirlAngle * _swirlSign + _swirlPhase;
+            aim = mouthPos + (Mathf.Cos(a) * right + Mathf.Sin(a) * upPerp) * r;
+        }
+
+        ApplyPullRotation(pullDir);
+
+        // Bay ve DIEM NGAM. Toc do luon dung bang targetSpeed (khong cong them vector nao) nen
+        // pullSpeed van tune dung nghia, va item khong bao gio vot nhanh hon so cau hinh.
+        Vector3 toAim = aim - center;
+        Vector3 dir = toAim.sqrMagnitude > 0.000001f ? toAim.normalized : pullDir;
+        _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, dir * targetSpeed,
                                                 accel * Time.fixedDeltaTime);
 
-        // shrinkStart phai lon hon nguong nuot, khong thi InverseLerp dao dau va item phinh nguoc
+        // Teo theo khoang cach toi MOM (khong phai toi diem ngam): mom moi la cho item bien mat.
+        // shrinkStart phai lon hon nguong nuot, khong thi InverseLerp dao dau va item phinh nguoc.
         float shrinkStart = Mathf.Max(_radius * shrinkRadiusMul, swallowDistance * 2f);
         float t = Mathf.InverseLerp(swallowDistance, shrinkStart, distToMouth);   // 0 tai nguong nuot, 1 tai shrinkStart
         transform.localScale = _startScale * Mathf.Lerp(minShrink, 1f, t);
+    }
+
+    /// <summary>
+    /// TU THE khi dang bi hut: nghieng dau ve phia mom roi XOAY quanh dung truc do.
+    ///
+    /// Khong dung angularVelocity nhu ban cu: giao physics mot van toc goc thi item quay quanh
+    /// truc cu cua no, khong he biet mom o dau - nhin ra la "do vat dang quay" chu khong phai
+    /// "do vat dang bi giat vao mom". O day ta dung ca hai thanh phan:
+    ///   _leanRot : huong "dau" item, quay DAN ve pullDir voi toc do co han (leanSpeed) nen co
+    ///              do i - vat to lieng tu tu, dung cam giac bi luc keo be huong.
+    ///   _spinAngle: goc xoay CHONG LEN tren truc vua nghieng toi -> xoay quanh chinh duong bay.
+    ///
+    /// angularVelocity phai ve 0: de nguyen thi physics va MoveRotation danh nhau, item giat cuc.
+    /// </summary>
+    private void ApplyPullRotation(Vector3 pullDir)
+    {
+        if (leanIntoPull <= 0.001f && swirlSpin <= 0.1f) return;
+
+        float dt = Time.fixedDeltaTime;
+        _rb.angularVelocity = Vector3.zero;
+
+        Quaternion look = Quaternion.LookRotation(pullDir, Vector3.up);
+        Quaternion want = leanIntoPull >= 0.999f ? look : Quaternion.Slerp(_grabRot, look, leanIntoPull);
+        _leanRot = Quaternion.RotateTowards(_leanRot, want, leanSpeed * dt);
+
+        if (swirlSpin > 0.1f)
+        {
+            _spinAngle += swirlSpin * _swirlSign * dt;
+            if (_spinAngle > 360f || _spinAngle < -360f) _spinAngle %= 360f;   // khoi tran float sau vai phut
+        }
+
+        _rb.MoveRotation(_leanRot * Quaternion.AngleAxis(_spinAngle, Vector3.forward));
     }
 
     /// <summary>
@@ -415,6 +531,13 @@ public class PhysicsDevourable : MonoBehaviour
         _state = State.Sucked;
         _rb.isKinematic = false;   // VAT LY, khong ngu
         _rb.useGravity = false;    // bay thang vao mieng, khong bi trong luc keo xuong
+
+        // Chup the hien tai lam goc: co no thi leanIntoPull < 1 moi pha tron duoc, va item bat
+        // dau lieng TU tu the that cua no chu khong nhay cai sang huong moi
+        _grabRot = transform.rotation;
+        _leanRot = _grabRot;
+        _spinAngle = 0f;
+
         _rb.WakeUp();
     }
 
