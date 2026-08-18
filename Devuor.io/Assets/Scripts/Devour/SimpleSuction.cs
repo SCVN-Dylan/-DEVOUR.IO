@@ -32,8 +32,9 @@ public class SimpleSuction : MonoBehaviour
         [Tooltip("CONG THEM bao nhieu vao he so SCALE khi dat level nay (cong don).\n0 = moc nay khong lam to them")]
         public float add = 0.5f;
 
-        [Tooltip("CONG THEM bao nhieu vao ZOOM CAMERA khi dat level nay (cong don).\n" +
-                 "Don vi = do FOV (camera ortho se tu quy doi sang orthographicSize).\n" +
+        [Tooltip("CONG THEM bao nhieu vao CO KHUNG CAMERA khi dat level nay (cong don).\n" +
+                 "Don vi = WORLD, chinh la orthographicSize - go 2 la khung rong them 2 don vi.\n" +
+                 "Khong con quy doi qua do FOV nhu ban cu.\n" +
                  "0 = moc nay khong dong toi camera")]
         public float zoomAdd = 0f;
 

@@ -259,8 +259,12 @@ public static class ItemLevelTestBuilder
 
         zoom.player = player.GetComponent<SimpleSuction>();
         zoom.cam = cam;
-        if (zoom.baseFov <= 0f) zoom.baseFov = 50f;
-        // steps CONG DON mac dinh: (4->+12, 7->+12, 10->+14) => 50/62/74/88
+
+        // CameraLevelZoom gio CHI chay camera ortho, moi con so la don vi world (orthographicSize).
+        // Khong con baseFov/maxZoom - da bo ca nhanh perspective.
+        cam.orthographic = true;
+        if (zoom.baseSize <= 0f) zoom.baseSize = 5f;
+        if (zoom.maxSize <= zoom.baseSize) zoom.maxSize = 24f;
     }
 
     private static void SetupNameTag(GameObject player)

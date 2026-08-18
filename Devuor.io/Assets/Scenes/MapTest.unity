@@ -32272,13 +32272,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraLevelZoom
   player: {fileID: 6352853275198410509}
   cam: {fileID: 1180586915}
-  baseFov: 20
-  maxZoom: 80
   baseSize: 5
-  maxSize: 24
+  maxSize: 55
   useSteps: 1
   zoomEveryLevel: 1
-  addPerLevel: 0.05
+  addPerLevel: 0.25
   skipAddPerLevelOnStep: 1
   tweenDuration: 0.3
   tweenEase: 6
@@ -56379,24 +56377,32 @@ PrefabInstance:
       value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: levelSteps.Array.data[0].zoomAdd
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[1].zoomAdd
-      value: 5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[2].zoomAdd
-      value: 10
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[3].zoomAdd
-      value: 40
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[4].zoomAdd
-      value: 60
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: levelSteps.Array.data[6].zoomAdd
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[8].zoomAdd
-      value: 50
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
