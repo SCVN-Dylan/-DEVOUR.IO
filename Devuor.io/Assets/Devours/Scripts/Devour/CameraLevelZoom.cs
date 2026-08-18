@@ -25,10 +25,12 @@ using UnityEngine;
 /// 2. useSteps: Cong 'zoomAdd' khi dat cac moc trong SimpleSuction.levelSteps.
 /// 3. skipAddPerLevelOnStep: Bat ca 2 thi level trung moc chi an 'zoomAdd', khong cong addPerLevel.
 ///
-/// Co HAI diem dung, cai nao toi truoc thi dung o do:
-///   - maxSize: tran do chinh minh dat.
-///   - SimpleSuction.ZoomLevel: dong bang khi than cham maxScale (than dung to thi camera cung
-///     phai dung zoom ra, khong thi nhan vat teo dan tren man hinh).
+/// CHI CON MOT diem dung: maxSize - tran do chinh minh dat.
+///
+/// Truoc day co diem dung thu hai: SimpleSuction.ZoomLevel bi dong bang khi than cham maxScale,
+/// y la than dung to thi camera cung phai dung zoom ra. Da BO. Doi lai: qua nguong do than khong
+/// to them nua ma khung van rong ra, nen nhan vat se teo dan tren man hinh - can maxSize hoac
+/// bang moc de tu chan.
 /// </summary>
 [RequireComponent(typeof(Camera))]
 [DisallowMultipleComponent]

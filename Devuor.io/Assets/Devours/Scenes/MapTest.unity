@@ -31685,8 +31685,8 @@ MonoBehaviour:
   zoomEveryLevel: 1
   addPerLevel: 0.05
   skipAddPerLevelOnStep: 1
-  tweenDuration: 0.3
-  tweenEase: 6
+  tweenDuration: 0.1
+  tweenEase: 1
 --- !u!1001 &1188805234
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -55483,20 +55483,24 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1180586919}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: levelSteps.Array.data[3].add
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[8].level
       value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[0].zoomAdd
-      value: 5
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[1].zoomAdd
-      value: 0
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[2].zoomAdd
-      value: 0
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: levelSteps.Array.data[3].zoomAdd

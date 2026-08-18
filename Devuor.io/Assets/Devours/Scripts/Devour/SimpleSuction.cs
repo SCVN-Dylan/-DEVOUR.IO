@@ -73,6 +73,15 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Tam item vao gan mieng hon khoang nay thi nuot")]
     public float swallowDistance = 0.6f;
 
+    [Tooltip("LUOI AN TOAN chong lot. Item bay nhanh co the nhay TU ngoai vung nuot RA HAN sau mom\n" +
+             "trong dung MOT buoc physics - nguong nuot khong bao gio duoc kiem tra, item xuyen qua\n" +
+             "nguoi choi (va cham item x player dang tat trong luc hut nen khong co gi chan).\n\n" +
+             "Nguong nuot duoc noi rong toi thieu bang: quang duong item di trong 1 buoc x he so nay.\n" +
+             "0 = tat, chi dung swallowDistance.\n\n" +
+             "O pullSpeed mac dinh (12) he so nay KHONG an gi: 12 x 0.02 x 1.5 = 0.36 < 0.6. No chi\n" +
+             "bat dau co tac dung khi toc do thuc vuot ~20 u/s - dung la luoi cho luc tune manh tay.")]
+    public float swallowSpeedMargin = 1.5f;
+
     [Tooltip("Layer duoc phep hut. Nen dat item vao layer rieng de OverlapSphere quet it collider hon")]
     public LayerMask suckableLayers = ~0;
 
@@ -241,11 +250,17 @@ public class SimpleSuction : MonoBehaviour
     public int EvolutionCount { get { return _evolutionCount; } }
 
     /// <summary>
-    /// Level dung de tinh zoom camera. Bang Level binh thuong, NHUNG NGUNG TANG ngay khi he so
-    /// scale bi maxScale chan lai - than da dung to thi camera cung phai dung zoom ra, khong thi
-    /// nhan vat teo dan tren man hinh.
+    /// Level dung de tinh zoom camera - bang thang Level, KHONG con bi chan.
+    ///
+    /// Truoc day gia tri nay bi DONG BANG khi he so scale cham maxScale, y la "than dung to thi
+    /// camera cung phai dung zoom ra". Hau qua thuc te: bang levelSteps vot qua maxScale o Lv150
+    /// (scale 24.39 -> 32.39 trong khi tran la 30) nen camera ket cung o orthographicSize 18.25
+    /// tu do tro di, du maxSize dat toi 100 va bang moc con chay tiep.
+    ///
+    /// Da bo chan theo yeu cau: camera zoom tiep theo dung bang moc, diem dung duy nhat con lai
+    /// la CameraLevelZoom.maxSize.
     /// </summary>
-    public int ZoomLevel { get { return _zoomLevel; } }
+    public int ZoomLevel { get { return level; } }
     /// <summary>
     /// Chieu dai non hut hien tai.
     ///
@@ -292,7 +307,6 @@ public class SimpleSuction : MonoBehaviour
     private float _scaleFactor = 1f;   // cache, chi tinh lai khi level doi
     private int _stage = 1;            // cache, tinh lai cung luc voi _scaleFactor
     private int _evolutionCount;       // so moc isEvolution da qua
-    private int _zoomLevel = 1;
     private Tween _scaleTween;
     /// <summary>
     /// HE SO NHAN XP khi nuot. GameManager chinh so nay cho AI de giu level bot bam quanh level
@@ -356,7 +370,6 @@ public class SimpleSuction : MonoBehaviour
         // Giu bat bien Level = 1 + Xp ngay tu dau (level authored tren prefab = level khoi dau)
         if (level < 1) level = 1;
         _xp = level - 1;
-        _zoomLevel = level;
 
         ApplyProgression(true);
     }
@@ -615,7 +628,16 @@ public class SimpleSuction : MonoBehaviour
 
                 Vector3 to = it.Center - mp;
                 float dist = to.magnitude;
-                if (dist <= swallowDistance) { Swallow(it); _toRemove.Add(it); continue; }
+
+                // Nguong nuot noi rong theo toc do THUC cua item - xem tooltip swallowSpeedMargin.
+                // Dung it.Speed chu khong dung bien 'speed' tinh o duoi: 'speed' la toc do RA LENH,
+                // con van toc that bam sau no mot nhip qua MoveTowards. Lay so that thi luoi nay
+                // khong bao gio nuot som hon can thiet.
+                float capture = swallowDistance;
+                if (swallowSpeedMargin > 0f)
+                    capture = Mathf.Max(capture, it.Speed * Time.fixedDeltaTime * swallowSpeedMargin);
+
+                if (dist <= capture) { Swallow(it); _toRemove.Add(it); continue; }
                 float nearness = 1f - Mathf.Clamp01(dist / eff);
                 float speed = pullSpeed * Mathf.Lerp(farSpeedFactor, 1f, nearness);
                 it.Pull(mp, originPos, coneAngle, speed, pullAccel);
@@ -798,7 +820,7 @@ public class SimpleSuction : MonoBehaviour
         RecalcScaleFactor();
         ApplySpeed();
         ApplyScaleTween(instant);
-        if (cameraZoom != null && IsPlayerOwned) cameraZoom.ApplyForLevel(_zoomLevel, instant);
+        if (cameraZoom != null && IsPlayerOwned) cameraZoom.ApplyForLevel(ZoomLevel, instant);
         if (playerVisual != null) playerVisual.SetForm(_evolutionCount);   // SetForm tu bo qua neu khong doi
     }
 
@@ -858,12 +880,8 @@ public class SimpleSuction : MonoBehaviour
         int normalLevels = Mathf.Max(0, levelsGained - stepHits);
         float raw = 1f + scalePerLevel * normalLevels + stepAdd;
 
-        bool capped = maxScale > 0f && raw >= maxScale;
-        _scaleFactor = capped ? maxScale : raw;
-
-        // Than dung to thi camera cung phai dung zoom ra -> dong bang level dung de zoom
-        if (!capped) _zoomLevel = level;
-        else if (_zoomLevel > level) _zoomLevel = level;   // ha level (cheat/test) thi keo theo
+        // maxScale chi con chan CO THAN, khong con dong bang zoom camera nua (xem ghi chu o ZoomLevel)
+        _scaleFactor = (maxScale > 0f && raw >= maxScale) ? maxScale : raw;
     }
 
     void OnDrawGizmosSelected()
