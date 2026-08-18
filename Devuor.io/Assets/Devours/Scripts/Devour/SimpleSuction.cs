@@ -640,7 +640,10 @@ public class SimpleSuction : MonoBehaviour
                 if (dist <= capture) { Swallow(it); _toRemove.Add(it); continue; }
                 float nearness = 1f - Mathf.Clamp01(dist / eff);
                 float speed = pullSpeed * Mathf.Lerp(farSpeedFactor, 1f, nearness);
-                it.Pull(mp, originPos, coneAngle, speed, pullAccel);
+
+                // Truyen 'capture' chu khong phai swallowDistance: day moi la nguong item THUC SU
+                // bien mat o frame nay. Item teo ve 0 dung tai do, khong hut chet mot cuc.
+                it.Pull(mp, speed, pullAccel, capture);
             }
             else
             {

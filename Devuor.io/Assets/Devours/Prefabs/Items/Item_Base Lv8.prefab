@@ -221,17 +221,12 @@ MonoBehaviour:
   xpValue: 8
   scoreValue: 1
   sleepDelay: 5
-  minShrink: 0.12
+  minShrink: 0
   shrinkRadiusMul: 2.5
-  useHelixSpiral: 1
-  helixRadiusFactor: 0.4
-  helixPitch: 1.5
-  helixSpin: 1080
-  helixFadeDistance: 1
   struggleShake: 0.08
   struggleFreq: 26
   struggleTilt: 5
-  swallowDuration: 0.12
+  swallowDuration: 0
   swallowSpin: 1200
   onDevoured:
     m_PersistentCalls:

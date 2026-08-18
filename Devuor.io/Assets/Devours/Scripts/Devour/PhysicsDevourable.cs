@@ -35,29 +35,14 @@ public class PhysicsDevourable : MonoBehaviour
     public float sleepDelay = 5f;
 
     [Header("Bay vao mieng")]
-    [Tooltip("Khi dang bi hut, thu nho con bao nhieu luc cham mieng (0.12 = con 12%)")]
-    [Range(0.01f, 1f)] public float minShrink = 0.12f;
+    [Tooltip("Co con lai DUNG LUC BI NUOT (luc cham swallowDistance cua nguoi hut).\n" +
+             "0 = teo han ve 0 vua kip luc bien mat - khong thay cu 'pop'.\n" +
+             "Dat 0.05-0.1 neu muon item con nhin thay mot chut o khoanh khac cuoi.")]
+    [Range(0f, 1f)] public float minShrink = 0f;
 
     [Tooltip("Bat dau thu nho tu khoang cach = ban kinh item * so nay. Vat cang TO nho tu cang xa\n" +
              "(fix vat level cao khong kip co lai vi bi an tu xa)")]
     public float shrinkRadiusMul = 2.5f;
-
-    [Header("Bay vao spiral helix")]
-    [Tooltip("BAT: item bay theo DUONG XOAN OC 3D hoi tu vao mom (helix). TAT: bay thang.")]
-    public bool useHelixSpiral = true;
-
-    [Tooltip("Ban kinh spiral o diem start = khoang cach * he so nay.\n" +
-             "0.5 = spiral rong bang 50% khoang cach item->mom")]
-    [Range(0.1f, 1f)] public float helixRadiusFactor = 0.4f;
-
-    [Tooltip("Zo cua helix: bao nhieu vong xoan trong 1 don vi khoang cach. 2 = 2 vong tren 1 don vi")]
-    [Range(0.5f, 5f)] public float helixPitch = 1.5f;
-
-    [Tooltip("Item xoay tit quanh truc spiral (do/giay). Cao = xoay nhanh")]
-    public float helixSpin = 1080f;
-
-    [Tooltip("Gan mom hon khoang nay thi fade spiral -> bay thang vao mom")]
-    public float helixFadeDistance = 1.0f;
 
     [Header("Giang co (item hon player dung 1 cap)")]
     [Tooltip("Bien do RUNG tai cho (don vi world). Item hon 1 cap chi rung, khong bi hut/di chuyen")]
@@ -116,9 +101,6 @@ public class PhysicsDevourable : MonoBehaviour
     private Quaternion _anchorRot;
     private float _noiseSeed;
     private float _sleepAt;
-    private float _swirlSign;
-    private float _helixPhaseOffset;   // random phase offset moi item cho spiral khong dong pha
-    private float _spiralAngle;
     private Collider[] _cols;
     private Collider[] _ignoredCols;   // collider cua CHU dang duoc bo qua va cham (null = khong bo qua ai)
     private Tween _swallowTween;
@@ -140,8 +122,6 @@ public class PhysicsDevourable : MonoBehaviour
         _centerLocal = CalcCenterLocal();
         _startScale = transform.localScale;
         _noiseSeed = Random.value * 10f;
-        _swirlSign = Random.value < 0.5f ? -1f : 1f;
-        _helixPhaseOffset = Random.value * Mathf.PI * 2f;
     }
 
     private void EnsureReferences()
@@ -241,99 +221,44 @@ public class PhysicsDevourable : MonoBehaviour
     }
 
     /// <summary>
-    /// Overload tuong thich cu.
+    /// Overload tuong thich cu - khong biet swallowDistance nen dung 0 (teo het o dung tam mom).
     /// </summary>
     public void Pull(Vector3 target, float targetSpeed, float accel)
     {
-        Pull(target, target, 75f, targetSpeed, accel);
+        Pull(target, targetSpeed, accel, 0f);
     }
 
     /// <summary>
-    /// SimpleSuction goi moi frame khi item nam trong non.
-    /// Keo bang VAT LY: dat van toc huong ve mieng + (neu useHelixSpiral) logic SPIRAL HELIX HOI TU TRONG VUNG HUT.
-    /// Item bay theo duong xoan oc 3D thu nho va giu CHUAN TRONG VUNG NON HUT phia tren mat dat.
+    /// SimpleSuction goi moi FixedUpdate khi item nam trong non. Item bay THANG mot duong vao mom,
+    /// vua bay vua teo - va teo het DUNG LUC bi nuot.
+    ///
+    /// TEO NEO VAO swallowDistance, KHONG PHAI vao tam mom. Item bien mat tai
+    /// dist == swallowDistance chu khong phai tai dist == 0, nen neo vao tam mom thi luc bien mat
+    /// no van con nguyen mot cuc - dung cai "pop" nhin thay duoc. Neo dung cho thi scale cham 0
+    /// vua kip khoanh khac Swallow() chay.
+    ///
+    /// TOC DO TEO TU BAM THEO TOC DO HUT, khong can them logic: scale la ham cua KHOANG CACH nen
+    ///     d(scale)/dt = f'(dist) x d(dist)/dt = f'(dist) x toc_do_hut
+    /// Toc do hut o ria chi bang farSpeedFactor (~26%) con sat mom la 100%, nen item tu dong teo
+    /// cham o ngoai va gap ~4 lan khi vao vung hut manh.
     /// </summary>
-    public void Pull(Vector3 mouthPos, Vector3 originPos, float coneAngleDeg, float targetSpeed, float accel)
+    public void Pull(Vector3 mouthPos, float targetSpeed, float accel, float swallowDistance)
     {
         EnsureReferences();
         if (_state != State.Sucked) EnterSucked();
 
-        Vector3 center = Center;
-
-        // Vector huong ve mieng
-        Vector3 toMouth = mouthPos - center;
+        Vector3 toMouth = mouthPos - Center;
         float distToMouth = toMouth.magnitude;
         Vector3 pullDir = distToMouth > 0.001f ? toMouth / distToMouth : Vector3.up;
 
-        Vector3 desiredVel = pullDir * targetSpeed;
+        // Bay thang: van toc ramp dan toi targetSpeed theo accel (quan tinh), khong lech truc
+        _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, pullDir * targetSpeed,
+                                                accel * Time.fixedDeltaTime);
 
-        if (useHelixSpiral && distToMouth > 0.05f)
-        {
-            _spiralAngle += (helixPitch * 360f) * Mathf.Deg2Rad * Time.fixedDeltaTime;
-
-            // Tinh khoang cach XZ toi goc quat hut (chan player)
-            Vector3 originXZ = new Vector3(originPos.x, 0f, originPos.z);
-            Vector3 centerXZ = new Vector3(center.x, 0f, center.z);
-            float distXZ = Vector3.Distance(originXZ, centerXZ);
-
-            // Gioi han ban kinh xoan oc: phai luon nam TRONG VUNG NON HUT (cone)
-            float halfAngleRad = (coneAngleDeg * 0.5f) * Mathf.Deg2Rad;
-            float maxConeRadius = distXZ * Mathf.Sin(halfAngleRad);
-
-            // Ban kinh spiral duoc khong che = maxConeRadius * helixRadiusFactor (vd 40-50% do rong vung hut)
-            float spiralRadius = Mathf.Min(maxConeRadius * helixRadiusFactor, distToMouth * 0.4f);
-
-            // TAT DAN XOAY khi lai gan mom.
-            //
-            // Khong co buoc nay thi ti le tangential/pull gan nhu KHONG DOI suot duong bay
-            // (~0.35-0.46, tuc lech truc 20-25 do) - vi spiralRadius va distXZ cung ti le voi nhau
-            // nen thuong so triet tieu. Hau qua: item quay quanh mom o ban kinh lon hon
-            // swallowDistance, khong bao gio cham nguong nuot, va vi va cham item x player da bi
-            // tat trong luc hut (SetPlayerCollision) nen khong co gi chan - no bay XUYEN qua nguoi
-            // choi ra phia ben kia. Item o RIA nang nhat vi maxConeRadius lon nhat o do.
-            float fade = Mathf.Clamp01(distToMouth / Mathf.Max(0.01f, helixFadeDistance));
-
-            if (spiralRadius > 0.01f)
-            {
-                // Lay 2 truc vuong goc voi pullDir
-                Vector3 right = Vector3.Cross(Vector3.up, pullDir).normalized;
-                if (right.sqrMagnitude < 0.001f) right = Vector3.right;
-                Vector3 upPerp = Vector3.Cross(pullDir, right).normalized;
-
-                float angle = _spiralAngle * _swirlSign + _helixPhaseOffset;
-                Vector3 tangentDir = Mathf.Cos(angle) * right + Mathf.Sin(angle) * upPerp;
-
-                // Van toc quy dao xoay quanh truc pull.
-                // Tran giu nguyen, nhung BO SAN 0.3 cu: chinh cai san do ep xoay khong bao gio ve 0,
-                // ke ca khi item da dinh sat mom - fade ben duoi se vo nghia neu con giu no.
-                float tangentialSpeed = targetSpeed * (spiralRadius / Mathf.Max(0.1f, distXZ + 0.2f)) * 2f;
-                tangentialSpeed = Mathf.Min(tangentialSpeed, targetSpeed * 0.9f) * fade;
-
-                desiredVel += tangentDir * tangentialSpeed;
-            }
-
-            // Xoay vat quanh truc de tao hieu ung xoay tit
-            if (helixSpin > 0.1f)
-            {
-                _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, pullDir * (_swirlSign * helixSpin * Mathf.Deg2Rad), 0.15f);
-            }
-        }
-
-        // CHUAN HOA: desiredVel la tong cua hai vector VUONG GOC nhau (huong mom + tiep tuyen) nen
-        // do dai cua no LON HON targetSpeed - toi ~1.35x luc xoay manh nhat. Nghia la item bay
-        // nhanh hon con so cau hinh, va nhanh khong deu (cang xoay manh cang nhanh). Chuan hoa lai
-        // thi huong xoan giu nguyen ma toc do dung bang targetSpeed -> pullSpeed tune moi dung nghia.
-        if (desiredVel.sqrMagnitude > 0.0001f)
-            desiredVel = desiredVel.normalized * targetSpeed;
-
-        _rb.linearVelocity = Vector3.MoveTowards(_rb.linearVelocity, desiredVel, accel * Time.fixedDeltaTime);
-
-        // Thu nho vat khi lai gan mieng
-        float shrinkStart = _radius * shrinkRadiusMul;
-        float f = shrinkStart > 0.01f
-            ? Mathf.Lerp(minShrink, 1f, Mathf.Clamp01(distToMouth / shrinkStart))
-            : 1f;
-        transform.localScale = _startScale * f;
+        // shrinkStart phai lon hon nguong nuot, khong thi InverseLerp dao dau va item phinh nguoc
+        float shrinkStart = Mathf.Max(_radius * shrinkRadiusMul, swallowDistance * 2f);
+        float t = Mathf.InverseLerp(swallowDistance, shrinkStart, distToMouth);   // 0 tai nguong nuot, 1 tai shrinkStart
+        transform.localScale = _startScale * Mathf.Lerp(minShrink, 1f, t);
     }
 
     /// <summary>
@@ -490,7 +415,6 @@ public class PhysicsDevourable : MonoBehaviour
         _state = State.Sucked;
         _rb.isKinematic = false;   // VAT LY, khong ngu
         _rb.useGravity = false;    // bay thang vao mieng, khong bi trong luc keo xuong
-        _spiralAngle = 0f;
         _rb.WakeUp();
     }
 
