@@ -1416,8 +1416,7 @@ MonoBehaviour:
   maxActiveItems: 64
   itemStealMargin: 0.85
   drainCreatures: 1
-  creatureDrainPercent: 0.12
-  creatureDrainMin: 2
+  creatureDrainPerSecond: 10
   creatureFarDrainFactor: 0.35
   _config: {fileID: 11400000, guid: f7786e5ba959846b891488a2cb6e675b, type: 2}
   gulpPunch: 0.18
@@ -7019,7 +7018,7 @@ MonoBehaviour:
   _mouth: {fileID: 4087071182281879751}
   _ps: {fileID: 7245605143845035714}
   _body: {fileID: 4944762698666343497}
-  particlesPerLevel: 6
+  particlesPerLevel: 1
   maxPerEmit: 24
   deathParticles: 60
   maxParticles: 400

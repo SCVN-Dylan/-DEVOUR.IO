@@ -34,7 +34,8 @@ public class CreatureAnimator : MonoBehaviour
              "Chi ap khi thanh ghi con; het thanh la ve binh thuong cung luc voi toc do")]
     [Range(0.1f, 3f)] public float victimAnimSpeed = 1.6f;
 
-    [Tooltip("BAT: con dang di hut cung bat animation 'RunSucking' nhu luc hut item.\n" +
+    [Tooltip("BAT: dang TRONG TRAN la ha mieng ('RunSucking') nhu luc hut item - KHONG phan vai,\n" +
+             "ca ke hut lan nan nhan deu ha, vi thuc te ca hai deu dang hut nhau.\n" +
              "TAT: chi item moi kich hoat anim do, danh nhau thi van chay/dung binh thuong")]
     public bool combatDrivesSuckAnim = true;
 
@@ -66,8 +67,20 @@ public class CreatureAnimator : MonoBehaviour
         bool attacker = _creature != null && _creature.IsAttackerRole;
         bool victim = _creature != null && _creature.IsVictimRole;
 
+        // DANG TRONG TRAN la ha mieng, KHONG PHAN VAI.
+        //
+        // Ban truoc chi ke hut (level cao hon) moi ha mieng. Nhung ve mat co che thi CA HAI con
+        // deu dang hut nhau that - ca hai deu goi DrainCreatures len nhau, ca hai deu tut XP.
+        // Vai tro (attacker/victim) chi de chia CAM GIAC ke tren ke duoi, khong phai de quyet
+        // ai dang hut. Nen de nan nhan ngam mieng trong khi no van dang rut XP cua doi thu la
+        // hinh anh noi doi.
+        //
+        // InCombat gom dung ca hai vai (IsAttackerRole | IsVictimRole) va da co san do TRE
+        // drainMemory, nen mieng khong bi dong-mo giat cuc khi hai con luot qua nhau.
+        bool inCombat = _creature != null && _creature.InCombat;
+
         bool sucking = (_suction != null && _suction.HasItemsInRange)
-                    || (combatDrivesSuckAnim && attacker);
+                    || (combatDrivesSuckAnim && inCombat);
         bool run = !sucking && _movement != null && _movement.IsMoving;
 
         // Chi goi SetBool khi trang thai THUC SU DOI. Ban cu goi moi frame; voi 4 con x 2 co x

@@ -80,15 +80,14 @@ public class SimpleSuction : MonoBehaviour
     public bool drainCreatures = true;
 
     [Range(0f, 1f)]
-    [Tooltip("Moi giay rut bao nhieu PHAN TRAM level cua NAN NHAN (0.12 = 12%/giay).\n\n" +
-             "Tinh theo % chu khong phai so cung, de tran danh KHONG PHU THUOC LEVEL: Lv100 danh\n" +
-             "Lv100 va Lv1000 danh Lv1000 deu het chung mot so giay. Neu rut so cung thi o level\n" +
-             "cao hai con dung hut nhau ca buoi khong suy suyen gi.")]
-    public float creatureDrainPercent = 0.12f;
-
-    [Tooltip("San duoi: du % ra it hon thi van rut bang nay XP/giay. Cho level thap, luc 12% cua\n" +
-             "Lv5 chi la 0.6 xp/giay - cham den muc nhu khong co gi xay ra")]
-    public float creatureDrainMin = 2f;
+    [Tooltip("SO LEVEL rut duoc moi giay - SO CUNG, khong phu thuoc level nan nhan.\n" +
+             "Lv10 hay Lv1000 deu tut cung mot toc.\n\n" +
+             "Ban truoc tinh theo % level nan nhan (0.12 = 12%/giay). Doi sang so cung theo yeu cau:\n" +
+             "de doan, de tune, va nan nhan thay minh tut DEU chu khong phai tut nhanh dan.\n\n" +
+             "TINH THOI GIAN MOT TRAN: nan nhan chet khi tut xuong duoi NUA level ke hut\n" +
+             "(Creature.devourLevelRatio = 0.5), khong phai bi rut ve 0. Nen hai con ngang co Lv100\n" +
+             "thi nan nhan can mat 50 level -> o 10 level/giay la ~5 giay.")]
+    public float creatureDrainPerSecond = 10f;
 
     [Range(0.05f, 1f)]
     [Tooltip("Ti le toc do rut o RIA XA nhat cua non so voi sat mom. Dung chung duong cong voi\n" +
@@ -458,7 +457,11 @@ public class SimpleSuction : MonoBehaviour
 
             float nearness = 1f - Mathf.Clamp01(dist / eff);
             float prox = Mathf.Lerp(creatureFarDrainFactor, 1f, nearness);
-            float perSecond = Mathf.Max(creatureDrainMin, c.Level * creatureDrainPercent) * prox;
+
+            // SO CUNG, khong con nhan voi c.Level: moi con tut cung mot toc.
+            // 'prox' van giu - dung ria thi bi gam nhe, bi dua vao sat mom thi tan nhanh.
+            // Muon rut deu tuyet doi ca trong nong thi dat creatureFarDrainFactor = 1.
+            float perSecond = creatureDrainPerSecond * prox;
 
             c.ReceiveDrain(_creature, perSecond * dt);
 
@@ -700,12 +703,24 @@ public class SimpleSuction : MonoBehaviour
         if (amount <= 0f) return 0;
 
         _drainRemainder += amount;
-        int whole = Mathf.FloorToInt(_drainRemainder);
-        if (whole <= 0) return 0;
+        if (_drainRemainder < 1f) return 0;
 
-        _drainRemainder -= whole;
+        // TRU DUNG 1 LEVEL moi nhip, khong bao gio dong cuc nhieu level mot phat.
+        //
+        // Ban truoc lay FloorToInt ca phan tich luy nen o toc cao (cu tinh theo % level, Lv500 ra
+        // 60 level/giay) mot lan goi co the tru 2-3 level - nan nhan tut giat cuc, va so hat ban ra
+        // khong con tuong ung 1:1 voi so level nua. Gio moi nhip dung 1 level, deu tam tap.
+        //
+        // Phan du van GIU LAI (khong xoa) de tong toc trung binh van dung bang creatureDrainPerSecond:
+        // toc cao thi nhip lien tiep nhau day hon, chu khong phai mat bot.
+        _drainRemainder -= 1f;
 
-        int lost = LoseXp(whole);
+        // Tran physics la 50 nhip/giay, tuc toi da 50 level/giay. Dat creatureDrainPerSecond cao
+        // hon the thi phan du chi phinh mai ma khong bao gio tra het - va khi nan nhan thoat ra,
+        // cai kho do van con nam day, lan sau vao la bi tru mot trang. Kep lai cho khong tich duoc.
+        if (_drainRemainder > 1f) _drainRemainder = 1f;
+
+        int lost = LoseXp(1);
         if (lost <= 0) _drainRemainder = 0f;   // da cham san Lv1: dung tich luy vo ich
         return lost;
     }
