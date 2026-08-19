@@ -73,10 +73,20 @@ public class CameraLevelZoom : MonoBehaviour
     public bool skipAddPerLevelOnStep = true;
 
     [Header("Nay nguoc chieu khi vuot moc")]
+    // Cong tac BAT/TAT nam ben SimpleSuction.popAffectsCamera, khong dat o day: de ca hai noi
+    // cung co mot cong tac thi tat mot cai ma van nay, khong ai hieu tai sao.
+    // Ben do tat thi no truyen steppedUp = false xuong day, coi nhu khong co moc nao.
+
+    [Tooltip("BAT: CHI nay o moc co isEvolution (moc doi hinh dang) - de danh cu nay cho nhung lan\n" +
+             "dang gia, con moc thuong thi doi size im lang.\n" +
+             "TAT: nay o MOI moc.\n\n" +
+             "Bang hien tai co 6 moc, trong do 4 la tien hoa (Lv10/50/250/500).")]
+    public bool punchOnlyOnEvolution = false;
+
     [Range(0f, 0.4f)]
     [Tooltip("Vuot moc thi khung ZOOM VAO truoc bao nhieu roi moi bung ra co moi (0.12 = thu vao 12%).\n" +
              "Cung nhip 'lay da' voi cu pop cua than - khong co no thi len moc chi la mot cai truot\n" +
-             "size, mat khong doc ra la su kien. 0 = tat, doi thang nhu cu.")]
+             "size, mat khong doc ra la su kien.")]
     public float stepPunch = 0.12f;
 
     [Tooltip("Thoi gian nhip zoom VAO (giay). Nen ngan hon tweenDuration de nen nhanh - bung cham")]
@@ -132,7 +142,7 @@ public class CameraLevelZoom : MonoBehaviour
     /// SimpleSuction goi ham nay MOI KHI LEN LEVEL (khong co poll). Tinh co khung dich 1 lan roi
     /// tween toi do. 'instant' = bo tween, dat thang (dung luc khoi tao / trong Edit mode).
     /// </summary>
-    public void ApplyForLevel(int level, bool instant = false, bool steppedUp = false)
+    public void ApplyForLevel(int level, bool instant = false, bool steppedUp = false, bool evolved = false)
     {
         if (cam == null) cam = GetComponent<Camera>();
         if (cam == null) return;
@@ -149,7 +159,10 @@ public class CameraLevelZoom : MonoBehaviour
         // VUOT MOC: khung hinh cung LAY DA - zoom VAO mot nhip roi moi bung ra co moi. Cung
         // nguyen tac anticipation voi cu pop cua than: khong co nhip nen truoc thi cu bung sau
         // chi la mot cai truot size, khong doc ra la su kien.
-        if (steppedUp && stepPunch > 0.001f)
+        bool wantPunch = stepPunch > 0.001f
+                      && (punchOnlyOnEvolution ? evolved : steppedUp);
+
+        if (wantPunch)
         {
             float dip = Mathf.Max(0.01f, cam.orthographicSize * (1f - stepPunch));
             _tween = DOTween.Sequence()

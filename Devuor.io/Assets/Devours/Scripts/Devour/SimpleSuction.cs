@@ -146,9 +146,18 @@ public class SimpleSuction : MonoBehaviour
     public Transform punchTarget;
 
     [Header("Cu POP khi vuot MOC level")]
-    [Tooltip("BAT: vuot mot moc trong levelSteps thi than NEN LAI lay da roi BUNG vot qua co moi.\n" +
-             "Len level thuong (giua hai moc) khong co gi - de moc moi la su kien.")]
+    [Tooltip("BAT: vuot mot moc CO LAM TO THAN thi than NEN LAI lay da roi BUNG vot qua co moi.\n" +
+             "Len level thuong (giua hai moc) khong co gi - de moc moi la su kien.\n\n" +
+             "CHI NO KHI THAN THAT SU TO RA. Moc chi dong toi camera hoac chi doi hinh dang\n" +
+             "(add = 0) thi khong pop, va moc dang bi maxScale chan cung khong pop - bung ra\n" +
+             "trong khi co van y nguyen la noi doi.")]
     public bool popOnStep = true;
+
+    [Tooltip("BAT: cu pop keo theo ca CAMERA - khung hinh cung nen vao mot nhip roi bung ra.\n" +
+             "TAT: chi THAN pop, camera doi co khung thang, khong lay da.\n\n" +
+             "Camera VAN doi size theo moc trong ca hai truong hop - cai nay chi tat phan HIEU UNG\n" +
+             "(nhip nen truoc khi bung), khong tat zoom.")]
+    public bool popAffectsCamera = true;
 
     [Range(0f, 0.5f)]
     [Tooltip("Do NEN luc lay da (0.15 = bep xuong 15%). Nen truoc thi cu bung sau moi 'co da' -\n" +
@@ -293,6 +302,7 @@ public class SimpleSuction : MonoBehaviour
     private float _scaleFactor = 1f;   // cache, chi tinh lai khi level doi
     private int _stage = 1;            // cache, tinh lai cung luc voi _scaleFactor
     private int _evolutionCount;       // so moc isEvolution da qua
+    private int _scaleStepHits;        // so moc CO 'add' (thuc su lam to than) da qua
     private Tween _scaleTween;
     /// <summary>
     /// HE SO NHAN XP khi nuot. GameManager chinh so nay cho AI de giu level bot bam quanh level
@@ -912,18 +922,39 @@ public class SimpleSuction : MonoBehaviour
     private void ApplyProgression(bool instant)
     {
         int stageBefore = _stage;
+        int evoBefore = _evolutionCount;
+        int scaleStepsBefore = _scaleStepHits;
+        float scaleBefore = _scaleFactor;
+
         RecalcScaleFactor();
         ApplySpeed();
         ApplyScaleTween(instant);
 
-        // VUOT MOC = stage tang. Khong pop luc 'instant' (Awake / Edit mode) va khong pop khi TUT
-        // mot moc - cu bung khi dang bi an mat level la nguoc nghia hoan toan.
+        // VUOT MOC = stage tang. Khong tinh luc 'instant' (Awake / Edit mode) va khong tinh khi TUT
+        // mot moc - bung ra trong luc dang bi an mat level la nguoc nghia hoan toan.
         bool steppedUp = !instant && _stage > stageBefore;
 
-        if (cameraZoom != null && IsPlayerOwned)
-            cameraZoom.ApplyForLevel(ZoomLevel, instant, steppedUp);
+        // TIEN HOA = moc vua vuot co isEvolution. Tap con cua steppedUp, tach ra de camera co the
+        // chi nay o nhung lan dang gia thay vi moi moc.
+        bool evolved = !instant && _evolutionCount > evoBefore;
 
-        if (steppedUp) PlayStepPop();
+        // POP CHI NO KHI THAN THAT SU TO RA - hai dieu kien, thieu mot la khong no:
+        //   1. vua vuot mot moc CO 'add'  (moc chi dong toi camera/tien hoa thi than dung yen)
+        //   2. va _scaleFactor thuc su tang (moc co 'add' nhung dang bi maxScale chan thi cung
+        //      chang to them duoc mm nao - bung ra luc do la noi doi)
+        bool scaleStepped = !instant
+                         && _scaleStepHits > scaleStepsBefore
+                         && _scaleFactor > scaleBefore + 0.0001f;
+
+        // popAffectsCamera tat = bao camera "khong co moc nao ca" -> no chi doi size thang,
+        // khong chay nhip nen-bung. Zoom van dung, chi mat phan hieu ung.
+        bool camStep = steppedUp && popAffectsCamera;
+        bool camEvo = evolved && popAffectsCamera;
+
+        if (cameraZoom != null && IsPlayerOwned)
+            cameraZoom.ApplyForLevel(ZoomLevel, instant, camStep, camEvo);
+
+        if (scaleStepped) PlayStepPop();
         if (playerVisual != null) playerVisual.SetForm(_evolutionCount);   // SetForm tu bo qua neu khong doi
     }
 
@@ -977,6 +1008,7 @@ public class SimpleSuction : MonoBehaviour
             }
         }
         _evolutionCount = evo;
+        _scaleStepHits = stepHits;   // so moc CO LAM TO THAN da qua - de biet luc nao dang cu pop
 
         _stage = StageAtLevel(level);
 
