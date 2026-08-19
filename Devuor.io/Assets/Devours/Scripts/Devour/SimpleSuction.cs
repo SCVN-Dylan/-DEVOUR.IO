@@ -18,36 +18,9 @@ using UnityEngine.Serialization;
 [DisallowMultipleComponent]
 public class SimpleSuction : MonoBehaviour
 {
-    /// <summary>
-    /// MOT MOC LEN CAP - khai bao DUY NHAT o day, ca scale lan camera deu doc chung.
-    /// Truoc kia moc nam o 2 noi (SimpleSuction.scaleSteps + CameraLevelZoom.steps) nen doi
-    /// mot moc phai sua 2 cho, quen la hai ben lech nhau.
-    /// </summary>
-    [System.Serializable]
-    public class LevelStep
-    {
-        [Tooltip("Level dat toi")]
-        public int level = 10;
-
-        [Tooltip("CONG THEM bao nhieu vao he so SCALE khi dat level nay (cong don).\n0 = moc nay khong lam to them")]
-        public float add = 0.5f;
-
-        [Tooltip("CONG THEM bao nhieu vao CO KHUNG CAMERA khi dat level nay (cong don).\n" +
-                 "Don vi = WORLD, chinh la orthographicSize - go 2 la khung rong them 2 don vi.\n" +
-                 "Khong con quy doi qua do FOV nhu ban cu.\n" +
-                 "0 = moc nay khong dong toi camera")]
-        public float zoomAdd = 0f;
-
-        [Tooltip("CONG THEM bao nhieu vao TAM HUT khi dat level nay (cong don), don vi world.\n" +
-                 "Cong THEM tren phan tang deu theo rangePerLevel, khong thay the.\n" +
-                 "0 = moc nay khong lam dai non hut (mac dinh hien tai)")]
-        public float rangeAdd = 0f;
-
-        [Tooltip("Moc nay co TIEN HOA khong (doi hinh dang player).\n" +
-                 "Bat len thi PlayerVisual se chuyen sang dang ke tiep khi qua moc nay.\n" +
-                 "Theo thiet ke: bat o stage 2 / 4 / 6, tuc Lv10 / Lv50 / Lv150.")]
-        public bool isEvolution = false;
-    }
+    // Class LevelStep da chuyen ra file rieng (SuctionConfig.cs) vi 'levelSteps' gio song trong
+    // SuctionConfig - de nguyen o day thi ScriptableObject phai tham chieu nguoc lai mot
+    // MonoBehaviour chi de lay mot kieu du lieu.
 
     [Header("Vung hut (non phia truoc)")]
     [Tooltip("De trong se tu tim object con 'Mouth'. Non toa theo mouth.forward.")]
@@ -128,59 +101,32 @@ public class SimpleSuction : MonoBehaviour
     // ben triet tieu nhau va nhan vat dung im giua khong trung. Chinh cho no yeu di thi nan nhan
     // luon di ra xa (hut ma khong lai gan). Bo han thi khong con bai toan can luc nao nua.
 
-    [Header("An khi cham than")]
-    [Tooltip("Item cham vao than nhan vat la nuot luon - NHUNG VAN PHAI DAT CAP (requiredLevel <= level).\n" +
-             "Item qua cap thi cham vao khong an duoc (PhysicsDevourable tu bat va cham roi goi EatByContact).")]
-    public bool eatOnContact = true;
+    [Header("Bang can bang (dung chung)")]
+    [Tooltip("BAT BUOC. Asset chua toan bo so can bang: eatOnContact, useLevelGate, scalePerLevel,\n" +
+             "levelSteps, maxScale, speedFollowScale, rangePerLevel.\n\n" +
+             "Player va bot tro chung mot asset -> doi mot cho la ca van theo, khong con canh moc\n" +
+             "nam tren prefab mot kieu con instance trong scene mot kieu.\n" +
+             "Muon bot khac player thi tao asset thu hai roi keo vao prefab bot.")]
+    [SerializeField] private SuctionConfig _config;
 
-    [Header("Cap do")]
-    [Tooltip("BAT: an theo MA TRAN HANG. So sanh HANG cua item voi STAGE cua player (deu suy ra tu\n" +
-             "levelSteps), khong phai so sanh level tho:\n" +
-             "  hang - stage <= 0 : an duoc\n" +
-             "  hang - stage == 1 : giay tai cho lam moi\n" +
-             "  hang - stage >= 2 : bat dong\n" +
-             "TAT: an tuot, khong khoa gi.")]
-    public bool useLevelGate = true;
+    /// <summary>Bang can bang dang dung. BAT BUOC keo vao - Awake se bao loi neu de trong.</summary>
+    public SuctionConfig Config { get { return _config; } }
 
-    [Tooltip("LEVEL HIEN THI = 1 + TONG XP da an. An 1 XP la len 1 level, KHONG CO TRAN.\n" +
-             "Do to cho nhieu xpValue thi nhay nhieu level mot phat. Reset moi van.\n" +
-             "Chinh o day = dat level khoi dau.")]
-    public int level = 1;
+    public bool EatOnContact { get { return Config.eatOnContact; } }
+    public bool UseLevelGate { get { return Config.useLevelGate; } }
+    public float ScalePerLevel { get { return Config.scalePerLevel; } }
+    public List<LevelStep> LevelSteps { get { return Config.levelSteps; } }
+    public float MaxScale { get { return Config.maxScale; } }
+    public float SpeedFollowScale { get { return Config.speedFollowScale; } }
+    public float RangePerLevel { get { return Config.rangePerLevel; } }
 
-    [Header("Len cap thi to len")]
-    [Range(0f, 100f)]
-    [Tooltip("Moi cap thuong nhan vat to them bao nhieu (0.015 = +1.5%/cap).\n" +
-             "Level trung MOC trong scaleSteps thi KHONG cong khoan nay, chi cong 'add' cua moc.")]
-    public float scalePerLevel = 0.015f;
-
-    [Tooltip("DANH SACH MOC DUY NHAT cho ca scale, camera va gate an item.\n" +
-             "Giua 2 moc van to dan deu theo scalePerLevel, toi moc thi cong nguyen mot cuc.\n" +
-             "Doi mot moc o day la ca ba thu tu theo, khong phai sua cho nao khac.")]
-    [FormerlySerializedAs("scaleSteps")]
-    public List<LevelStep> levelSteps = new List<LevelStep>
-    {
-        new LevelStep { level = 10,  add = 0.50f, zoomAdd = 2f },
-        new LevelStep { level = 25,  add = 0.60f, zoomAdd = 2f },
-        new LevelStep { level = 50,  add = 0.85f, zoomAdd = 4f },
-        new LevelStep { level = 90,  add = 1.00f, zoomAdd = 2f },
-        new LevelStep { level = 150, add = 1.00f, zoomAdd = 10f },
-    };
-
-    [Tooltip("TRAN kich thuoc: to toi da = scale goc x so nay, du level bao nhieu cung khong vuot.\n" +
-             "0 = khong gioi han (to mai theo cap)")]
-    public float maxScale = 20f;
-
-    [Range(0f, 2f)]
-    [Tooltip("TOC DO DI CHUYEN bam theo co than: speed = speed goc x (1 + (he so scale - 1) x so nay).\n" +
-             "Tu co san ca phan nhich moi mieng an lan cu nhay o moc, vi he so scale da co san.\n" +
-             "  0    = toc do dung im -> cang to cang i (chậm gap 7 lan o Lv150)\n" +
-             "  0.25 = nang gap ~2.8 lan luc dau (mac dinh)\n" +
-             "  1    = toc tang dung bang co -> to ma khong i ti nao, nhung map thanh be")]
-    public float speedFollowScale = 0.25f;
-
-    [Range(0f, 100f)]
-    [Tooltip("Moi cap non hut dai ra bao nhieu (0.15 = +15%/cap)")]
-    public float rangePerLevel = 0.15f;
+    // LEVEL = 1 + TONG XP da an. An 1 XP la len 1 level, KHONG CO TRAN, reset moi van.
+    //
+    // KHONG ve len Inspector va KHONG serialize: day la TRANG THAI RUNTIME chu khong phai so can
+    // bang. De public thi vua bi nham la "chinh o day de dat level khoi dau" (thuc ra Awake ghi
+    // de ngay), vua bi ghi lai moi mieng an nen gia tri luu trong prefab khong co y nghia gi.
+    // Doc tu ngoai: dung property Level. Dat level (cheat/test): dung SetLevel().
+    private int level = 1;
 
     [Header("Hieu ung 'uc' khi nuot (gulp)")]
     [Range(0f, 0.6f)]
@@ -240,7 +186,7 @@ public class SimpleSuction : MonoBehaviour
 
     /// <summary>
     /// STAGE noi bo (1..so moc + 1), KHONG hien thi cho nguoi choi.
-    /// = 1 + so moc trong levelSteps ma Level da voi toi.
+    /// = 1 + so moc trong LevelSteps ma Level da voi toi.
     ///   Lv 1-9 -> stage 1 | Lv 10-24 -> stage 2 | Lv 25-49 -> stage 3 | ...
     /// Dung lam COT TRAI cua ma tran gate an item.
     /// </summary>
@@ -252,8 +198,8 @@ public class SimpleSuction : MonoBehaviour
     /// <summary>
     /// Level dung de tinh zoom camera - bang thang Level, KHONG con bi chan.
     ///
-    /// Truoc day gia tri nay bi DONG BANG khi he so scale cham maxScale, y la "than dung to thi
-    /// camera cung phai dung zoom ra". Hau qua thuc te: bang levelSteps vot qua maxScale o Lv150
+    /// Truoc day gia tri nay bi DONG BANG khi he so scale cham MaxScale, y la "than dung to thi
+    /// camera cung phai dung zoom ra". Hau qua thuc te: bang LevelSteps vot qua MaxScale o Lv150
     /// (scale 24.39 -> 32.39 trong khi tran la 30) nen camera ket cung o orthographicSize 18.25
     /// tu do tro di, du maxSize dat toi 100 va bang moc con chay tiep.
     ///
@@ -264,23 +210,23 @@ public class SimpleSuction : MonoBehaviour
     /// <summary>
     /// Chieu dai non hut hien tai.
     ///
-    ///   = range x (1 + rangePerLevel x (level-1))   <- phan tang deu, GIU NGUYEN cach cu
+    ///   = range x (1 + RangePerLevel x (level-1))   <- phan tang deu, GIU NGUYEN cach cu
     ///   + tong rangeAdd cua moi moc da qua          <- phan giat o moc, cong THEM len tren
     ///
     /// Hien tai moi rangeAdd deu = 0 nen ket qua y het truoc khi co cot nay.
-    /// Khac voi scale: level trung moc o day VAN duoc cong rangePerLevel (khong tru di), de
+    /// Khac voi scale: level trung moc o day VAN duoc cong RangePerLevel (khong tru di), de
     /// phan tang deu dung y nguyen cong thuc cu.
     /// </summary>
     public float CurrentRange
     {
         get
         {
-            float r = range * (1f + rangePerLevel * (level - 1));
-            if (levelSteps != null)
+            float r = range * (1f + RangePerLevel * (level - 1));
+            if (LevelSteps != null)
             {
-                for (int i = 0; i < levelSteps.Count; i++)
+                for (int i = 0; i < LevelSteps.Count; i++)
                 {
-                    LevelStep s = levelSteps[i];
+                    LevelStep s = LevelSteps[i];
                     if (s == null || s.level < 2 || s.level > level) continue;
                     r += s.rangeAdd;
                 }
@@ -357,6 +303,13 @@ public class SimpleSuction : MonoBehaviour
 
     void Awake()
     {
+        // Bao NGAY tu Awake thay vi de NullReference no ra giua tran: loi o day co kem object
+        // nen bam vao la nhay dung con thieu, con NullReference trong FixedUpdate thi chi thay
+        // stack trace giua vong lap nong, khong biet con nao.
+        if (_config == null)
+            Debug.LogError("[SimpleSuction] Chua keo SuctionConfig vao '" + name +
+                           "'. Keo asset Assets/Devours/Data/SuctionConfig.asset vao o 'Config'.", this);
+
         _baseScale = transform.localScale;
         AutoFill();
 
@@ -420,15 +373,15 @@ public class SimpleSuction : MonoBehaviour
     ///   player: StageAtLevel(level)          -> dang o nac nao
     ///   item  : StageAtLevel(requiredLevel)  -> thuoc HANG nao (A=1, B=2, ... F=6)
     /// Nho vay khong phai them field 'tier' vao item - requiredLevel 1/10/25/50/90/150 tu no
-    /// da chi ra hang roi, doi moc trong levelSteps la ca hai ben tu theo.
+    /// da chi ra hang roi, doi moc trong LevelSteps la ca hai ben tu theo.
     /// </summary>
     public int StageAtLevel(int lv)
     {
         int s = 1;
-        if (levelSteps == null) return s;
-        for (int i = 0; i < levelSteps.Count; i++)
+        if (LevelSteps == null) return s;
+        for (int i = 0; i < LevelSteps.Count; i++)
         {
-            LevelStep st = levelSteps[i];
+            LevelStep st = LevelSteps[i];
             if (st == null || st.level < 2 || lv < st.level) continue;
             s++;
         }
@@ -438,8 +391,8 @@ public class SimpleSuction : MonoBehaviour
     /// <summary>PhysicsDevourable goi khi no cham vao than nhan vat: an neu du HANG.</summary>
     public void EatByContact(PhysicsDevourable it)
     {
-        if (!eatOnContact || it == null || it.Consumed) return;
-        if (useLevelGate && StageAtLevel(it.RequiredLevel) > _stage) return;   // qua hang thi cham cung khong an
+        if (!EatOnContact || it == null || it.Consumed) return;
+        if (UseLevelGate && StageAtLevel(it.RequiredLevel) > _stage) return;   // qua hang thi cham cung khong an
         Swallow(it);
     }
 
@@ -563,7 +516,7 @@ public class SimpleSuction : MonoBehaviour
             if (it == null || it.Consumed) continue;
 
             int diff = StageAtLevel(it.RequiredLevel) - _stage;   // HIEU HANG, khong phai hieu level
-            if (useLevelGate && diff >= 2) continue;   // hon 2+ hang: khong tac dong gi
+            if (UseLevelGate && diff >= 2) continue;   // hon 2+ hang: khong tac dong gi
 
             Vector3 to = it.Center - origin;
             to.y = 0f;   // Kiem tra goc va khoang cach phang tren mat dat
@@ -572,7 +525,7 @@ public class SimpleSuction : MonoBehaviour
             if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
 
             if (_found.Add(it))
-                _candidates.Add(new Candidate { item = it, dist = dist, canEat = !useLevelGate || diff <= 0 });
+                _candidates.Add(new Candidate { item = it, dist = dist, canEat = !UseLevelGate || diff <= 0 });
         }
 
         // Qua dong thi CAT THEO KHOANG CACH: giu cac item gan nhat, bo phan ngoai ria truoc.
@@ -620,7 +573,7 @@ public class SimpleSuction : MonoBehaviour
 
             int diff = StageAtLevel(it.RequiredLevel) - _stage;   // len hang thi item giang co tu chuyen sang hut
 
-            if (!useLevelGate || diff <= 0)
+            if (!UseLevelGate || diff <= 0)
             {
                 // Item dang bay vao mom thi khong duoc phep DAY nguoi choi: bo qua cap va cham
                 // item x player (collider van bat nen Scan/OverlapSphere van thay item).
@@ -800,20 +753,20 @@ public class SimpleSuction : MonoBehaviour
     private void DebugLevelDown() { SetLevel(level - 10); }
 
     /// <summary>
-    /// Toc do di chuyen bam theo he so scale (da bi maxScale chan) - than dung to thi toc
+    /// Toc do di chuyen bam theo he so scale (da bi MaxScale chan) - than dung to thi toc
     /// cung dung tang. Khong co bang moc rieng: scale da chua san creep + cu nhay o moc.
     /// </summary>
     private void ApplySpeed()
     {
         if (_movement == null) return;
-        _movement.SetSpeedMultiplier(1f + (_scaleFactor - 1f) * speedFollowScale);
+        _movement.SetSpeedMultiplier(1f + (_scaleFactor - 1f) * SpeedFollowScale);
     }
 
     /// <summary>
     /// MOT HAM DUY NHAT chay moi khi level doi - an item goi vao day. Khong co Update nao
     /// poll lai nhung thu duoi day.
     ///   1. tinh lai he so scale
-    ///   2. speed  = base x (1 + (he so scale - 1) x speedFollowScale)
+    ///   2. speed  = base x (1 + (he so scale - 1) x SpeedFollowScale)
     ///   3. scale  -> tween transform
     ///   4. camera -> day level (da dong bang khi scale cham tran) sang CameraLevelZoom
     /// 'instant' = bo tween, dat thang (luc Awake / trong Edit mode).
@@ -850,10 +803,10 @@ public class SimpleSuction : MonoBehaviour
     /// het danh sach moc chu khong duyet tung level, nen bao nhieu level cung la O(so moc).
     ///
     ///   he so = 1
-    ///         + scalePerLevel x (so level da len, TRU cac level trung moc)
+    ///         + ScalePerLevel x (so level da len, TRU cac level trung moc)
     ///         + tong 'add' cua moi moc ma level da qua
     ///
-    /// Level trung moc thi khong cong scalePerLevel nua - chi an 'add' cua moc do.
+    /// Level trung moc thi khong cong ScalePerLevel nua - chi an 'add' cua moc do.
     /// </summary>
     private void RecalcScaleFactor()
     {
@@ -862,11 +815,11 @@ public class SimpleSuction : MonoBehaviour
         float stepAdd = 0f;
         int stepHits = 0;
         int evo = 0;
-        if (levelSteps != null)
+        if (LevelSteps != null)
         {
-            for (int i = 0; i < levelSteps.Count; i++)
+            for (int i = 0; i < LevelSteps.Count; i++)
             {
-                LevelStep s = levelSteps[i];
+                LevelStep s = LevelSteps[i];
                 if (s == null || s.level < 2 || s.level > level) continue;
 
                 if (s.isEvolution) evo++;         // dem TRUOC khi loc theo add, moc tien hoa co the khong lam to them
@@ -881,10 +834,10 @@ public class SimpleSuction : MonoBehaviour
         _stage = StageAtLevel(level);
 
         int normalLevels = Mathf.Max(0, levelsGained - stepHits);
-        float raw = 1f + scalePerLevel * normalLevels + stepAdd;
+        float raw = 1f + ScalePerLevel * normalLevels + stepAdd;
 
-        // maxScale chi con chan CO THAN, khong con dong bang zoom camera nua (xem ghi chu o ZoomLevel)
-        _scaleFactor = (maxScale > 0f && raw >= maxScale) ? maxScale : raw;
+        // MaxScale chi con chan CO THAN, khong con dong bang zoom camera nua (xem ghi chu o ZoomLevel)
+        _scaleFactor = (MaxScale > 0f && raw >= MaxScale) ? MaxScale : raw;
     }
 
     void OnDrawGizmosSelected()

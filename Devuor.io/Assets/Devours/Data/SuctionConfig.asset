@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d88508162551c4fcf97040b9981aea2a, type: 3}
+  m_Name: SuctionConfig
+  m_EditorClassIdentifier: Assembly-CSharp::SuctionConfig
+  eatOnContact: 1
+  useLevelGate: 1
+  scalePerLevel: 0.01
+  levelSteps:
+  - level: 10
+    add: 0.5
+    zoomAdd: 1
+    rangeAdd: 1
+    isEvolution: 1
+  - level: 25
+    add: 0.6
+    zoomAdd: 2
+    rangeAdd: 1
+    isEvolution: 0
+  - level: 50
+    add: 0.85
+    zoomAdd: 2
+    rangeAdd: 3
+    isEvolution: 1
+  - level: 110
+    add: 5
+    zoomAdd: 5
+    rangeAdd: 5
+    isEvolution: 0
+  - level: 250
+    add: 8
+    zoomAdd: 10
+    rangeAdd: 5
+    isEvolution: 1
+  - level: 500
+    add: 8
+    zoomAdd: 20
+    rangeAdd: 5
+    isEvolution: 1
+  maxScale: 20
+  speedFollowScale: 0.59
+  rangePerLevel: 0.01

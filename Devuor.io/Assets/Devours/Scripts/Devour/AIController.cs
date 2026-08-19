@@ -348,7 +348,7 @@ public class AIController : MonoBehaviour
             if (_searchBuf[i] == null) continue;
             PhysicsDevourable it = _searchBuf[i].GetComponentInParent<PhysicsDevourable>();
             if (it == null || it.Consumed) continue;
-            if (_suction.useLevelGate && _suction.StageAtLevel(it.RequiredLevel) > stage) continue;
+            if (_suction.UseLevelGate && _suction.StageAtLevel(it.RequiredLevel) > stage) continue;
 
             Vector3 d = it.Center - transform.position;
             d.y = 0f;
