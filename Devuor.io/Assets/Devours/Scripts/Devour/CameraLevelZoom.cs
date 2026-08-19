@@ -72,6 +72,16 @@ public class CameraLevelZoom : MonoBehaviour
              "level do.\nTAT: cong ca hai tai level co Step")]
     public bool skipAddPerLevelOnStep = true;
 
+    [Header("Nay nguoc chieu khi vuot moc")]
+    [Range(0f, 0.4f)]
+    [Tooltip("Vuot moc thi khung ZOOM VAO truoc bao nhieu roi moi bung ra co moi (0.12 = thu vao 12%).\n" +
+             "Cung nhip 'lay da' voi cu pop cua than - khong co no thi len moc chi la mot cai truot\n" +
+             "size, mat khong doc ra la su kien. 0 = tat, doi thang nhu cu.")]
+    public float stepPunch = 0.12f;
+
+    [Tooltip("Thoi gian nhip zoom VAO (giay). Nen ngan hon tweenDuration de nen nhanh - bung cham")]
+    public float stepPunchTime = 0.1f;
+
     [Header("Muot ma (DOTween)")]
     [Tooltip("Thoi gian doi co khung sang gia tri moi (giay). 0 = doi ngay tuc thi")]
     public float tweenDuration = 0.3f;
@@ -122,7 +132,7 @@ public class CameraLevelZoom : MonoBehaviour
     /// SimpleSuction goi ham nay MOI KHI LEN LEVEL (khong co poll). Tinh co khung dich 1 lan roi
     /// tween toi do. 'instant' = bo tween, dat thang (dung luc khoi tao / trong Edit mode).
     /// </summary>
-    public void ApplyForLevel(int level, bool instant = false)
+    public void ApplyForLevel(int level, bool instant = false, bool steppedUp = false)
     {
         if (cam == null) cam = GetComponent<Camera>();
         if (cam == null) return;
@@ -133,6 +143,19 @@ public class CameraLevelZoom : MonoBehaviour
         if (instant || tweenDuration <= 0f || !Application.isPlaying)
         {
             cam.orthographicSize = target;
+            return;
+        }
+
+        // VUOT MOC: khung hinh cung LAY DA - zoom VAO mot nhip roi moi bung ra co moi. Cung
+        // nguyen tac anticipation voi cu pop cua than: khong co nhip nen truoc thi cu bung sau
+        // chi la mot cai truot size, khong doc ra la su kien.
+        if (steppedUp && stepPunch > 0.001f)
+        {
+            float dip = Mathf.Max(0.01f, cam.orthographicSize * (1f - stepPunch));
+            _tween = DOTween.Sequence()
+                .Append(cam.DOOrthoSize(dip, stepPunchTime).SetEase(Ease.OutQuad))
+                .Append(cam.DOOrthoSize(target, tweenDuration).SetEase(tweenEase))
+                .SetUpdate(true);   // hitstop ha timeScale - cu nay phai chay theo gio that
             return;
         }
 

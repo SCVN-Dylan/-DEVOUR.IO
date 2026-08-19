@@ -1416,13 +1416,23 @@ MonoBehaviour:
   maxActiveItems: 64
   itemStealMargin: 0.85
   drainCreatures: 1
-  creatureDrainPerSecond: 10
+  creatureDrainPerSecond: 1
   creatureFarDrainFactor: 0.35
   _config: {fileID: 11400000, guid: f7786e5ba959846b891488a2cb6e675b, type: 2}
   gulpPunch: 0.18
   gulpDuration: 0.22
   gulpWobbles: 1.3
   punchTarget: {fileID: 6238914334231488491}
+  popOnStep: 1
+  popSquash: 0.15
+  popStretch: 0.35
+  popSquashTime: 0.12
+  popStretchTime: 0.1
+  popSettleTime: 0.22
+  popHitstop: 0.05
+  popHitstopScale: 0.05
+  popVfx: {fileID: 0}
+  popVfxDuration: 0.6
   scaleTweenDuration: 0.25
   scaleTweenEase: 27
   shrinkTweenEase: 6
@@ -7029,9 +7039,8 @@ MonoBehaviour:
   scatter: 0.6
   maxFlyTime: 3
   tintByVictim: 1
-  size: 0.25
-  sizeFollowBody: 1
-  maxSizeMul: 4
+  bodySizeFactor: 0.5
+  clampToVictim: 1
 --- !u!1 &5367279106113848996
 GameObject:
   m_ObjectHideFlags: 0

@@ -145,6 +145,47 @@ public class SimpleSuction : MonoBehaviour
              "bop theo nen khong sinh giat vat ly.")]
     public Transform punchTarget;
 
+    [Header("Cu POP khi vuot MOC level")]
+    [Tooltip("BAT: vuot mot moc trong levelSteps thi than NEN LAI lay da roi BUNG vot qua co moi.\n" +
+             "Len level thuong (giua hai moc) khong co gi - de moc moi la su kien.")]
+    public bool popOnStep = true;
+
+    [Range(0f, 0.5f)]
+    [Tooltip("Do NEN luc lay da (0.15 = bep xuong 15%). Nen truoc thi cu bung sau moi 'co da' -\n" +
+             "nguyen tac anticipation: muon vat bung manh phai keo lui no truoc")]
+    public float popSquash = 0.15f;
+
+    [Range(0f, 1f)]
+    [Tooltip("Do BUNG vot QUA co moi (0.35 = vot qua 35% roi moi lun ve)")]
+    public float popStretch = 0.35f;
+
+    [Tooltip("Thoi gian nhip NEN (giay)")]
+    public float popSquashTime = 0.12f;
+
+    [Tooltip("Thoi gian nhip BUNG (giay)")]
+    public float popStretchTime = 0.10f;
+
+    [Tooltip("Thoi gian nhip LUN ve co chuan (giay)")]
+    public float popSettleTime = 0.22f;
+
+    [Range(0f, 0.3f)]
+    [Tooltip("HITSTOP: khung ca game lai bao lau tai dinh bung (giay). 0 = tat.\n\n" +
+             "CHI CHAY CHO NGUOI CHOI. Bot len moc lien tuc - de bot cung lam khung thi game giat\n" +
+             "suot ca van.")]
+    public float popHitstop = 0.05f;
+
+    [Range(0.01f, 1f)]
+    [Tooltip("Trong luc hitstop, timeScale ha xuong con bao nhieu. 0.05 = gan nhu dung han.\n" +
+             "Khong dat 0 tuyet doi de cac he chay theo timeScale khong bi chia cho 0")]
+    public float popHitstopScale = 0.05f;
+
+    [Tooltip("Object VFX bat len dung khoanh khac BUNG roi tat di (vd mot ParticleSystem vong sang).\n" +
+             "De trong = khong co VFX. Object nay nen TAT san trong prefab.")]
+    public GameObject popVfx;
+
+    [Tooltip("Bat popVfx trong bao lau roi tat (giay)")]
+    public float popVfxDuration = 0.6f;
+
     [Header("Muot ma (DOTween)")]
     [Tooltip("Thoi gian phong to sang co moi khi len level (giay). 0 = to ngay tuc thi")]
     public float scaleTweenDuration = 0.25f;
@@ -328,9 +369,15 @@ public class SimpleSuction : MonoBehaviour
 
     void OnDestroy()
     {
+        // TRA TIME SCALE truoc moi thu khac. Player chet dung luc dang hitstop thi callback tra
+        // lai timeScale nam trong tween cua chinh object nay - object bi huy, tween bi kill, va
+        // ca game ket vinh vien o 0.05x. Loi kieu nay khong bao gio bat duoc luc test binh thuong.
+        if (_hitstopActive) { Time.timeScale = 1f; _hitstopActive = false; }
+
         if (_scaleTween != null && _scaleTween.IsActive()) _scaleTween.Kill();
         _scaleTween = null;
         if (punchTarget != null) punchTarget.DOKill();
+        DOTween.Kill(this);
 
         // Dang go ca scene (thoat Play, doi man) thi khoi tra item: moi thu sap bi huy het,
         // dung vao Physics.IgnoreCollision luc nay chi to sinh loi.
@@ -644,6 +691,82 @@ public class SimpleSuction : MonoBehaviour
     }
 
     /// <summary>
+    /// CU POP khi vuot MOC: NEN lay da -> BUNG vot qua -> LUN ve.
+    ///
+    /// Chay tren punchTarget giong PlayGulp, khong dung transform goc: goc dang co tween scale
+    /// theo level chay song song, hai tween cung ghi mot localScale la da nhau.
+    ///
+    /// SQUASH-STRETCH chu khong scale deu 3 truc: luc nen thi BEP xuong (thap & rong), luc bung
+    /// thi VUON len (cao & hep). Scale deu nhin nhu bom bong; squash-stretch nhin co suc song,
+    /// ma cung tung ay dong code.
+    ///
+    /// HITSTOP + CAMERA chi chay cho NGUOI CHOI: 8 con bot len moc lien tuc, de chung cung lam
+    /// khung hinh thi ca van giat khong luc nao yen.
+    /// </summary>
+    private void PlayStepPop()
+    {
+        if (!popOnStep || punchTarget == null) return;
+
+        punchTarget.DOKill(true);
+
+        float sq = popSquash, st = popStretch;
+        Sequence seq = DOTween.Sequence().SetTarget(punchTarget);
+
+        // 1. NEN: bep xuong, phinh ngang
+        seq.Append(punchTarget.DOScale(new Vector3(1f + sq, 1f - sq, 1f + sq), popSquashTime)
+                              .SetEase(Ease.OutQuad));
+
+        // 2. BUNG: vuon cao, hep ngang - vot QUA co chuan
+        seq.Append(punchTarget.DOScale(new Vector3(1f - st * 0.4f, 1f + st, 1f - st * 0.4f), popStretchTime)
+                              .SetEase(Ease.OutQuad));
+
+        // Dinh bung: bat VFX + hitstop
+        seq.AppendCallback(() =>
+        {
+            if (popVfx != null) ShowPopVfx();
+            if (IsPlayerOwned && popHitstop > 0f) DoHitstop();
+        });
+
+        // 3. LUN ve chuan, nay nhe mot cai cho khoi cung
+        seq.Append(punchTarget.DOScale(Vector3.one, popSettleTime).SetEase(Ease.OutBack));
+
+        // Sequence chay theo gio KHONG SCALE: hitstop ha timeScale, de gio thuong thi chinh cai
+        // tween nay cung bi lam cham -> cu bung tro nen ie oai dung luc dang can dut khoat
+        seq.SetUpdate(true);
+    }
+
+    /// <summary>Bat object VFX mot luc roi tat. Dung DOTween timer cho khoi phai coroutine rieng.</summary>
+    private void ShowPopVfx()
+    {
+        popVfx.SetActive(false);   // tat truoc de ParticleSystem playOnAwake chay lai tu dau
+        popVfx.SetActive(true);
+
+        DOVirtual.DelayedCall(Mathf.Max(0.05f, popVfxDuration), () =>
+        {
+            if (popVfx != null) popVfx.SetActive(false);
+        }, true).SetTarget(this);
+    }
+
+    /// <summary>
+    /// Lam cham ca game trong tich tac roi tra lai. Khong dat timeScale = 0 tuyet doi: mot so he
+    /// chia cho timeScale, ve 0 la sinh Infinity/NaN.
+    /// </summary>
+    private void DoHitstop()
+    {
+        if (_hitstopActive) return;   // moc lien tiep: khong chong hitstop len nhau
+
+        _hitstopActive = true;
+        Time.timeScale = popHitstopScale;
+        DOVirtual.DelayedCall(popHitstop, () =>
+        {
+            Time.timeScale = 1f;
+            _hitstopActive = false;
+        }, true).SetTarget(this);
+    }
+
+    private bool _hitstopActive;
+
+    /// <summary>
     /// 1 XP = 1 LEVEL. Khong con duong cong XP, khong con tran: Level = 1 + tong XP da an.
     /// An mon to (xpValue lon) thi nhay nhieu level trong mot mieng.
     /// </summary>
@@ -788,10 +911,19 @@ public class SimpleSuction : MonoBehaviour
     /// </summary>
     private void ApplyProgression(bool instant)
     {
+        int stageBefore = _stage;
         RecalcScaleFactor();
         ApplySpeed();
         ApplyScaleTween(instant);
-        if (cameraZoom != null && IsPlayerOwned) cameraZoom.ApplyForLevel(ZoomLevel, instant);
+
+        // VUOT MOC = stage tang. Khong pop luc 'instant' (Awake / Edit mode) va khong pop khi TUT
+        // mot moc - cu bung khi dang bi an mat level la nguoc nghia hoan toan.
+        bool steppedUp = !instant && _stage > stageBefore;
+
+        if (cameraZoom != null && IsPlayerOwned)
+            cameraZoom.ApplyForLevel(ZoomLevel, instant, steppedUp);
+
+        if (steppedUp) PlayStepPop();
         if (playerVisual != null) playerVisual.SetForm(_evolutionCount);   // SetForm tu bo qua neu khong doi
     }
 
