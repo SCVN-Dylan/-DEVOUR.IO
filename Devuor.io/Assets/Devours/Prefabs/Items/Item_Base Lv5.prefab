@@ -217,12 +217,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43474865c737844909a5efc478e89cfd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PhysicsDevourable
-  requiredLevel: 90
+  requiredLevel: 110
   xpValue: 12
   scoreValue: 22
   sleepDelay: 5
   minShrink: 0
   shrinkRadiusMul: 2.5
+  useSwirl: 1
+  swirlAmount: 0.2
+  swirlTurnsPerSecond: 1.8
+  swirlConeFraction: 0.5
+  swirlSpin: 360
+  leanIntoPull: 0.8
+  leanSpeed: 540
   struggleShake: 0.08
   struggleFreq: 26
   struggleTilt: 5

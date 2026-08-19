@@ -55474,37 +55474,9 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.size
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[5].add
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[5].level
-      value: 500
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[5].zoomAdd
-      value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[5].isEvolution
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
       value: Player
-      objectReference: {fileID: 0}
-    - target: {fileID: 3780534912831560876, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.89606035
-      objectReference: {fileID: 0}
-    - target: {fileID: 3780534912831560876, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.44393224
       objectReference: {fileID: 0}
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalPosition.x

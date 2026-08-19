@@ -1439,14 +1439,19 @@ MonoBehaviour:
     zoomAdd: 2
     rangeAdd: 0
     isEvolution: 1
-  - level: 90
+  - level: 110
     add: 5
     zoomAdd: 5
     rangeAdd: 0
     isEvolution: 0
-  - level: 150
+  - level: 250
     add: 8
     zoomAdd: 10
+    rangeAdd: 0
+    isEvolution: 1
+  - level: 500
+    add: 8
+    zoomAdd: 20
     rangeAdd: 0
     isEvolution: 1
   maxScale: 20
@@ -7194,10 +7199,10 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5648563887185035439}
-  m_LocalRotation: {x: 0.44393224, y: -0, z: -0, w: 0.89606035}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
-  m_ConstrainProportionsScale: 0
+  m_LocalRotation: {x: 0.4465125, y: -0, z: -0, w: 0.8947774}
+  m_LocalPosition: {x: 0, y: 0, z: 0.056}
+  m_LocalScale: {x: 0.005, y: 0.005, z: 0.005}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 7449571487496350605}
   - {fileID: 4728237118627724308}
@@ -7205,7 +7210,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 1.7}
+  m_AnchoredPosition: {x: 0, y: 1.181}
   m_SizeDelta: {x: 260, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &5741800468261555896
