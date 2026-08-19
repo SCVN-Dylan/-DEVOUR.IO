@@ -78,15 +78,16 @@ public class DevourVfx : MonoBehaviour
     public bool tintByVictim = true;
 
     [Header("Co hat")]
-    [Tooltip("Co hat luc than con hut o co goc (scale 1)")]
-    public float size = 0.25f;
+    [Tooltip("Co hat = CO THAN KE HUT x he so nay. 0.5 = bang nua than minh.\n" +
+             "Khong con so tuyet doi nhu ban cu (size 0.25 x he so, tran maxSizeMul 4): tran do cat\n" +
+             "tu khoang Lv100 nen moi con lon deu ra hat co 1.0 giong het nhau.")]
+    [Range(0.01f, 2f)] public float bodySizeFactor = 0.5f;
 
-    [Tooltip("BAT: hat to theo co than. Len cap cao ma hat giu nguyen co thi nhin nhu bui,\n" +
-             "khong con thay gi")]
-    public bool sizeFollowBody = true;
-
-    [Tooltip("TRAN he so phong to hat theo co than")]
-    public float maxSizeMul = 4f;
+    [Tooltip("BAT: kep co hat khong bao gio vuot qua CO NAN NHAN.\n\n" +
+             "Khong co no thi con Lv500 an mot con Lv5 van tuon ra nhung cuc to bang nua than minh -\n" +
+             "to hon ca con dang bi an. Kep lai thi luong hat noi dung mot su that: dang an con co nao.\n" +
+             "TAT: hat luon bang bodySizeFactor x than minh, khong quan tam an ai.")]
+    public bool clampToVictim = true;
 
     /// <summary>Co san sang ban khong (du mom + he hat).</summary>
     public bool IsReady { get { return _ps != null && _mouth != null; } }
@@ -159,40 +160,47 @@ public class DevourVfx : MonoBehaviour
         _ps.Play();   // "dang chay" thi Emit() moi vao duoc
     }
 
-    /// <summary>Co hat hien tai, da tinh theo co than con dang hut.</summary>
-    private float CurrentSize()
+    /// <summary>
+    /// Co hat hien tai: NUA than KE HUT, nhung khong bao gio to hon NAN NHAN.
+    ///
+    ///   co = than_ke_hut x bodySizeFactor,  roi kep xuong <= than_nan_nhan
+    ///
+    /// victimScale &lt;= 0 nghia la ben goi khong biet co nan nhan (vd overload cu) -> bo qua tran.
+    /// </summary>
+    private float CurrentSize(float victimScale)
     {
-        if (!sizeFollowBody || _body == null) return size;
-        float mul = Mathf.Clamp(_body.lossyScale.x, 0.01f, Mathf.Max(1f, maxSizeMul));
-        return size * mul;
+        float body = _body != null ? _body.lossyScale.x : 1f;
+        float s = body * bodySizeFactor;
+        if (clampToVictim && victimScale > 0.0001f) s = Mathf.Min(s, victimScale);
+        return Mathf.Max(0.001f, s);
     }
 
     /// <summary>
     /// RUT: nan nhan vua tut 'levelsLost' cap -> rac ra mot nhum hat tu than no.
-    /// Goi tren VFX cua KE HUT, truyen vao tam than va MAU SKIN cua NAN NHAN.
+    /// Goi tren VFX cua KE HUT, truyen vao tam than + MAU SKIN + CO THAN cua NAN NHAN.
     /// </summary>
-    public void EmitDrain(Vector3 fromWorld, int levelsLost, Color victimColor)
+    public void EmitDrain(Vector3 fromWorld, int levelsLost, Color victimColor, float victimScale)
     {
         if (levelsLost <= 0) return;
         int n = Mathf.Clamp(levelsLost * particlesPerLevel, 1, Mathf.Max(1, maxPerEmit));
-        Spawn(fromWorld, n, victimColor);
+        Spawn(fromWorld, n, victimColor, victimScale);
     }
 
     /// <summary>CHET: mot phat that da, tat ca XP con lai da ve ke giet.</summary>
-    public void EmitDeath(Vector3 fromWorld, Color victimColor)
+    public void EmitDeath(Vector3 fromWorld, Color victimColor, float victimScale)
     {
-        Spawn(fromWorld, Mathf.Max(1, deathParticles), victimColor);
+        Spawn(fromWorld, Mathf.Max(1, deathParticles), victimColor, victimScale);
     }
 
     /// <summary>
     /// Ban 'count' hat quanh mot diem. Ban TUNG hat mot chu khong Emit(params, count):
     /// mot lan goi voi count &gt; 1 se de moi hat vao DUNG MOT diem, nhin nhu mot cham duy nhat.
     /// </summary>
-    private void Spawn(Vector3 center, int count, Color color)
+    private void Spawn(Vector3 center, int count, Color color, float victimScale)
     {
         if (!IsReady) return;
 
-        float s = CurrentSize();
+        float s = CurrentSize(victimScale);
         ParticleSystem.EmitParams ep = new ParticleSystem.EmitParams();
         ep.applyShapeToPosition = false;
         ep.startLifetime = Mathf.Max(0.1f, maxFlyTime);

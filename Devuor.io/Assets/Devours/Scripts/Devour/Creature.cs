@@ -232,8 +232,10 @@ public class Creature : MonoBehaviour
 
             // Hat bay tu than MINH ve mom KE HUT. He hat nam ben ke hut nen moi hat trong do deu
             // ve cung mot mom - khong phai gan dich cho tung hat.
-            // skinColor la cua MINH - tuc cua nan nhan, dung y do: nhin luong hat la biet ai dang bi an
-            if (attacker.Vfx != null) attacker.Vfx.EmitDrain(Center, lost, skinColor);
+            // skinColor VA co than deu la cua MINH - tuc cua nan nhan, dung y do: nhin luong hat
+            // la biet dang an con nao va con do co bao nhieu
+            if (attacker.Vfx != null)
+                attacker.Vfx.EmitDrain(Center, lost, skinColor, transform.lossyScale.x);
         }
 
         // KHONG con cua chet nao o day. Chet chi xay ra o mot cho duy nhat: TickDevourCheck(),
@@ -291,7 +293,7 @@ public class Creature : MonoBehaviour
         if (killerAlive)
         {
             if (remain > 0 && killer.Suction != null) killer.Suction.GainXp(remain);
-            if (killer.Vfx != null) killer.Vfx.EmitDeath(Center, skinColor);
+            if (killer.Vfx != null) killer.Vfx.EmitDeath(Center, skinColor, transform.lossyScale.x);
         }
 
         if (onDied != null) onDied.Invoke();
