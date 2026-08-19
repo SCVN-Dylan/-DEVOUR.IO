@@ -1427,36 +1427,36 @@ MonoBehaviour:
   - level: 10
     add: 0.5
     zoomAdd: 1
-    rangeAdd: 0
+    rangeAdd: 1
     isEvolution: 1
   - level: 25
     add: 0.6
     zoomAdd: 2
-    rangeAdd: 0
+    rangeAdd: 1
     isEvolution: 0
   - level: 50
     add: 0.85
     zoomAdd: 2
-    rangeAdd: 0
+    rangeAdd: 3
     isEvolution: 1
   - level: 110
     add: 5
     zoomAdd: 5
-    rangeAdd: 0
+    rangeAdd: 5
     isEvolution: 0
   - level: 250
     add: 8
     zoomAdd: 10
-    rangeAdd: 0
+    rangeAdd: 5
     isEvolution: 1
   - level: 500
     add: 8
     zoomAdd: 20
-    rangeAdd: 0
+    rangeAdd: 5
     isEvolution: 1
   maxScale: 20
   speedFollowScale: 0.59
-  rangePerLevel: 0.05
+  rangePerLevel: 0.01
   gulpPunch: 0.18
   gulpDuration: 0.22
   gulpWobbles: 1.3
@@ -1524,7 +1524,7 @@ MonoBehaviour:
   _movement: {fileID: 7715685529842263537}
   _vfx: {fileID: 5753082459345264498}
   drainMemory: 0.5
-  attackerSlow: 0.4
+  attackerSlow: 0.55
   victimSlow: 0.5
   struggleTime: 2.5
   struggleRefillDelay: 1
