@@ -1404,7 +1404,7 @@ MonoBehaviour:
   mouth: {fileID: 4087071182281879751}
   range: 1.5
   coneAngle: 60
-  pullSpeed: 200
+  pullSpeed: 100
   farSpeedFactor: 0.26
   pullAccel: 78.5
   swallowDistance: 0.3

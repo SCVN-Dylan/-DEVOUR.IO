@@ -31682,7 +31682,7 @@ MonoBehaviour:
   baseSize: 5
   maxSize: 100
   useSteps: 1
-  zoomEveryLevel: 1
+  zoomEveryLevel: 0
   addPerLevel: 0.05
   skipAddPerLevelOnStep: 1
   tweenDuration: 0.1
@@ -55475,48 +55475,24 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: maxScale
-      value: 30
+      propertyPath: levelSteps.Array.size
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: cameraZoom
-      value: 
-      objectReference: {fileID: 1180586919}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[3].add
-      value: 20
+      propertyPath: levelSteps.Array.data[5].add
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[8].level
+      propertyPath: levelSteps.Array.data[5].level
       value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[0].zoomAdd
-      value: 2
+      propertyPath: levelSteps.Array.data[5].zoomAdd
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[1].zoomAdd
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[2].zoomAdd
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[3].zoomAdd
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[4].zoomAdd
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[6].zoomAdd
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: levelSteps.Array.data[8].zoomAdd
-      value: 0
+      propertyPath: levelSteps.Array.data[5].isEvolution
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
@@ -55574,10 +55550,6 @@ PrefabInstance:
       propertyPath: joystick
       value: 
       objectReference: {fileID: 997506743}
-    - target: {fileID: 5305163158164827225, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: cameraTransform
-      value: 
-      objectReference: {fileID: 1180586916}
     - target: {fileID: 5503119593727810502, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: cam
       value: 
@@ -55585,10 +55557,6 @@ PrefabInstance:
     - target: {fileID: 6415277024881816969, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 7715685529842263537, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: _speed
-      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
