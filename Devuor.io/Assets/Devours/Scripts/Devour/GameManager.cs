@@ -101,6 +101,30 @@ public class GameManager : MonoBehaviour
              "nhien teo di khong ly do")]
     [SerializeField] private float _stopGrowRatio = 1.5f;
 
+    [Header("Bu level khi bot KHUAT khoi camera")]
+    [Tooltip("BAT: bot dang nam ngoai khung hinh thi duoc keo level len thang toi moc, khong phai\n" +
+             "cho an du item.\n\n" +
+             "VI SAO CAN: co che ghim cu chi vat TOC DO AN, ma nguon thu cua bot la nhat item -\n" +
+             "trong khi mot pha bi hut mat 10-100 level/giay. He so nhan khong bao gio khep lai duoc\n" +
+             "mot khoang cach da gian ra. Con day la keo thang.\n\n" +
+             "Chi lam khi nguoi choi KHONG NHIN THAY, nen khong bao giay hien tuong so nhay truoc mat.")]
+    [SerializeField] private bool _offscreenCatchUp = true;
+
+    [Range(0f, 1f)]
+    [Tooltip("Moi GIAY dong bao nhieu PHAN khoang cach toi moc. 0.5 = mot nua.\n" +
+             "Lech 100 level thi giay dau bu 50, giay sau 25... khoang 4 giay la gan khop.\n\n" +
+             "Dong theo TI LE chu khong phai so level co dinh: lech nhieu thi tu nhanh, gan toi thi\n" +
+             "tu cham lai, khong co bac thang.")]
+    [SerializeField] private float _offscreenCatchUpFraction = 0.5f;
+
+    [Range(0f, 1f)]
+    [Tooltip("Phai ra khoi mep khung THEM bao nhieu phan kich thuoc khung moi tinh la KHUAT.\n" +
+             "0.15 = 15%. Co bien nay de con vua le nua nguoi ngoai mep khong bi coi la khuat.")]
+    [SerializeField] private float _offscreenMargin = 0.15f;
+
+    [Tooltip("Camera dung de xet khuat. De trong = tu lay Camera.main")]
+    [SerializeField] private Camera _viewCamera;
+
     private readonly List<Creature> _creatures = new List<Creature>();
     private static readonly RaycastHit[] _groundBuf = new RaycastHit[8];
     private float _balanceTimer;
@@ -170,12 +194,33 @@ public class GameManager : MonoBehaviour
         if (_player == null) return;
         int playerLevel = Mathf.Max(1, _player.Level);
 
+        // Doi "dong X phan khoang cach moi GIAY" sang "moi NHIP": co vay chinh _balanceInterval
+        // khong lam toc do bu nhanh cham theo. Nhip 1 giay thi step = fraction.
+        float step = _offscreenCatchUp
+            ? 1f - Mathf.Pow(1f - Mathf.Clamp01(_offscreenCatchUpFraction), Mathf.Max(0.1f, _balanceInterval))
+            : 0f;
+
         for (int i = 0; i < _creatures.Count; i++)
         {
             Creature c = _creatures[i];
             if (c == null || c == _player || c.isPlayer || c.IsDead || c.Suction == null) continue;
 
             int target = Mathf.Max(1, Mathf.RoundToInt(playerLevel * (1f + c.levelBias)));
+
+            // BU LEVEL - chi khi bot dang KHUAT, va chi keo LEN.
+            //
+            // Khong keo xuong: mot con dang to ma tu nhien teo di la thu nguoi choi se nhan ra
+            // ngay khi no quay lai khung, du luc teo khong ai nhin. Con vuot moc van bi ham bang
+            // xpGainMultiplier nhu cu - cham hon nhung khong bao gio lo.
+            //
+            // Dat TRUOC khi tinh ratio: he so an item ngay duoi phai doc level MOI, khong thi bot
+            // vua duoc bu xong con bi cho an nhanh gap 2 lan nua trong ca nhip nay.
+            if (step > 0f && c.Level < target && IsOffscreen(c))
+            {
+                int boosted = Mathf.Min(target, Mathf.CeilToInt(Mathf.Lerp(c.Level, target, step)));
+                if (boosted > c.Level) c.Suction.SetLevel(boosted);   // CeilToInt de khong ket lai o 1 level cuoi
+            }
+
             float ratio = (float)c.Level / target;
 
             float mul;
@@ -186,6 +231,28 @@ public class GameManager : MonoBehaviour
 
             c.Suction.xpGainMultiplier = Mathf.Max(0f, mul);
         }
+    }
+
+    /// <summary>
+    /// Bot co dang NAM NGOAI khung hinh khong.
+    ///
+    /// Xet bang VIEWPORT chu khong bang khoang cach: camera zoom to dan theo level nguoi choi
+    /// (ortho size 5 -> 100 theo bang moc), nen mot khoang cach co dinh se luc thi nam ngoai luc
+    /// thi nam trong. Viewport thi tu co gian theo dung cai khung dang hien.
+    ///
+    /// Khong tim thay camera thi tra FALSE - coi nhu dang bi nhin. Doan mu ma bu level la kieu
+    /// loi im lang toi nhat: khong ai thay gi sai cho toi khi bot phinh ra giua man hinh.
+    /// </summary>
+    private bool IsOffscreen(Creature c)
+    {
+        if (_viewCamera == null) _viewCamera = Camera.main;
+        if (_viewCamera == null) return false;
+
+        Vector3 v = _viewCamera.WorldToViewportPoint(c.Center);
+        if (v.z < 0f) return true;   // nam sau lung camera
+
+        float m = Mathf.Max(0f, _offscreenMargin);
+        return v.x < -m || v.x > 1f + m || v.y < -m || v.y > 1f + m;
     }
 
     /// <summary>
@@ -219,6 +286,14 @@ public class GameManager : MonoBehaviour
                 c.displayName = go.name;
                 c.levelBias = BiasForIndex(i, _aiCount);
             }
+
+            // TINH CACH bam theo do lech level cua CHINH con do: con duoc ghim manh hon nguoi choi
+            // thi hung (dam an ca con ngang co), con bi ghim yeu hon thi nhat (chay som).
+            //
+            // Suy tu levelBias chu khong tu chi so i: nhu vay tinh cach va suc manh khong bao gio
+            // noi nguoc nhau, va phan rung cua BiasForIndex duoc thua huong luon.
+            AIController ai = go.GetComponent<AIController>();
+            if (ai != null && c != null) ai.SetAggression(AggressionForBias(c.levelBias));
 
             PlayerNameTag tag = go.GetComponentInChildren<PlayerNameTag>(true);
             if (tag != null) tag.playerName = go.name;
@@ -268,6 +343,17 @@ public class GameManager : MonoBehaviour
 
         float slot = (_aiBiasMax - _aiBiasMin) / count;
         return bias + Random.Range(-slot * 0.35f, slot * 0.35f);
+    }
+
+    /// <summary>
+    /// DO HUNG HANG 0..1 cua mot bot, suy tu do lech level cua no trong khoang [min..max].
+    /// Yeu nhat -> 0 (nhat), manh nhat -> 1 (hung). Xem AIController.SetAggression.
+    /// </summary>
+    private float AggressionForBias(float bias)
+    {
+        float span = _aiBiasMax - _aiBiasMin;
+        if (span < 0.0001f) return 0.5f;   // hai dau bang nhau: khong co gi de chia, tat ca dung giua
+        return Mathf.Clamp01((bias - _aiBiasMin) / span);
     }
 
     /// <summary>

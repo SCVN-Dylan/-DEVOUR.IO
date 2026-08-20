@@ -1405,7 +1405,7 @@ MonoBehaviour:
   mouth: {fileID: 4087071182281879751}
   range: 1.5
   coneAngle: 60
-  pullSpeed: 100
+  pullSpeed: 50
   farSpeedFactor: 0.26
   pullAccel: 78.5
   swallowDistance: 0.3
@@ -1503,9 +1503,10 @@ MonoBehaviour:
   drainMemory: 0.5
   attackerSlow: 0.55
   victimSlow: 0.5
-  struggleTime: 2.5
-  struggleRefillDelay: 1
-  struggleRefillTime: 3
+  burstThreshold: 0.6
+  burstSpeed: 1.2
+  burstDuration: 1
+  devourGraceTime: 0.6
   devourLevelRatio: 0.5
   devouredDuration: 0.35
   devouredSpin: 900
@@ -2228,11 +2229,11 @@ MonoBehaviour:
   _mouth: {fileID: 4087071182281879751}
   _body: {fileID: 4944762698666343497}
   flyPrefab: {fileID: 6433210789715605893, guid: 19d2ac563852d4bfe80e31858d032785, type: 3}
-  bodySizeFactor: 0.2
-  clampToVictim: 1
+  victimSizeFactor: 0.4
   flyDuration: 0.35
   flyAccel: 2
   scatter: 0.6
+  arcSpread: 0.25
   prewarm: 8
   maxAlive: 100
 --- !u!1 &5367279106113848996

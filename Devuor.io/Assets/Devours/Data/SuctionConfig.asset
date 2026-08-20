@@ -19,32 +19,32 @@ MonoBehaviour:
   - level: 10
     add: 0.5
     zoomAdd: 1
-    rangeAdd: 1
+    rangeAdd: 0.5
     isEvolution: 1
-  - level: 20
+  - level: 25
     add: 0.6
     zoomAdd: 2
-    rangeAdd: 1
+    rangeAdd: 0.5
     isEvolution: 0
   - level: 50
     add: 0.85
     zoomAdd: 2
-    rangeAdd: 3
+    rangeAdd: 1.5
     isEvolution: 1
   - level: 100
     add: 5
     zoomAdd: 10
-    rangeAdd: 5
+    rangeAdd: 3
     isEvolution: 0
   - level: 250
     add: 8
     zoomAdd: 20
-    rangeAdd: 5
+    rangeAdd: 3
     isEvolution: 1
   - level: 500
     add: 8
     zoomAdd: 30
-    rangeAdd: 5
+    rangeAdd: 3
     isEvolution: 1
   maxScale: 20
   speedFollowScale: 0.4

@@ -5,7 +5,7 @@ using UnityEngine;
 /// vao RbMovement.SetDir, y het duong ma PlayerController day input vao. Nho vay bot chay bang
 /// dung bo di chuyen cua nguoi choi, khong co duong rieng de lech hanh vi.
 ///
-/// Ban M3 moi co hai viec: LANG THANG va DI AN ITEM. Chua danh nhau (de M8).
+/// Bon viec: VUNG RA khi bi hut, TRON con manh, DI con yeu, AN item, LANG THANG - xem Think().
 ///
 /// NHIP SUY NGHI: phan dat tien (quet item, do vat can) chay theo thinkInterval chu KHONG phai
 /// moi frame; giua hai lan nghi thi bot cu bam theo huong da chon. Day la khac biet lon nhat ve
@@ -48,11 +48,42 @@ public class AIController : MonoBehaviour
     [Tooltip("TRAN ban kinh phat hien (world), de o level cao bot khong 'nhin thay' ca map")]
     public float detectRangeMax = 30f;
 
+    [Header("Tinh cach - GameManager dat luc sinh, theo levelBias")]
+    [Range(0.1f, 1.5f)]
+    [Tooltip("Nguong SAN cua con NHAT nhat. 0.75 = doi thu phai yeu hon 25% no moi dam di.\n\n" +
+             "VI SAO PHAI CHIA TINH CACH: mot bo nguong dung chung (0.9 / 1.1) de lai mot VUNG CHET -\n" +
+             "doi thu trong khoang 0.9..1.1 lan level minh thi khong luat nao chay, hai con ngang co\n" +
+             "lo nhau hoan toan. Ma levelBias lai CO TINH ghim level bot quanh level nguoi choi, nen\n" +
+             "do la trang thai mac dinh chu khong phai ca hiem. Chia tinh cach thi vung chet cua tung\n" +
+             "con LECH NHAU - khong bao gio ca map cung dung nhin nhau.\n\n" +
+             "Bot dat tay trong scene (khong qua GameManager) nhan do hung hang 0.5 = dung so cu.")]
+    public float huntRatioShy = 0.75f;
+
+    [Range(0.1f, 1.5f)]
+    [Tooltip("Nguong SAN cua con HUNG nhat. 1.05 = dam di ca con nhinh hon minh 5%")]
+    public float huntRatioBold = 1.05f;
+
+    [Range(0.5f, 2f)]
+    [Tooltip("Nguong TRON cua con NHAT nhat. 1.0 = manh hon mot chut la chay")]
+    public float fleeRatioShy = 1f;
+
+    [Range(0.5f, 2f)]
+    [Tooltip("Nguong TRON cua con HUNG nhat. 1.25 = phai manh hon 25% no moi chiu chay")]
+    public float fleeRatioBold = 1.25f;
+
     [Header("Di con yeu")]
-    [Range(0.1f, 1f)]
-    [Tooltip("Chi di con co level <= level minh x so nay (0.9 = doi thu phai yeu hon 10%).\n" +
-             "Khoang giua nguong nay va nguong tron la vung NGANG CO - ke nhau, lo di an")]
-    public float huntLevelRatio = 0.9f;
+    [Range(0.2f, 1.5f)]
+    [Tooltip("VAO TRONG bao nhieu phan TAM HUT thi thoi lao toi, chuyen sang VON quanh moi.\n" +
+             "0.6 = vao trong 60% tam la bat dau von.\n\n" +
+             "Ha xuong thi von sat hon, hut nhanh hon (he so hut tinh theo KHOANG CACH), nhung de\n" +
+             "cham than nhau hon. Nang len thi an toan ma hut cham.")]
+    public float holdRangeFactor = 0.6f;
+
+    [Range(0f, 29f)]
+    [Tooltip("Goc LECH khi von quanh moi (do). PHAI DUOI nua goc non hut (coneAngle/2, dang la 30)\n" +
+             "- lech qua nua goc la moi roi ra khoi non, von ma khong hut duoc gi.\n\n" +
+             "0 = lao thang vao moi nhu ban cu (huc dau, bi physics day ra, huc lai).")]
+    public float orbitAngle = 25f;
 
     [Tooltip("Di toi da bao nhieu giay. Het gio ma chua nuot duoc thi bo")]
     public float huntDuration = 5f;
@@ -61,10 +92,23 @@ public class AIController : MonoBehaviour
              "Khong co khoang nguoi nay thi vua bo xong no ngam lai ngay con cu -> di vinh vien")]
     public float huntCooldown = 8f;
 
-    [Header("Tron con manh")]
-    [Tooltip("Con co level >= level minh x so nay thi bo chay (1.1 = manh hon 10% la chay)")]
-    public float fleeLevelRatio = 1.1f;
+    [Header("Vung ra khi bi hut")]
+    [Tooltip("BAT: dang bi con khac HUT thi bo het moi viec va vung ra - KE CA khi ke hut yeu hon\n" +
+             "minh (luat tron thuong chi kich hoat khi doi thu manh hon 10%).\n\n" +
+             "TAT thi bot dung im cho hut toi chet neu ke hut khong du manh de kich hoat luat tron -\n" +
+             "ma level bot lai duoc ghim bam quanh level nguoi choi, nen do la canh THUONG XUYEN.")]
+    public bool escapeWhenDrained = true;
 
+    [Range(0f, 1f)]
+    [Tooltip("Do PHA khi bot chon duong LACH NGANG de ra khoi non.\n" +
+             "0 = chay thang nguoc ke hut. 1 = chay vuong goc han voi truc mom no.\n" +
+             "0.7 = chech ra: vua ra khoi goc vua xa dan, de ke hut xoay theo cung kho bat lai.\n\n" +
+             "KHONG phai luc nao bot cung lach ngang: no do ca hai duong (lach toi vanh non / lui\n" +
+             "ra khoi tam) roi chon duong ngan hon - xem EscapeConeDirection. So nay chi an khi\n" +
+             "duong lach ngang thang.")]
+    public float escapeLateral = 0.7f;
+
+    [Header("Tron con manh")]
     [Tooltip("Chay them bao lau sau khi de doa da khuat khoi vung phat hien (giay)")]
     public float fleeDuration = 3f;
 
@@ -98,7 +142,7 @@ public class AIController : MonoBehaviour
     public float stuckDistance = 0.4f;
 
     /// <summary>Bot dang lam gi - de doc trong Inspector / debug.</summary>
-    public enum Mode { Wander, Item, Hunt, Flee }
+    public enum Mode { Wander, Item, Hunt, Flee, Escape }
 
     /// <summary>Item bot dang nham toi. null = khong nham item nao.</summary>
     public PhysicsDevourable Target { get { return _target; } }
@@ -109,11 +153,31 @@ public class AIController : MonoBehaviour
     /// <summary>Con bot dang tron. null = khong tron ai.</summary>
     public Creature Threat { get { return _threat; } }
 
+    /// <summary>Do HUNG HANG 0..1 (0 = nhat nhat, 1 = hung nhat). 0.5 = bot dat tay trong scene.</summary>
+    public float Aggression { get { return _aggression; } }
+
+    /// <summary>Nguong SAN dang dung (da tinh theo tinh cach).</summary>
+    public float HuntRatio { get { return _huntRatio; } }
+
+    /// <summary>Nguong TRON dang dung (da tinh theo tinh cach).</summary>
+    public float FleeRatio { get { return _fleeRatio; } }
+
+    /// <summary>
+    /// GameManager goi NGAY SAU khi sinh bot, truyen do hung hang suy tu levelBias cua chinh con do.
+    /// Khong goi thi bot giu 0.5 - dung bang bo nguong cu (0.9 / 1.125).
+    /// </summary>
+    public void SetAggression(float t01)
+    {
+        _aggression = Mathf.Clamp01(t01);
+        ApplyAggression();
+    }
+
     /// <summary>Trang thai hien tai.</summary>
     public Mode State
     {
         get
         {
+            if (_escapeCone) return Mode.Escape;
             if (_fleeTimer > 0f) return Mode.Flee;
             if (_prey != null) return Mode.Hunt;
             if (_target != null) return Mode.Item;
@@ -125,6 +189,11 @@ public class AIController : MonoBehaviour
     private Creature _prey;
     private Creature _threat;
     private Vector3 _threatPos;        // vi tri de doa lan cuoi thay - con chay tiep khi no da khuat
+    private bool _escapeCone;          // dang vung ra khoi NON HUT (khac tron thuong: chay lech ngang)
+    private float _aggression = 0.5f;
+    private float _huntRatio = 0.9f;
+    private float _fleeRatio = 1.1f;
+    private int _orbitSide;            // von ben nao: +1 / -1. 0 = chua vao tam, chua chon
     private float _huntTimer;
     private float _fleeTimer;
     private Creature _gaveUpOn;        // con vua bo cuoc
@@ -148,6 +217,7 @@ public class AIController : MonoBehaviour
     void Awake()
     {
         AutoFill();
+        ApplyAggression();   // bot dat tay trong scene: 0.5 = bo nguong cu
         _home = transform.position;
         _stuckLastPos = transform.position;
         PickWanderPoint();
@@ -155,6 +225,12 @@ public class AIController : MonoBehaviour
         // Lech pha nhip nghi cua tung bot: khong co dong nay thi 3 bot sinh cung mot frame se
         // nghi cung mot frame mai mai - cu 0.35s lai co mot frame ganh ca 3 cu quet.
         _thinkTimer = Random.value * Mathf.Max(0.01f, thinkInterval);
+    }
+
+    private void ApplyAggression()
+    {
+        _huntRatio = Mathf.Lerp(huntRatioShy, huntRatioBold, _aggression);
+        _fleeRatio = Mathf.Lerp(fleeRatioShy, fleeRatioBold, _aggression);
     }
 
     private void AutoFill()
@@ -166,6 +242,12 @@ public class AIController : MonoBehaviour
 
     void Update()
     {
+        // BI HUT thi KHONG doi het nhip nghi. Nhip rut la 0.1 giay/level, ma nhip nghi 0.35 giay -
+        // cho het mot nhip nghi la mat toi 3 level truoc khi bot kip nhan ra co chuyen gi. Hai phep
+        // doc bool moi frame, khong ton gi so voi mot cu quet.
+        if (escapeWhenDrained && !_escapeCone && _creature != null
+            && _creature.IsBeingDrained && _creature.IsVictimRole) _thinkTimer = 0f;
+
         _thinkTimer -= Time.deltaTime;
         if (_thinkTimer <= 0f)
         {
@@ -181,6 +263,7 @@ public class AIController : MonoBehaviour
     /// Phan DAT TIEN: nhin quanh roi quyet dinh lam gi. Chay theo thinkInterval.
     ///
     /// THU TU UU TIEN - song truoc, an sau:
+    ///   0. VUNG RA khi DANG BI HUT (bat ke ke hut manh hay yeu)
     ///   1. TRON  con manh hon (bo het moi viec dang lam)
     ///   2. DI    con yeu hon, co han gio
     ///   3. AN    item gan nhat
@@ -191,18 +274,36 @@ public class AIController : MonoBehaviour
         int myLevel = _suction.Level;
         float detect = Mathf.Min(_suction.CurrentRange * detectRangeMul, detectRangeMax);
 
+        // --- 0. VUNG RA KHOI NON ---
+        // Phai dung TRUOC va CHEN QUA luat tron thuong. Luat tron chi kich hoat khi doi thu manh
+        // hon 10%, ma ke dang hut mom vao minh thi khong nhat thiet manh hon - khong co nhanh nay
+        // thi bot dung yen an du bao nhieu level cung khong buon nhuc nhich.
+        //
+        // Cung khong de FindThreat ghi de: con manh nhat gan day chua chac la con dang ngam minh.
+        Creature drainer = escapeWhenDrained ? DrainAttacker() : null;
+        _escapeCone = drainer != null;
+
         // --- 1. TRON ---
-        Creature threat = FindThreat(detect, myLevel);
-        if (threat != null)
+        if (drainer != null)
         {
-            _threat = threat;
-            _threatPos = threat.Center;
-            _fleeTimer = fleeDuration;   // con thay no thi dong ho chay lai tu dau
+            _threat = drainer;
+            _threatPos = drainer.Center;
+            _fleeTimer = fleeDuration;
         }
-        else if (_fleeTimer > 0f)
+        else
         {
-            _fleeTimer -= thinkInterval;
-            if (_fleeTimer <= 0f) _threat = null;
+            Creature threat = FindThreat(detect, myLevel);
+            if (threat != null)
+            {
+                _threat = threat;
+                _threatPos = threat.Center;
+                _fleeTimer = fleeDuration;   // con thay no thi dong ho chay lai tu dau
+            }
+            else if (_fleeTimer > 0f)
+            {
+                _fleeTimer -= thinkInterval;
+                if (_fleeTimer <= 0f) _threat = null;
+            }
         }
 
         if (_fleeTimer > 0f)
@@ -230,7 +331,7 @@ public class AIController : MonoBehaviour
         if (_prey == null)
         {
             Creature p = FindPrey(detect, myLevel);
-            if (p != null) { _prey = p; _huntTimer = huntDuration; }
+            if (p != null) { _prey = p; _huntTimer = huntDuration; _orbitSide = 0; }
         }
 
         if (_prey != null)
@@ -256,6 +357,75 @@ public class AIController : MonoBehaviour
     }
 
     /// <summary>
+    /// KE DANG HUT MINH, neu minh dang o cua duoi. null = khong bi hut, hoac minh moi la ben tren.
+    ///
+    /// Doc IsVictimRole chu khong chi doc IsBeingDrained: hai con chia mom vao nhau thi CA HAI deu
+    /// dang bi hut, con to van la ben an duoc - no ma bo chay thi khong bao gio ket thuc duoc pha
+    /// nao ca.
+    /// </summary>
+    private Creature DrainAttacker()
+    {
+        if (_creature == null || !_creature.IsBeingDrained || !_creature.IsVictimRole) return null;
+
+        Creature a = _creature.LastAttacker;
+        if (a == null || a.IsDead || !a.isActiveAndEnabled) return null;
+        return a;
+    }
+
+    /// <summary>
+    /// HUONG VUNG RA khoi non hut - khac han huong tron thuong.
+    ///
+    /// Non hut sau hang chuc don vi nhung chi rong 60 do, nen chay THANG NGUOC la chay doc theo
+    /// truc no: quang duong dai nhat co the, va van nam trong goc suot ca doan. Lach VUONG GOC voi
+    /// truc mom thi chi phai di 0.58 lan khoang cach toi mom la thoat khoi goc.
+    ///
+    /// NHUNG KHONG PHAI LUC NAO LACH NGANG CUNG NGAN NHAT: non XOE RA theo do sau. Sat mom thi no
+    /// hep, lach vai gang tay la ra; o cuoi tam thi no da rong ca met, luc do LUI THANG ra khoi
+    /// TAM lai gan hon nhieu. So do that voi non 60 do sau 3.8u: dung o 20% tam thi lech ngang can
+    /// 0.44u con lui ra can 3.05u; dung o 80% tam thi nguoc lai - lech ngang 1.75u, lui ra 0.78u.
+    /// Nen o day DO CA HAI DUONG roi chon duong ngan hon.
+    ///
+    /// escapeLateral chi con la do PHA khi da chon duong lach ngang: pha them chut lui ra de ke
+    /// hut xoay theo cung khong bat lai duoc ngay.
+    /// </summary>
+    private Vector3 EscapeConeDirection(Creature attacker)
+    {
+        if (attacker == null) return Vector3.zero;
+
+        SimpleSuction sk = attacker.Suction;
+        Transform mouth = sk != null && sk.mouth != null ? sk.mouth : attacker.transform;
+
+        Vector3 axis = mouth.forward;
+        axis.y = 0f;
+        if (axis.sqrMagnitude < 0.0001f) return Vector3.zero;
+        axis.Normalize();
+
+        Vector3 to = transform.position - mouth.position;
+        to.y = 0f;
+
+        float along = Vector3.Dot(to, axis);        // dang o do sau nao trong non
+        Vector3 perp = to - axis * along;
+        float side = perp.magnitude;                // da lech khoi truc bao nhieu
+
+        // Dung DUNG tren truc non (bi ngam thang mat): khong ben nao gan hon, chon bua mot ben
+        if (side < 0.0001f) { perp = Vector3.Cross(axis, Vector3.up); side = 0f; }
+        else perp /= side;
+
+        Vector3 away = to.sqrMagnitude > 0.0001f ? to.normalized : -axis;
+        if (sk == null) return Vector3.Lerp(away, perp, Mathf.Clamp01(escapeLateral)).normalized;
+
+        // Con bao nhieu nua thi ra khoi non, do theo CA HAI duong
+        float half = Mathf.Deg2Rad * sk.coneAngle * 0.5f;
+        float lateralLeft = Mathf.Max(0f, along * Mathf.Tan(half) - side);   // toi vanh non
+        float backLeft = Mathf.Max(0f, sk.CurrentRange - to.magnitude);      // toi cuoi tam
+
+        if (lateralLeft > backLeft) return away;
+
+        Vector3 dir = Vector3.Lerp(away, perp, Mathf.Clamp01(escapeLateral));
+        return dir.sqrMagnitude > 0.0001f ? dir.normalized : perp;
+    }
+
+    /// <summary>
     /// Con MANH HON gan nhat trong vung phat hien. Duyet GameManager.Creatures chu khong
     /// OverlapSphere - danh sach chi co vai con, so khoang cach la xong, khong ton physics query.
     /// </summary>
@@ -271,7 +441,7 @@ public class AIController : MonoBehaviour
         {
             Creature c = all[i];
             if (c == null || c == _creature || c.IsDead) continue;
-            if (c.Level < myLevel * fleeLevelRatio) continue;
+            if (c.Level < myLevel * _fleeRatio) continue;
 
             Vector3 d = c.Center - transform.position;
             d.y = 0f;
@@ -298,7 +468,7 @@ public class AIController : MonoBehaviour
             Creature c = all[i];
             if (c == null || c == _creature || c.IsDead) continue;
             if (c == _gaveUpOn && Time.time < _gaveUpUntil) continue;   // vua bo con nay, cho nguoi da
-            if (c.Level > myLevel * huntLevelRatio) continue;
+            if (c.Level > myLevel * _huntRatio) continue;
 
             Vector3 d = c.Center - transform.position;
             d.y = 0f;
@@ -315,7 +485,7 @@ public class AIController : MonoBehaviour
     private bool CanHunt(Creature c, int myLevel, float detect)
     {
         if (c == null || c.IsDead || !c.isActiveAndEnabled) return false;
-        if (c.Level > myLevel * huntLevelRatio) return false;   // no an len ngang co roi -> thoi
+        if (c.Level > myLevel * _huntRatio) return false;   // no an len ngang co roi -> thoi
 
         Vector3 d = c.Center - transform.position;
         d.y = 0f;
@@ -368,19 +538,73 @@ public class AIController : MonoBehaviour
     {
         if (_fleeTimer > 0f)
         {
+            if (_escapeCone)
+            {
+                Vector3 esc = EscapeConeDirection(_threat);
+                if (esc.sqrMagnitude > 0.0001f) return esc;
+            }
+
             Vector3 away = transform.position - (_threat != null ? _threat.Center : _threatPos);
             away.y = 0f;
             return away.sqrMagnitude > 0.0001f ? away.normalized : Vector3.zero;
         }
 
-        Vector3 aim;
-        if (_prey != null) aim = _prey.Center;
-        else if (_target != null) aim = _target.Center;
-        else aim = _wanderPoint;
+        if (_prey != null) return HuntDirection(_prey);
+
+        Vector3 aim = _target != null ? _target.Center : _wanderPoint;
 
         Vector3 to = aim - transform.position;
         to.y = 0f;
         return to.sqrMagnitude > 0.0001f ? to.normalized : Vector3.zero;
+    }
+
+    /// <summary>
+    /// HUONG DI SAN. Xa thi lao toi, vao trong tam roi thi VON QUANH moi chu khong uc thang vao.
+    ///
+    /// VI SAO KHONG LAO THANG: cham than nhau KHONG an duoc gi (eatOnBodyContact dang tat), chi
+    /// bi physics day ra roi lao vao lai. Te hon nua la non hut chi rong 30 do moi ben - uc sat
+    /// thi moi truot sang hong hoac ra sau lung, roi HAN khoi non. Bot huc ca ngay ma khong rut
+    /// duoc mot level nao.
+    ///
+    /// VI SAO KHONG DUNG LAI CHO HUT: mom = huong di (RbMovement khong co kenh xoay rieng). Dat
+    /// huong ve 0 la mom NGUNG QUAY THEO moi luon - no chay vong mot cai la ra khoi non.
+    ///
+    /// VON O GOC DUOI NUA GOC NON thi giai duoc ca hai: bot di vong quanh nen khong bao gio dam
+    /// vao, ma moi van nam trong non vi 25 do < 30 do. He so hut tinh theo KHOANG CACH chu khong
+    /// theo goc (xem SimpleSuction.DrainCreatures), nen von sat ma lech goc van hut du manh.
+    ///
+    /// Chon ben MOT LAN roi giu: tinh lai moi frame thi bot lac qua lac lai quanh moi.
+    /// </summary>
+    private Vector3 HuntDirection(Creature prey)
+    {
+        Vector3 to = prey.Center - transform.position;
+        to.y = 0f;
+
+        float dist = to.magnitude;
+        if (dist < 0.0001f) return Vector3.zero;
+        Vector3 dir = to / dist;
+
+        float hold = _suction != null ? _suction.CurrentRange * holdRangeFactor : 0f;
+        if (dist > hold || orbitAngle < 0.01f)
+        {
+            _orbitSide = 0;   // ra ngoai tam roi: lan sau vao lai duoc chon ben moi
+            return dir;
+        }
+
+        if (_orbitSide == 0) _orbitSide = OrbitSide(dir);
+        return Quaternion.Euler(0f, orbitAngle * _orbitSide, 0f) * dir;
+    }
+
+    /// <summary>
+    /// Von ben nao: chon ben ma bot DANG huong toi san, de khong phai be lai gat mot phat khi vua
+    /// vao tam. Cross(dir, huong_dang_di).y > 0 nghia la huong dang di nam ben +goc cua dir.
+    /// </summary>
+    private int OrbitSide(Vector3 dir)
+    {
+        Vector3 fwd = transform.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f) return 1;
+        return Vector3.Cross(dir, fwd).y >= 0f ? 1 : -1;
     }
 
     /// <summary>Huong THUC SU di: huong muon di, hoac huong ne neu phia truoc bi chan.</summary>
@@ -474,7 +698,8 @@ public class AIController : MonoBehaviour
         }
 
         Vector3 t;
-        if (_fleeTimer > 0f) { Gizmos.color = Color.yellow; t = _threat != null ? _threat.Center : _threatPos; }
+        if (_escapeCone) { Gizmos.color = new Color(1f, 0.35f, 0f); t = _threat != null ? _threat.Center : _threatPos; }
+        else if (_fleeTimer > 0f) { Gizmos.color = Color.yellow; t = _threat != null ? _threat.Center : _threatPos; }
         else if (_prey != null) { Gizmos.color = Color.magenta; t = _prey.Center; }
         else if (_target != null) { Gizmos.color = Color.red; t = _target.Center; }
         else { Gizmos.color = Color.cyan; t = _wanderPoint; }
