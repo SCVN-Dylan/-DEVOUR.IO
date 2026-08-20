@@ -7,9 +7,13 @@ using UnityEngine;
 /// phim, bot khong dung duoc nen phai tat di - tat xong la bot chay khap map trong tu the dung
 /// im. Tach ra day thi ai gan cung co animation, khong dinh gi toi nguon dieu khien.
 ///
-///   co item trong vung hut -> RunSucking
-///   dang di chuyen         -> Run
-///   con lai                -> Idle (tat ca hai co)
+/// Day ra HAI CO doc lap, khong cai nao chen cai nao:
+///   Sucking = co item trong vung hut, hoac dang trong tran
+///   Run     = than dang di chuyen
+///
+/// Controller tu ghep 4 to hop:
+///   Run 0 / Suck 0 -> A_Idle          Run 1 / Suck 0 -> A_Running
+///   Run 0 / Suck 1 -> A_IdleSucking   Run 1 / Suck 1 -> A_RunSucking
 /// </summary>
 [DisallowMultipleComponent]
 public class CreatureAnimator : MonoBehaviour
@@ -34,12 +38,12 @@ public class CreatureAnimator : MonoBehaviour
              "Chi ap khi thanh ghi con; het thanh la ve binh thuong cung luc voi toc do")]
     [Range(0.1f, 3f)] public float victimAnimSpeed = 1.6f;
 
-    [Tooltip("BAT: dang TRONG TRAN la ha mieng ('RunSucking') nhu luc hut item - KHONG phan vai,\n" +
+    [Tooltip("BAT: dang TRONG TRAN la ha mieng (co 'Sucking') nhu luc hut item - KHONG phan vai,\n" +
              "ca ke hut lan nan nhan deu ha, vi thuc te ca hai deu dang hut nhau.\n" +
              "TAT: chi item moi kich hoat anim do, danh nhau thi van chay/dung binh thuong")]
     public bool combatDrivesSuckAnim = true;
 
-    private static readonly int RunSuckingHash = Animator.StringToHash("RunSucking");
+    private static readonly int SuckingHash = Animator.StringToHash("Sucking");
     private static readonly int RunHash = Animator.StringToHash("Run");
 
     private bool _lastRun;
@@ -81,13 +85,17 @@ public class CreatureAnimator : MonoBehaviour
 
         bool sucking = (_suction != null && _suction.HasItemsInRange)
                     || (combatDrivesSuckAnim && inCombat);
-        bool run = !sucking && _movement != null && _movement.IsMoving;
+        // KHONG con '!sucking &&' o day. Ep Run ve false luc dang hut thi hai to hop (hut-dung-yen
+        // va hut-dang-chay) doi ra CUNG mot cap co, va A_IdleSucking khong bao gio co duong vao -
+        // clip nam trong controller ca thang khong ai goi toi. Hai co gio doc lap hoan toan, viec
+        // ghep chung thanh state la cua controller.
+        bool run = _movement != null && _movement.IsMoving;
 
         // Chi goi SetBool khi trang thai THUC SU DOI. Ban cu goi moi frame; voi 4 con x 2 co x
         // 60fps la 480 lan ghi vao animator moi giay ma khong doi gi ca.
         if (_first || sucking != _lastSucking)
         {
-            _animator.SetBool(RunSuckingHash, sucking);
+            _animator.SetBool(SuckingHash, sucking);
             _lastSucking = sucking;
         }
         if (_first || run != _lastRun)
@@ -111,8 +119,8 @@ public class CreatureAnimator : MonoBehaviour
     /// van dung nhung ta doc them IsBeingDrained de hai thu khong lech nhau mot nhip. KHONG doc
     /// thanh ghi nua: thanh gio do khoang cach level, no dung yen gan nhu suot pha hut.
     ///
-    /// Ghi vao Animator.speed chu khong them tham so vao Animator Controller: controller hien chi
-    /// co 2 bool va 3 state, them mot float SpeedMultiplier phai sua tay tung state moi an.
+    /// Ghi vao Animator.speed chu khong them tham so vao Animator Controller: them mot float
+    /// SpeedMultiplier thi phai vao sua tay TUNG state moi an, con Animator.speed thi trum het.
     /// </summary>
     private void ApplyRoleSpeed(bool attacker, bool victim)
     {
