@@ -1417,9 +1417,9 @@ MonoBehaviour:
   maxActiveItems: 64
   itemStealMargin: 0.85
   drainCreatures: 1
-  drainInterval: 0.5
+  drainInterval: 0.1
   drainIntervalDecay: 0.8
-  drainIntervalFloor: 0.2
+  drainIntervalFloor: 0.1
   drainIntervalRecover: 0.5
   creatureFarDrainFactor: 0.35
   _config: {fileID: 11400000, guid: f7786e5ba959846b891488a2cb6e675b, type: 2}
@@ -2228,7 +2228,7 @@ MonoBehaviour:
   _mouth: {fileID: 4087071182281879751}
   _body: {fileID: 4944762698666343497}
   flyPrefab: {fileID: 6433210789715605893, guid: 19d2ac563852d4bfe80e31858d032785, type: 3}
-  bodySizeFactor: 0.5
+  bodySizeFactor: 0.2
   clampToVictim: 1
   flyDuration: 0.35
   flyAccel: 2
