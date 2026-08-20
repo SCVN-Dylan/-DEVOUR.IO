@@ -88,11 +88,17 @@ public class RbMovement : MonoBehaviour
     /// PHAI la mot kenh RIENG chu khong duoc di qua SetSpeedMultiplier: SimpleSuction ghi de kenh
     /// do moi lan LEVEL DOI, ma trong lue dang bi hut thi level doi lien tuc - he so combat nhet
     /// vao day se bi xoa ngay frame sau. Hai kenh nhan voi nhau trong Move(), khong ai de ai.
+    ///
+    /// TRAN LA 2 CHU KHONG PHAI 1: kenh nay tung chi de LAM CHAM (0..1), nhung Creature con dung
+    /// no de BUT TOC len tren 100% khi nan nhan vung ra duoc (xem Creature.burstSpeed). Kep o 1
+    /// thi cu but toc bi cat im lang ve dung toc do thuong - khong loi, chi la khong co gi xay ra.
     /// </summary>
+    public const float MaxCombatMultiplier = 2f;
+
     public float CombatSpeedMultiplier
     {
         get { return _combatMultiplier; }
-        set { _combatMultiplier = Mathf.Clamp(value, 0f, 1f); }
+        set { _combatMultiplier = Mathf.Clamp(value, 0f, MaxCombatMultiplier); }
     }
 
     /// <summary>

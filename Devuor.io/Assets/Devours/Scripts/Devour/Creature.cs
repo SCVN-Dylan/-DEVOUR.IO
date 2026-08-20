@@ -89,6 +89,25 @@ public class Creature : MonoBehaviour
              "duoc dung khoanh khac gianh lai duoc toc do")]
     [Range(0.05f, 1f)] public float victimSlow = 0.5f;
 
+    [Header("But toc - cua so vung ra")]
+    [Range(0.05f, 0.99f)]
+    [Tooltip("Thanh ghi VUA CAT XUONG DUOI muc nay thi nan nhan BUT TOC mot cu.\n" +
+             "0.6 = tut qua 60% la but.\n\n" +
+             "Bat theo kieu 'vua cat xuong duoi' chu khong phai 'bang dung 60%': thanh tut theo\n" +
+             "NAC (moi nhip rut mot nac), tran nho chi co 3 nac (100% -> 67% -> 33% -> 0) nen no\n" +
+             "nhay qua moc 60% ma khong bao gio dung o do.")]
+    public float burstThreshold = 0.6f;
+
+    [Range(1f, 2f)]
+    [Tooltip("He so toc do trong luc BUT. 1.2 = nhanh hon binh thuong 20%.\n\n" +
+             "Tran cua kenh nay la RbMovement.MaxCombatMultiplier (2). Dat cao hon la bi kep im.")]
+    public float burstSpeed = 1.2f;
+
+    [Tooltip("But toc keo dai bao lau (giay). Het gio thi ve 100% - KHONG ve lai victimSlow:\n" +
+             "but duoc mot cu la coi nhu da vung ra khoi the ghi, con trong non cung khong ghi lai\n" +
+             "duoc nua cho toi khi thoat han va bi hut lai tu dau.")]
+    public float burstDuration = 1f;
+
     [Tooltip("SAN THOI GIAN (giay) - CHI dung cho mot ca: dinh vao non luc level DA nam duoi muc\n" +
              "bi nuot san (vd Lv3 lot vao non con Lv100). Luc do thanh khong con nac nao de tut,\n" +
              "dang le bang 0 ngay frame dau va nguoi choi chi thay minh bien mat. San nay bat thanh\n" +
@@ -149,6 +168,8 @@ public class Creature : MonoBehaviour
     private int _drainBaseLevel = 1;      // level cua MINH luc vua dinh non - moc DAY cua thanh
     private int _drainFloorLevel;         // muc bi nuot, KHOA luc vua dinh non - moc CAN cua thanh
     private float _drainStartTime = -999f;
+    private bool _burstFired;             // pha hut nay da xai cu but toc chua
+    private float _burstUntil = -999f;    // but toc con hieu luc toi gio nay
 
     /// <summary>
     /// Dang dinh mot tran nao do khong - KE CA khi minh la ben di hut. Khac IsBeingDrained (chi
@@ -169,6 +190,9 @@ public class Creature : MonoBehaviour
     /// va dau van ai cung Lv1-5 nen hoa nhau la chuyen thuong xuyen.
     /// </summary>
     public bool IsAttackerRole { get { return InCombat && Level > _rivalLevel; } }
+
+    /// <summary>Dang trong 1 giay BUT TOC (vung ra khoi the bi ghi). Dung cho VFX/SFX/anim.</summary>
+    public bool IsBursting { get { return Time.time < _burstUntil; } }
 
     /// <summary>Dang o vai NAN NHAN (con yeu hon, hoac hoa level).</summary>
     public bool IsVictimRole { get { return InCombat && Level <= _rivalLevel; } }
@@ -226,6 +250,8 @@ public class Creature : MonoBehaviour
             _drainFloorLevel = DevourFloorLevel(attacker.Level);
             _drainStartTime = Time.time;   // moc dem san thoi gian (devourGraceTime)
             _struggle = 1f;
+            _burstFired = false;           // pha moi = duoc mot cu but toc moi
+            _burstUntil = -999f;
             _suction.PrimeDrain();   // nhip DAU TIEN no ngay, khong bat nguoi choi cho
         }
 
@@ -475,6 +501,7 @@ public class Creature : MonoBehaviour
         if (span > 0)
         {
             _struggle = Mathf.Clamp01((Level - _drainFloorLevel + 1) / (float)span);
+            TryFireBurst();
             return;
         }
 
@@ -488,6 +515,25 @@ public class Creature : MonoBehaviour
         _struggle = devourGraceTime > 0.001f
             ? Mathf.Clamp01(1f - (Time.time - _drainStartTime) / devourGraceTime)
             : 0f;
+        TryFireBurst();
+    }
+
+    /// <summary>
+    /// BUT TOC: khoanh khac thanh VUA CAT XUONG DUOI burstThreshold, nan nhan vung mot cu -
+    /// burstSpeed trong burstDuration giay, roi ve 100% (khong ve lai victimSlow).
+    ///
+    /// Chi ban MOT lan mot pha hut (_burstFired). Khong co co nay thi moi frame sau do deu con
+    /// thoa "thanh &lt; moc" - cua so se bi gia han lien tuc va nan nhan but toc vinh vien.
+    ///
+    /// Bat theo "&lt; moc" chu khong phai "bang moc": thanh tut theo NAC (mot nac moi nhip rut),
+    /// tran nho chi co 3 nac nen no nhay thang tu 67% xuong 33%, khong bao gio dung o 60%.
+    /// </summary>
+    private void TryFireBurst()
+    {
+        if (_burstFired || _struggle >= burstThreshold) return;
+
+        _burstFired = true;
+        _burstUntil = Time.time + burstDuration;
     }
 
     /// <summary>
@@ -506,9 +552,12 @@ public class Creature : MonoBehaviour
     /// <summary>
     /// Ap he so toc do theo VAI - bac thang cung, khong ease.
     ///
-    ///   ke hut                  -> attackerSlow, suot tran
-    ///   nan nhan CON trong non  -> victimSlow
-    ///   ra khoi non             -> 1 (nhay thang, de cam duoc dung khoanh khac gianh lai toc do)
+    ///   ke hut                     -> attackerSlow, suot tran
+    ///   nan nhan DANG but toc      -> burstSpeed (tren 100% - xem TryFireBurst)
+    ///   nan nhan BUT XONG          -> 1, du van con trong non: but duoc mot cu la coi nhu da
+    ///                                 vung ra khoi the ghi cua pha nay
+    ///   nan nhan CHUA but, trong non -> victimSlow
+    ///   ra khoi non                -> 1 (nhay thang, de cam duoc dung khoanh khac gianh lai toc do)
     ///
     /// Doc IsBeingDrained chu KHONG doc thanh ghi: thanh gio do khoang cach level, no dung yen
     /// gan nhu suot pha hut nen khong con dung lam dong ho tra lai toc do duoc nua. Lay thang
@@ -522,6 +571,8 @@ public class Creature : MonoBehaviour
         if (InCombat)
         {
             if (Level > _rivalLevel) m = attackerSlow;
+            else if (IsBursting) m = burstSpeed;
+            else if (_burstFired) m = 1f;
             else if (IsBeingDrained) m = victimSlow;
         }
 
