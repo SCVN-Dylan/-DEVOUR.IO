@@ -85,19 +85,37 @@ public class PlayerVisual : MonoBehaviour
     }
 
     /// <summary>
-    /// Doi thang material cua than player, khong dinh gi toi tien hoa.
-    /// Dung cho skin mua/skin thuong. Truyen null de tra ve material goc.
+    /// Doi material THAN, va dat luon lam MATERIAL NEN cho cac lan tien hoa sau.
+    ///
+    /// VI SAO PHAI GHI CA _baseSkin: ApplyState() moi lan tien hoa deu bat dau tu _baseSkin roi
+    /// moi chong material cua cac form len. _baseSkin duoc chup trong Prepare() luc Awake - tuc
+    /// TRUOC khi GameManager kip gan skin ngau nhien cho bot. Neu chi doi sharedMaterial ma khong
+    /// doi _baseSkin thi bot mac dung skin luc sinh ra, den moc tien hoa dau tien (Lv10) la
+    /// ApplyState keo material ve mac dinh cua prefab - skin bien mat, ma khong mot dong loi nao.
+    ///
+    /// Truyen null = tra ve material goc cua prefab (con duong lui).
     /// </summary>
     public void SetSkin(Material skin)
     {
         Prepare();
         if (skinTarget == null) return;
 
-        Material m = skin != null ? skin : _baseSkin;
-        // sharedMaterial chu KHONG phai material: material se clone ra mot ban moi moi lan gan,
-        // ro ri material instance - tren mobile la ro ri that su.
-        if (m != null && skinTarget.sharedMaterial != m) skinTarget.sharedMaterial = m;
+        if (skin != null)
+        {
+            if (_prefabSkin == null) _prefabSkin = _baseSkin;   // giu material goc de con duong lui
+            _baseSkin = skin;
+        }
+        else
+        {
+            _baseSkin = _prefabSkin != null ? _prefabSkin : _baseSkin;
+        }
+
+        // Ap lai theo dang hien tai, khong gan thang: dang o lan tien hoa co material rieng thi
+        // material do van phai thang - doi skin nen khong duoc pha dang dang mac.
+        ApplyState(_current);
     }
+
+    private Material _prefabSkin;   // material goc tren prefab, chup lan dau khi bi doi skin
 
     private void ApplyState(int index)
     {
