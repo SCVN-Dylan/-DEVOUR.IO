@@ -16,6 +16,10 @@ using UnityEngine;
 /// object CHAC CHAN toi noi - khac han ban te-bao-vat-ly rat xa xua (vien roi ra dat, het han giua
 /// duong, nan nhan mat 30 ma ke hut chi an 28, so lieu khong bao gio khop).
 ///
+/// DUONG BAY khong thang: moi object boc mot huong lech vuong goc rieng (arcSpread), phinh to nhat
+/// o giua duong va bang 0 o hai dau - dan object dang bay hop lai thanh mot chum HINH BAU DUC noi
+/// than nan nhan voi mom. Doc theo duong do object TEO DAN, cham co 0 dung luc cham mom.
+///
 /// CO POOL: nhip rut ngan dan nen mot tran keo dai co the sinh vai chuc object. Instantiate/Destroy
 /// tung cai la rac cho GC; lay ra - tra ve thi khong ton gi. Pool nam tren tung con, khong dung
 /// chung, de con nay chet khong keo theo object dang bay cua con khac.
@@ -40,12 +44,14 @@ public class DevourVfx : MonoBehaviour
     public GameObject flyPrefab;
 
     [Header("Co object")]
-    [Tooltip("Co object = CO THAN KE HUT x he so nay. 0.5 = bang nua than minh")]
-    [Range(0.01f, 2f)] public float bodySizeFactor = 0.5f;
-
-    [Tooltip("BAT: kep co object khong bao gio vuot qua CO NAN NHAN - luong object noi dung mot\n" +
-             "su that: dang an con co nao. TAT: luon bang bodySizeFactor x than minh")]
-    public bool clampToVictim = true;
+    [Range(0.01f, 1f)]
+    [Tooltip("Co object = he so nay x than con NHO HON trong hai con (minh va nan nhan).\n" +
+             "0.4 = 40% than con nho hon.\n\n" +
+             "VI SAO LAY CON NHO HON chu khong phai lay rieng nan nhan: hat phai doc duoc o CA HAI\n" +
+             "phia. Lay theo nan nhan thi con Lv1 hut mot con Lv500 se de ra nhung vien to gap may\n" +
+             "lan chinh no, nhin nhu vien bi nuot nguoc. Lay con nho hon thi A(than 10) hut B(than\n" +
+             "20) ra hat 4, ma B hut A cung ra 4 - cung mot cap dau thi cung mot co hat.")]
+    public float victimSizeFactor = 0.4f;
 
     [Header("Duong bay")]
     [Tooltip("THOI LUONG bay: object luon mat dung bay nhieu GIAY de toi mom, xa hay gan cung the.\n\n" +
@@ -62,6 +68,16 @@ public class DevourVfx : MonoBehaviour
 
     [Tooltip("Do TAN ngau nhien quanh diem xuat phat (world). 0 = moi object ra tu dung mot diem")]
     public float scatter = 0.6f;
+
+    [Range(0f, 1f)]
+    [Tooltip("DO PHINH cua duong bay, tinh theo PHAN TRAM QUANG DUONG BAY. 0 = bay thang.\n" +
+             "0.25 = moi hat lech toi da 25% quang duong sang mot huong ngau nhien vuong goc voi\n" +
+             "truc bay, phinh to nhat o giua duong va bang 0 o hai dau.\n\n" +
+             "Hut lien tuc thi ca dan hat moi cai cong mot kieu -> nhin ra mot chum HINH BAU DUC\n" +
+             "noi tu than nan nhan toi mom, thay vi mot vach thang.\n\n" +
+             "Tinh theo % quang duong chu khong theo don vi world: tam hut o Lv1 chi ~1.5u ma Lv100\n" +
+             "toi vai chuc u - dat so co dinh thi mot dau phinh loe loet, dau kia gan nhu thang.")]
+    public float arcSpread = 0.25f;
 
     // KHONG con maxFlyTime: doi sang bay theo THOI LUONG thi moi object deu ve dich sau dung
     // flyDuration giay, khong the ket lai giua duong nen khong can luoi an toan theo gio nua.
@@ -85,6 +101,8 @@ public class DevourVfx : MonoBehaviour
         public int xp;            // so level dang mang - toi mom thi ke hut an bay nhieu
         public Vector3 from;      // diem xuat phat, de noi suy theo thoi gian
         public float bornAt;      // gio sinh ra
+        public Vector3 arc;       // vector lech VUONG GOC voi truc bay - do cong rieng cua hat nay
+        public float size;        // co luc vua sinh; tu day teo dan ve 0 khi toi mom
     }
 
     private readonly List<Flyer> _alive = new List<Flyer>();
@@ -173,19 +191,50 @@ public class DevourVfx : MonoBehaviour
 
         Tint(go, color);
 
-        _alive.Add(new Flyer { go = go, tf = tf, xp = xp, from = start, bornAt = Time.time });
+        _alive.Add(new Flyer
+        {
+            go = go, tf = tf, xp = xp, from = start, bornAt = Time.time,
+            arc = RandomArc(start), size = s
+        });
     }
 
     /// <summary>
-    /// Co object: NUA than KE HUT, nhung khong bao gio to hon NAN NHAN.
-    /// victimScale &lt;= 0 = ben goi khong biet co nan nhan -> bo qua tran.
+    /// Co object = victimSizeFactor x than con NHO HON trong hai con.
+    /// victimScale &lt;= 0 = ben goi khong biet co nan nhan -> chi do theo than minh.
     /// </summary>
     private float CurrentSize(float victimScale)
     {
         float body = _body != null ? _body.lossyScale.x : 1f;
-        float s = body * bodySizeFactor;
-        if (clampToVictim && victimScale > 0.0001f) s = Mathf.Min(s, victimScale);
-        return Mathf.Max(0.001f, s);
+        float smaller = victimScale > 0.0001f ? Mathf.Min(body, victimScale) : body;
+        return Mathf.Max(0.001f, smaller * victimSizeFactor);
+    }
+
+    /// <summary>
+    /// VECTOR LECH cua duong bay: mot huong ngau nhien VUONG GOC voi truc bay, do dai =
+    /// arcSpread x quang duong. Chot MOT LAN luc sinh, khong tinh lai moi frame.
+    ///
+    /// Random.insideUnitCircle (dia dac) chu khong phai onUnitCircle (vanh): lay vanh thi moi hat
+    /// deu lech dung mot khoang, ca dan hop lai thanh cai ONG rong ruot. Dia dac thi do lech trai
+    /// deu tu 0 toi max, dan hat DAY o giua - do moi ra khoi bau duc.
+    /// </summary>
+    private Vector3 RandomArc(Vector3 start)
+    {
+        if (arcSpread <= 0.001f || _mouth == null) return Vector3.zero;
+
+        Vector3 axis = _mouth.position - start;
+        float dist = axis.magnitude;
+        if (dist < 0.0001f) return Vector3.zero;
+        axis /= dist;
+
+        // Truc bay gan nhu thang dung thi Cross voi up ra vector 0 - doi sang right de lay duoc
+        // mot phap tuyen that
+        Vector3 u = Vector3.Cross(axis, Vector3.up);
+        if (u.sqrMagnitude < 0.0001f) u = Vector3.Cross(axis, Vector3.right);
+        u.Normalize();
+        Vector3 v = Vector3.Cross(axis, u);   // axis va u deu la don vi + vuong goc -> v cung la don vi
+
+        Vector2 p = Random.insideUnitCircle;
+        return (u * p.x + v * p.y) * (dist * arcSpread);
     }
 
     /// <summary>
@@ -258,7 +307,19 @@ public class DevourVfx : MonoBehaviour
             // Noi suy tu diem xuat phat toi MOM HIEN TAI (doc lai moi frame): nguoi choi dang
             // chay thi mom di chuyen, ban toi diem cu se thay object lao tret ra sau lung.
             float e = flyAccel <= 1.001f ? t : Mathf.Pow(t, flyAccel);
-            f.tf.position = Vector3.Lerp(f.from, target, e);
+            Vector3 pos = Vector3.Lerp(f.from, target, e);
+
+            // PHINH RA GIUA DUONG. sin(pi*t) bang 0 o CA HAI DAU nen do cong khong an gian mot ly
+            // nao: hat van roi ra dung than nan nhan va ve DUNG mom. Moi hat mot huong lech rieng
+            // -> hut lien tuc thi ca dan hop lai thanh chum bau duc.
+            if (f.arc.sqrMagnitude > 0.0001f) pos += f.arc * Mathf.Sin(Mathf.PI * t);
+            f.tf.position = pos;
+
+            // TEO DAN VE 0. Bam theo t (thoi gian) chu KHONG theo e (duong tang toc): bam theo e
+            // voi flyAccel = 2 thi hat giu gan nguyen co suot 3/4 duong roi sup trong hai frame
+            // cuoi, khong ai kip nhin thay no teo. Cham 0 dung luc cham mom.
+            float sc = f.size * (1f - t);
+            f.tf.localScale = new Vector3(sc, sc, sc);
         }
     }
 
