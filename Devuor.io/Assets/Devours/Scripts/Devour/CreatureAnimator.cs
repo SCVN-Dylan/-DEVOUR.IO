@@ -107,8 +107,9 @@ public class CreatureAnimator : MonoBehaviour
     ///   nan nhan: than cham (0.5) + anim NHANH (1.6) -> chan quay tit ma nguoi khong nhuc nhich,
     ///             dung cam giac dang vung vay de thoat
     ///
-    /// Nan nhan het thanh ghi thi ca toc do lan anim cung ve binh thuong mot luc - IsVictimRole
-    /// van dung nhung ta doc them Struggle de hai thu khong lech nhau mot nhip.
+    /// Nan nhan ra khoi non thi ca toc do lan anim cung ve binh thuong mot luc - IsVictimRole
+    /// van dung nhung ta doc them IsBeingDrained de hai thu khong lech nhau mot nhip. KHONG doc
+    /// thanh ghi nua: thanh gio do khoang cach level, no dung yen gan nhu suot pha hut.
     ///
     /// Ghi vao Animator.speed chu khong them tham so vao Animator Controller: controller hien chi
     /// co 2 bool va 3 state, them mot float SpeedMultiplier phai sua tay tung state moi an.
@@ -117,7 +118,7 @@ public class CreatureAnimator : MonoBehaviour
     {
         float speed = 1f;
         if (attacker) speed = attackerAnimSpeed;
-        else if (victim && _creature.Struggle > 0f) speed = victimAnimSpeed;
+        else if (victim && _creature.IsBeingDrained) speed = victimAnimSpeed;
 
         // Gate y het hai co tren: dung im ma van ghi Animator.speed moi frame la lang phi
         if (!_first && Mathf.Approximately(speed, _lastSpeed)) return;

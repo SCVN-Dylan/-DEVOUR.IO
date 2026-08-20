@@ -29,7 +29,9 @@ public class StruggleBarUI : MonoBehaviour
     [SerializeField] private UnityEngine.UI.Graphic[] _graphics;
 
     [Header("Hien/an")]
-    [Tooltip("BAT: chi hien khi dang danh nhau hoac thanh chua hoi day.\n" +
+    [Tooltip("BAT: chi hien khi DANG nam trong non hut cua con khac. Ra khoi non la tat ngay -\n" +
+             "thanh khong con la dong ho hoi dan, giu no tren dau chi lam nguoi choi tuong minh\n" +
+             "van con dang bi ghi.\n" +
              "TAT: hien suot (de soi luc chinh)")]
     public bool autoHide = true;
 
@@ -71,7 +73,9 @@ public class StruggleBarUI : MonoBehaviour
 
         float v = _creature.Struggle;
 
-        bool show = !autoHide || _creature.InCombat || v < 0.999f;
+        // Doc IsBeingDrained chu khong doc InCombat/gia tri thanh: ra khoi non la thanh reset ve
+        // day va TAT LIEN, khong co man tu hoi day tu tu de nguoi choi nhin nua
+        bool show = !autoHide || _creature.IsBeingDrained;
         if (show && hideForAttacker && _creature.IsAttackerRole) show = false;
 
         if (show != _visible) ApplyVisible(show);

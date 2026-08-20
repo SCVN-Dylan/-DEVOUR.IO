@@ -84,22 +84,18 @@ public class Creature : MonoBehaviour
              "0.4 = giam 60% toc do. De THAP HON victimSlow: ke hut tra gia cho viec cu ghi mai")]
     [Range(0.05f, 1f)] public float attackerSlow = 0.4f;
 
-    [Tooltip("He so toc do khi minh la NAN NHAN (con YEU hon) VA thanh ghi con > 0.\n" +
-             "0.5 = giam 50% toc do. Thanh ve 0 la nhay thang ve 1 - khong ease, de nguoi choi cam\n" +
+    [Tooltip("He so toc do khi minh la NAN NHAN (con YEU hon) VA dang nam trong non hut.\n" +
+             "0.5 = giam 50% toc do. Ra khoi non la nhay thang ve 1 - khong ease, de nguoi choi cam\n" +
              "duoc dung khoanh khac gianh lai duoc toc do")]
     [Range(0.05f, 1f)] public float victimSlow = 0.5f;
 
-    [Tooltip("Bao lau (giay) thi thanh ghi tut het tu day xuong 0. Het thanh = nan nhan ve lai\n" +
-             "toc do binh thuong va co cua chay thoat")]
-    public float struggleTime = 2.5f;
-
-    [Tooltip("Thoat khoi combat roi phai cho bao lau (giay) thanh moi BAT DAU hoi.\n\n" +
-             "Phai TACH khoi drainMemory (0.5s): dung chung thi nan nhan chi can lach ra khoi non\n" +
-             "nua giay la duoc cap lai nguyen 2.5s ghi moi - lach ra lach vao vo han")]
-    public float struggleRefillDelay = 1f;
-
-    [Tooltip("Hoi day thanh mat bao lau (giay)")]
-    public float struggleRefillTime = 3f;
+    [Tooltip("SAN THOI GIAN (giay) - CHI dung cho mot ca: dinh vao non luc level DA nam duoi muc\n" +
+             "bi nuot san (vd Lv3 lot vao non con Lv100). Luc do thanh khong con nac nao de tut,\n" +
+             "dang le bang 0 ngay frame dau va nguoi choi chi thay minh bien mat. San nay bat thanh\n" +
+             "tut deu tu day ve 0 trong so giay nay roi moi chet.\n\n" +
+             "Cac truong hop con lai thanh chay THUAN theo level, san khong dinh gi toi.\n\n" +
+             "0 = tat han, yeu qua la bi nuot ngay lap tuc")]
+    public float devourGraceTime = 0.6f;
 
     // KHONG CON LUC KEO. Ban truoc nan nhan bi keo ve phia mom (creaturePullSpeed), va do chinh
     // la nguon goc cua canh "dung yen": luc keo 2.5 xap xi bang toc do chay 2.13-2.9 nen hai ben
@@ -109,12 +105,12 @@ public class Creature : MonoBehaviour
 
     [Header("Bi nuot vao mom")]
     [Range(0.05f, 0.99f)]
-    [Tooltip("HET THANH GHI thi xet: level minh duoi bao nhieu PHAN TRAM level KE HUT thi bi nuot.\n" +
+    [Tooltip("Level minh duoi bao nhieu PHAN TRAM level KE HUT thi bi nuot.\n" +
              "0.5 = yeu hon nua level ke hut la bi hut thang vao mom nhu mot mon do an.\n\n" +
-             "Con >= muc nay thi het thanh la duoc THA, tra ve 100% toc do va chay thoat. Thanh ghi\n" +
-             "vi the la 'cua so chung minh minh khong phai do an' - het gio ma van qua yeu thi bi an.\n\n" +
-             "Van bi rut XP tiep sau khi duoc tha, nen tut dan xuong duoi muc nay thi van bi nuot -\n" +
-             "phep kiem tra chay lien tuc chu khong chi dung mot lan luc thanh vua can.")]
+             "DAY CUNG LA DAY CUA THANH GHI: thanh do dung quang duong tu level luc vua dinh non\n" +
+             "xuong toi muc nay, nen thanh can va bi nuot luon xay ra cung mot frame.\n\n" +
+             "Muc nay KHOA lai theo level ke hut o khoanh khac vua dinh non va khong doi nua trong\n" +
+             "ca pha hut - xem TickStruggle().")]
     public float devourLevelRatio = 0.5f;
 
     [Tooltip("Thoi gian xac bay xoay + teo lao vao mom (giay). Dung kieu voi luc nuot item")]
@@ -150,7 +146,9 @@ public class Creature : MonoBehaviour
     private int _rivalLevel;
     private float _lastCombatTime = -999f;
     private float _struggle = 1f;
-    private float _refillDelayLeft;
+    private int _drainBaseLevel = 1;      // level cua MINH luc vua dinh non - moc DAY cua thanh
+    private int _drainFloorLevel;         // muc bi nuot, KHOA luc vua dinh non - moc CAN cua thanh
+    private float _drainStartTime = -999f;
 
     /// <summary>
     /// Dang dinh mot tran nao do khong - KE CA khi minh la ben di hut. Khac IsBeingDrained (chi
@@ -176,8 +174,10 @@ public class Creature : MonoBehaviour
     public bool IsVictimRole { get { return InCombat && Level <= _rivalLevel; } }
 
     /// <summary>
-    /// THANH GHI, 0..1. Day = vua vao tran; ve 0 = het bi ghi, toc do tra ve binh thuong.
-    /// Chi tut khi minh dang o vai NAN NHAN.
+    /// THANH GHI, 0..1. Day = vua dinh vao non hut; ve 0 = level da tut xuong duoi muc bi nuot.
+    ///
+    /// Do bang LEVEL chu khong bang thoi gian - xem TickStruggle(). Chi tut khi minh dang o vai
+    /// NAN NHAN va dang thuc su nam trong non.
     /// </summary>
     public float Struggle { get { return _struggle; } }
 
@@ -217,6 +217,15 @@ public class Creature : MonoBehaviour
         if (!IsBeingDrained)
         {
             _drainedTotal = 0;
+            // CHOT CA HAI DAU CUA THANH cho pha nay va khong doi nua: thanh vi the co so nac
+            // co dinh (Lv100 dinh mot con Lv120 -> can o 60 -> thanh dung 41 nac), moi nhip rut
+            // tut dung mot nac. Moc can KHONG bo len theo ke hut: no len 1 level moi nhip no rut
+            // duoc, tinh song thi moc dam vao level minh tu duoi len va thanh cong lai con 27 nac
+            // - nhin thanh khong con dem duoc con bao nhieu cua nua.
+            _drainBaseLevel = Level;
+            _drainFloorLevel = DevourFloorLevel(attacker.Level);
+            _drainStartTime = Time.time;   // moc dem san thoi gian (devourGraceTime)
+            _struggle = 1f;
             _suction.PrimeDrain();   // nhip DAU TIEN no ngay, khong bat nguoi choi cho
         }
 
@@ -415,56 +424,95 @@ public class Creature : MonoBehaviour
     }
 
     /// <summary>
-    /// HET THANH GHI thi xet: qua yeu so voi ke hut thi bi hut thang vao mom.
+    /// CAN THANH thi bi hut thang vao mom. Thanh do dung khoang cach level toi muc bi nuot nen
+    /// hai dieu kien nay that ra la MOT - phep kiem tra level o day chi la de chac chan hai ben
+    /// khong bao gio lech nhau (xem DevourFloorLevel).
     ///
-    /// Chay MOI FRAME chu khong chi mot lan tai khoanh khac thanh vua can: duoc tha roi minh van
-    /// bi rut XP tiep, tut dan xuong duoi nguong luc nao la bi an luc do. Neu chi xet mot lan thi
-    /// con nao qua duoc dung giay do se mien nhiem vinh vien trong ca tran.
+    /// Van chay MOI FRAME: ra khoi non thi thanh reset ve day o TickStruggle ngay truoc do, nen
+    /// tu no da chan mat cua chet - khong can co rieng nao o day.
     /// </summary>
     private void TickDevourCheck()
     {
         if (_struggle > 0f) return;              // con thanh = con cua chung minh minh khong phai do an
         if (!IsVictimRole || _rival == null || _rival.IsDead) return;
-        if (Level >= _rival.Level * devourLevelRatio) return;   // van du suc, duoc tha cho chay
+        if (Level >= _drainFloorLevel) return;    // van du suc, chua toi luot bi an
 
         Die(_rival, true);
     }
 
     /// <summary>
-    /// THANH GHI tut / hoi.
+    /// THANH GHI - do bang LEVEL, KHONG phai bang thoi gian.
     ///
-    /// Chi tut khi minh dang o vai NAN NHAN. Ke hut khong co thanh: no bi cham suot tran chu
-    /// khong co dong ho dem nguoc nao cuu no ca - do chinh la cai gia cua viec cu ghi mai.
+    ///   day = khoanh khac vua dinh vao non hut (chot moc _drainBaseLevel = level cua minh luc do)
+    ///   can = level da tut xuong duoi muc bi nuot (devourLevelRatio x level ke hut)
+    ///
+    /// Mot thanh day vi the dung bang "so nhip rut con lai truoc khi bi an": nhin thanh la biet
+    /// chinh xac minh con bao nhieu cua, khong con canh dem nguoc het 2.5 giay roi moi biet minh
+    /// song hay chet.
+    ///
+    /// CA HAI DAU CHOT LUC VUA DINH NON va khong doi nua: Lv100 dinh phai mot con Lv120 thi can
+    /// o Lv60, thanh la dung 41 nac va moi nhip rut di dung mot nac. Thu tinh moc can SONG theo
+    /// level ke hut thi no bo len 1 level moi nhip (no an dung phan minh mat), thanh cong lai con
+    /// 27 nac va tut nhanh hon so level minh thuc su mat - nhin thanh khong dem duoc gi nua.
+    ///
+    /// RA KHOI NON = RESET NGAY ve day. Khong con hoi dan theo thoi gian nua: thanh gio do khoang
+    /// cach level, ma level thi khong tu moc lai duoc. Lach ra roi vao lai KHONG PHAI la lai suc -
+    /// no chi chot mot moc day MOI o level da thap hon, tuc quang duong toi cho chet ngan hon that.
+    ///
+    /// Ke hut van khong co thanh: no bi cham suot tran, do la cai gia cua viec cu ghi mai.
     /// </summary>
     private void TickStruggle()
     {
-        float dt = Time.deltaTime;
-
-        if (IsVictimRole)
+        if (!IsBeingDrained || !IsVictimRole || _rival == null || _rival.IsDead)
         {
-            if (struggleTime > 0.001f) _struggle -= dt / struggleTime;
-            else _struggle = 0f;
-            _refillDelayLeft = struggleRefillDelay;   // con trong tran thi dong ho hoi cu bi day lui
-        }
-        else
-        {
-            if (_refillDelayLeft > 0f) _refillDelayLeft -= dt;
-            else if (_struggle < 1f)
-            {
-                if (struggleRefillTime > 0.001f) _struggle += dt / struggleRefillTime;
-                else _struggle = 1f;
-            }
+            _struggle = 1f;
+            return;
         }
 
-        _struggle = Mathf.Clamp01(_struggle);
+        // +1 o ca tu va mau: de thanh cham 0 o DUNG frame TickDevourCheck ban. Khong co no thi
+        // level == muc can se cho ra thanh rong ma con chua chet - can im lia mot nhip.
+        int span = _drainBaseLevel - _drainFloorLevel + 1;
+        if (span > 0)
+        {
+            _struggle = Mathf.Clamp01((Level - _drainFloorLevel + 1) / (float)span);
+            return;
+        }
+
+        // SAN THOI GIAN - CHI cho mot ca duy nhat: dinh vao non luc da qua yeu san (level da nam
+        // duoi muc bi nuot ngay tu dau, span <= 0). Thanh khong co nac nao de tut ca, khong co san
+        // thi no bang 0 ngay frame dau va nguoi choi chi thay minh bien mat.
+        //
+        // KHONG dung san nay lam tran cho ca truong hop binh thuong: lam vay la thanh chay theo
+        // THOI GIAN chu khong theo level, va level se tut qua muc can tu lau truoc khi thanh kip
+        // ve 0 (do thuc te: Lv20 dinh Lv20 mat 16 level trong khi thanh chi co 11 nac).
+        _struggle = devourGraceTime > 0.001f
+            ? Mathf.Clamp01(1f - (Time.time - _drainStartTime) / devourGraceTime)
+            : 0f;
+    }
+
+    /// <summary>
+    /// LEVEL THAP NHAT ma minh con CHUA bi nuot khi doi dau mot con level 'rivalLevel'.
+    ///
+    /// Cung mot luat voi ban cu (Level &lt; rivalLevel x devourLevelRatio la bi an), chi doi sang
+    /// so nguyen: goi DUNG MOT LAN luc vua dinh non roi cat vao _drainFloorLevel, de THANH GHI va
+    /// CAI CHET dung chung mot cai moc duy nhat - khong bao gio co canh thanh da can ma con van
+    /// song, hay chet trong khi thanh con mot doan.
+    /// </summary>
+    private int DevourFloorLevel(int rivalLevel)
+    {
+        return Mathf.CeilToInt(rivalLevel * devourLevelRatio);
     }
 
     /// <summary>
     /// Ap he so toc do theo VAI - bac thang cung, khong ease.
     ///
-    ///   ke hut                     -> attackerSlow, suot tran
-    ///   nan nhan CON thanh ghi     -> victimSlow
-    ///   nan nhan HET thanh / ngoai tran -> 1 (nhay thang, de cam duoc dung luc gianh lai toc do)
+    ///   ke hut                  -> attackerSlow, suot tran
+    ///   nan nhan CON trong non  -> victimSlow
+    ///   ra khoi non             -> 1 (nhay thang, de cam duoc dung khoanh khac gianh lai toc do)
+    ///
+    /// Doc IsBeingDrained chu KHONG doc thanh ghi: thanh gio do khoang cach level, no dung yen
+    /// gan nhu suot pha hut nen khong con dung lam dong ho tra lai toc do duoc nua. Lay thang
+    /// "co dang nam trong non khong" thi luat cung de hieu hon: bi ghi la vi dang bi hut.
     /// </summary>
     private void ApplyCombatSpeed()
     {
@@ -474,7 +522,7 @@ public class Creature : MonoBehaviour
         if (InCombat)
         {
             if (Level > _rivalLevel) m = attackerSlow;
-            else if (_struggle > 0f) m = victimSlow;
+            else if (IsBeingDrained) m = victimSlow;
         }
 
         _movement.CombatSpeedMultiplier = m;
