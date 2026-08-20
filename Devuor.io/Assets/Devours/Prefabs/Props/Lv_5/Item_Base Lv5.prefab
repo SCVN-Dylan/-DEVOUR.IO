@@ -221,12 +221,13 @@ MonoBehaviour:
   xpValue: 12
   scoreValue: 22
   sleepDelay: 5
-  minShrink: 0
+  minShrink: 0.1
   shrinkRadiusMul: 2.5
   useSwirl: 1
   swirlAmount: 0.2
   swirlTurnsPerSecond: 1.8
   swirlConeFraction: 0.5
+  swirlLockInMul: 4
   swirlSpin: 360
   leanIntoPull: 0.8
   leanSpeed: 540

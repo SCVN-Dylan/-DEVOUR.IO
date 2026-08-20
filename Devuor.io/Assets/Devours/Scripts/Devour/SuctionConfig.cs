@@ -57,9 +57,11 @@ public class LevelStep
 [CreateAssetMenu(fileName = "SuctionConfig", menuName = "Devour/Suction Config", order = 0)]
 public class SuctionConfig : ScriptableObject
 {
-    [Header("An khi cham than")]
-    [Tooltip("Item cham vao than nhan vat la nuot luon - NHUNG VAN PHAI DAT HANG.\n" +
-             "Item qua hang thi cham vao khong an duoc (PhysicsDevourable tu bat va cham roi goi EatByContact).")]
+    [Header("An khi cham MOM")]
+    [Tooltip("Item cham vao COLLIDER CUA MOM la nuot luon - NHUNG VAN PHAI DAT HANG.\n\n" +
+             "CHI MOM, khong phai ca than: cham than chi day nhau ra. Ban truoc bat ca than nen\n" +
+             "chay ngang qua dong do an la nuot sach, toan bo pha hut khong bao gio duoc nhin thay.\n\n" +
+             "Mom la collider TRIGGER -> PhysicsDevourable bat bang OnTriggerEnter roi goi EatByContact.")]
     public bool eatOnContact = true;
 
     [Header("Cap do")]

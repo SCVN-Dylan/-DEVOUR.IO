@@ -62,6 +62,17 @@ public class PhysicsDevourable : MonoBehaviour
              "0.5 = khong bao gio ra qua nua non -> item luon nam trong vung hut, khong bi Scan tha ra")]
     [Range(0.1f, 1f)] public float swirlConeFraction = 0.5f;
 
+    [Tooltip("Duoi bao nhieu LAN nguong nuot thi TAT DAN xoan de ban thang vao mom.\n" +
+             "4 = tu 4 lan nguong nuot tro vao, ban kinh xoan tan dan ve 0.\n\n" +
+             "VI SAO CAN: xoan la mot diem ngam LECH TRUC, ma o doan cuoi khong con quyen lai nao\n" +
+             "de sua cai lech do. De bam theo diem ngam dang quay can gia toc ngang bang\n" +
+             "toc_do x toc_do_quay - o so hien tai la 565 u/s2 trong khi pullAccel chi co 78.5, tuc\n" +
+             "van toc chi theo kip 14%. Phan khong theo kip la mot sai lech ngang dung vao khoanh\n" +
+             "khac quyet dinh trung hay truot mom, ma truot mot lan la item vot qua roi mat han\n" +
+             "(no ra sau lung -> lot khoi non -> Scan tha ra -> rot xuong dat).\n\n" +
+             "0 = khong tat, xoan toi tan mom nhu ban cu.")]
+    [Range(0f, 8f)] public float swirlLockInMul = 4f;
+
     [Tooltip("Item XOAY quanh dung truc dang bi keo (do/giay) - khong phai quay lung tung.\n" +
              "De THAP de con nhin ro do vat la gi. Tren ~600 la thanh vet mo, khong doc duoc hinh")]
     public float swirlSpin = 360f;
@@ -136,6 +147,7 @@ public class PhysicsDevourable : MonoBehaviour
     private Quaternion _anchorRot;
     private float _noiseSeed;
     private float _sleepAt;
+    private float _grabDist = -1f;     // khoang cach toi mom luc VUA BI TOM. -1 = chua tom
     private float _swirlAngle;
     private float _swirlSign;          // moi item luon mot chieu, cho khong dong loat giong nhau
     private float _swirlPhase;         // lech pha ban dau, cung ly do
@@ -300,6 +312,10 @@ public class PhysicsDevourable : MonoBehaviour
         Vector3 center = Center;
         Vector3 toMouth = mouthPos - center;
         float distToMouth = toMouth.magnitude;
+
+        // MOC TEO: khoang cach o lan Pull DAU TIEN cua pha nay. EnterSucked ngay tren da tra no
+        // ve -1 nen moi lan bi tom lai la chot lai moc moi.
+        if (_grabDist < 0f) _grabDist = distToMouth;
         Vector3 pullDir = distToMouth > 0.001f ? toMouth / distToMouth : Vector3.up;
 
         // DIEM NGAM: mom, hoac mot diem luon quanh mom neu bat xoan
@@ -318,6 +334,15 @@ public class PhysicsDevourable : MonoBehaviour
                 Vector2 flat = new Vector2(center.x - originPos.x, center.z - originPos.z);
                 float coneR = flat.magnitude * Mathf.Sin(coneAngleDeg * 0.5f * Mathf.Deg2Rad);
                 r = Mathf.Min(r, coneR * swirlConeFraction);
+            }
+
+            // TAN DAN VE 0 o cu ly gan: doan cuoi ban thang tam mom, doan xa van xoan nhu cu.
+            // Neo vao swallowDistance (nguong nuot THUC cua frame nay, da noi rong theo toc do)
+            // chu khong phai mot so tuyet doi - tune pullSpeed thi nguong tu doi theo.
+            if (swallowDistance > 0.0001f && swirlLockInMul > 0.0001f)
+            {
+                float lockIn = swallowDistance * swirlLockInMul;
+                if (lockIn > swallowDistance) r *= Mathf.InverseLerp(swallowDistance, lockIn, distToMouth);
             }
 
             Vector3 right = Vector3.Cross(Vector3.up, pullDir);
@@ -340,7 +365,18 @@ public class PhysicsDevourable : MonoBehaviour
 
         // Teo theo khoang cach toi MOM (khong phai toi diem ngam): mom moi la cho item bien mat.
         // shrinkStart phai lon hon nguong nuot, khong thi InverseLerp dao dau va item phinh nguoc.
-        float shrinkStart = Mathf.Max(_radius * shrinkRadiusMul, swallowDistance * 2f);
+        // TEO SUOT QUANG BAY: lay luon khoang cach luc bi tom lam diem bat dau, nen item DAY
+        // nguyen co o khoanh khac bi tom va bang 0 dung luc bien mat - o moi level, moi tam hut,
+        // moi toc do, khong co so nao phai tune.
+        //
+        // Khong co no thi diem bat dau la max(ban kinh x 2.5, nguong nuot x 2). Voi item NHO thi
+        // ve cuc sau thang: nguong nuot x 2 = dung 3 buoc physics, tru phan cua bat con 1.5 buoc.
+        // Do that: hamburger o pullSpeed 50 chi duoc 1.5 buoc de teo -> no render o co 1.0 roi
+        // 0.33 roi bien mat. Item TO thi khong dinh vi ban kinh x 2.5 da du rong (xe hoi: 7.18u).
+        //
+        // Van giu ca hai moc cu lam SAN: item bi tom ngay sat mat van co mot doan de teo, va vat
+        // to van bat dau teo tu xa nhu truoc.
+        float shrinkStart = Mathf.Max(Mathf.Max(_radius * shrinkRadiusMul, swallowDistance * 2f), _grabDist);
         float t = Mathf.InverseLerp(swallowDistance, shrinkStart, distToMouth);   // 0 tai nguong nuot, 1 tai shrinkStart
         transform.localScale = _startScale * Mathf.Lerp(minShrink, 1f, t);
     }
@@ -411,6 +447,7 @@ public class PhysicsDevourable : MonoBehaviour
         if (by != null && _owner != null && _owner != by) return;
 
         _owner = null;
+        _grabDist = -1f;
         SetPlayerCollision(null, false);   // bat lai va cham voi player
         if (_state != State.Sucked && _state != State.Struggling) return;
 
@@ -498,6 +535,22 @@ public class PhysicsDevourable : MonoBehaviour
     void OnCollisionEnter(Collision collision) { Contact(collision.collider); }
 
     /// <summary>
+    /// MOM la collider TRIGGER, ma trigger thi KHONG BAO GIO ban OnCollisionEnter - phai bat rieng
+    /// o day. Khong co ham nay thi cham mom khong co chuyen gi xay ra ca.
+    ///
+    /// KHONG goi Contact(): phan danh thuc item trong do la danh cho va cham VAT LY that. Di qua
+    /// trigger nao cung danh thuc item thi bat ky vung trigger nao trong scene cung du de dung day
+    /// ca bai do an dang nam ngu.
+    /// </summary>
+    void OnTriggerEnter(Collider other)
+    {
+        if (_consumed) return;
+
+        SimpleSuction suction = other.GetComponentInParent<SimpleSuction>();
+        if (suction != null) suction.EatByContact(this, other);
+    }
+
+    /// <summary>
     /// Xu ly va cham: neu cham vao PLAYER (co SimpleSuction) thi bao no an minh (van theo cap).
     /// Cham vat khac / mat dat thi lo phan ngu-thuc: dang ngu bi dung -> thuc + dem gio ngu lai.
     /// </summary>
@@ -508,7 +561,7 @@ public class PhysicsDevourable : MonoBehaviour
         SimpleSuction suction = other.GetComponentInParent<SimpleSuction>();
         if (suction != null)
         {
-            suction.EatByContact(this);   // du cap thi bi nuot; qua cap thi khong
+            suction.EatByContact(this, other);   // du cap thi bi nuot; qua cap thi khong
             if (_consumed) return;
         }
 
@@ -537,6 +590,7 @@ public class PhysicsDevourable : MonoBehaviour
         _grabRot = transform.rotation;
         _leanRot = _grabRot;
         _spinAngle = 0f;
+        _grabDist = -1f;   // pha moi -> chot lai moc teo o lan Pull dau tien
 
         _rb.WakeUp();
     }

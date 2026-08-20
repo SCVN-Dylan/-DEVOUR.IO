@@ -378,7 +378,22 @@ public class SimpleSuction : MonoBehaviour
         // KHONG serialize mang nay: no la toan bo collider con cua chinh minh, quet mot lan luc
         // Awake. Keo tay thi them/bot mot collider trong prefab la mang nam im khong ai biet,
         // va loi do (item van dam vao nguoi choi) rat kho lan ra.
-        _ownCols = GetComponentsInChildren<Collider>(true);
+        // LOAI COLLIDER CUA MOM ra khoi mang nay. Mang nay di vao Physics.IgnoreCollision de item
+        // dang bay khong day duoc nguoi choi - ma IgnoreCollision tat luon ca CALLBACK TRIGGER.
+        // Nhet mom vao day thi item dang bi hut se khong bao gio ban OnTriggerEnter voi mom, tuc
+        // an-bang-mom chet dung voi nhung item can no nhat.
+        //
+        // An toan: mom la trigger, no khong day duoc cai gi ca - de ngoai danh sach khong mat gi.
+        Collider[] allCols = GetComponentsInChildren<Collider>(true);
+        List<Collider> keep = new List<Collider>(allCols.Length);
+        for (int i = 0; i < allCols.Length; i++)
+        {
+            Collider c = allCols[i];
+            if (c == null) continue;
+            if (mouth != null && (c.transform == mouth || c.transform.IsChildOf(mouth))) continue;
+            keep.Add(c);
+        }
+        _ownCols = keep.ToArray();
 
         ResolveCameraZoom();
 
@@ -456,10 +471,21 @@ public class SimpleSuction : MonoBehaviour
         return s;
     }
 
-    /// <summary>PhysicsDevourable goi khi no cham vao than nhan vat: an neu du HANG.</summary>
-    public void EatByContact(PhysicsDevourable it)
+    /// <summary>
+    /// PhysicsDevourable goi khi no cham vao mot collider cua minh: an neu cham dung MOM va du HANG.
+    ///
+    /// CHI MOM MOI AN DUOC, khong phai ca than. Cham than chi day nhau ra - muon an thi phai chia
+    /// mom vao. Ban truoc bat ca than: chay ngang qua dong do an la nuot sach, toan bo pha hut
+    /// (bay - xoan - teo - vao mom) khong bao gio duoc nhin thay.
+    ///
+    /// 'hit' la collider CUA MINH ma item vua cham vao, khong phai collider cua item.
+    /// </summary>
+    public void EatByContact(PhysicsDevourable it, Collider hit)
     {
         if (!EatOnContact || it == null || it.Consumed) return;
+        if (mouth == null || hit == null) return;
+        if (hit.transform != mouth && !hit.transform.IsChildOf(mouth)) return;
+
         if (UseLevelGate && StageAtLevel(it.RequiredLevel) > _stage) return;   // qua hang thi cham cung khong an
         Swallow(it);
     }

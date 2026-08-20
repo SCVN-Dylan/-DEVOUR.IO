@@ -2232,6 +2232,10 @@ MonoBehaviour:
   _balanceInterval: 1
   _catchUpMax: 2.5
   _stopGrowRatio: 1.5
+  _offscreenCatchUp: 1
+  _offscreenCatchUpFraction: 0.5
+  _offscreenMargin: 0.15
+  _viewCamera: {fileID: 0}
 --- !u!4 &90766846
 Transform:
   m_ObjectHideFlags: 0
@@ -55484,6 +55488,10 @@ PrefabInstance:
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
       value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 4087071182281879751, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.453
       objectReference: {fileID: 0}
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalPosition.x
