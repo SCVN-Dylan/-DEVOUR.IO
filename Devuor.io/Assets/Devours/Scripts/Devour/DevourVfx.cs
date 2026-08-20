@@ -1,115 +1,106 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// HIEU UNG HUT: nhung hat sang bay tu than nan nhan vao mom con dang hut.
+/// HIEU UNG HUT: sinh mot OBJECT bay tu than nan nhan vao mom con dang hut. Toi mom thi ke hut
+/// moi thuc su AN duoc so XP mang theo.
 ///
-/// VI SAO KHONG CON TE BAO VAT LY: ban cu moi vien la mot Rigidbody + collider + renderer roi ra
-/// dat, va ke hut phai HUT LAI moi an duoc. Nhin thi dep nhung tra gia hai dau:
-///   - dat: mot tran o level cao de ra hang tram rigidbody, dung cai loai chi phi giet fps mobile
-///   - XP ROI RAI: do thuc te duoc 28/30 vien toi mom, 2 XP boc hoi vi vien van ra ngoai tam
-///     roi het han. Nan nhan mat 30 ma ke hut chi an 28 - so lieu khong bao gio khop.
-/// Gio XP di THANG tu nan nhan sang ke hut (xem Creature.ReceiveDrain), con class nay chi lo
-/// phan NHIN. Khong physics, khong collider, khong GameObject nao duoc sinh ra.
+/// MOI OBJECT = MOT LEVEL. Khong con quan he "1 level ra N hat" nhu ban ParticleSystem cu -
+/// nhin dong object bay la dem duoc dung so level dang chuyen chu.
 ///
-/// HAT BAM THEO MOM chu khong bay theo duong thang chot san: moi LateUpdate ta keo ca mang hat
-/// ve phia mom hien tai. Ban thang thi ke hut dang chay se thay hat ban truot ra sau lung.
+/// VI SAO LA OBJECT CHU KHONG PHAI PARTICLE: de art thay VFX ma khong dong toi code. Prefab keo
+/// vao 'flyPrefab' chi can la mot object RONG, ben trong nhet gi tuy y (ParticleSystem, mesh,
+/// trail...). Class nay chi dat vi tri / co / mau roi keo no ve mom.
 ///
-/// Component nay nam tren con DI HUT (khong phai nan nhan): moi hat trong he deu bay ve dung mot
-/// dich la mom cua chinh chu he. Nho vay khong phai nhet "dich den" vao tung hat - thu ma
-/// ParticleSystem khong co cho de luu tu nhien.
+/// KHONG Rigidbody, KHONG collider: bay bang cach ghi thang transform.position moi frame. Nho vay
+/// object CHAC CHAN toi noi - khac han ban te-bao-vat-ly rat xa xua (vien roi ra dat, het han giua
+/// duong, nan nhan mat 30 ma ke hut chi an 28, so lieu khong bao gio khop).
+///
+/// CO POOL: nhip rut ngan dan nen mot tran keo dai co the sinh vai chuc object. Instantiate/Destroy
+/// tung cai la rac cho GC; lay ra - tra ve thi khong ton gi. Pool nam tren tung con, khong dung
+/// chung, de con nay chet khong keo theo object dang bay cua con khac.
+///
+/// Component nay nam tren con DI HUT (khong phai nan nhan): moi object trong pool deu bay ve dung
+/// mot dich la mom cua chinh chu.
 /// </summary>
 [DisallowMultipleComponent]
-[RequireComponent(typeof(ParticleSystem))]
 public class DevourVfx : MonoBehaviour
 {
     [Header("Tham chieu (keo vao Inspector)")]
-    [Tooltip("MOM - diem moi hat bay ve. De trong = tu tim object ten 'Mouth' o cha")]
+    [Tooltip("MOM - diem moi object bay ve. De trong = tu tim object ten 'Mouth' o cha")]
     [SerializeField] private Transform _mouth;
 
-    [Tooltip("De trong = lay ParticleSystem tren chinh object nay")]
-    [SerializeField] private ParticleSystem _ps;
-
-    [Tooltip("THAN con nay - chi dung de do CO, cho hat to theo khi len cap.\n" +
+    [Tooltip("THAN con nay - dung de do CO, cho object to theo khi len cap.\n" +
              "De trong = tu tim Creature o cha")]
     [SerializeField] private Transform _body;
 
-    [Header("So hat")]
-    [Tooltip("Moi LEVEL nan nhan bi rut thi bay ra bao nhieu hat.\n\n" +
-             "Thuan MY THUAT: so hat KHONG dinh gi toi XP nua (XP da cong thang roi). Tang bao\n" +
-             "nhieu tuy thich, khong lam lech can bang mot chut nao.")]
-    public int particlesPerLevel = 6;
+    [Tooltip("PREFAB bay ve mom. Nen la object RONG, ben trong nhet VFX gi tuy art.\n" +
+             "KHONG can Rigidbody/collider - class nay tu keo bang transform.position.\n" +
+             "De trong = khong co hieu ung, nhung XP van chuyen binh thuong (cong ngay tuc thi).")]
+    public GameObject flyPrefab;
 
-    [Tooltip("TRAN so hat cho MOT lan goi. O level cao mot frame co the mat vai chuc level -\n" +
-             "khong chan thi mot frame de ra ca nghin hat.")]
-    public int maxPerEmit = 24;
-
-    [Tooltip("So hat bat ra khi mot con BI NUOT - mot phat that da")]
-    public int deathParticles = 60;
-
-    [Tooltip("TRAN so hat song cung luc trong he nay")]
-    public int maxParticles = 400;
-
-    [Header("Duong bay")]
-    [Tooltip("Van toc hat luc con o XA mom (u/s)")]
-    public float flySpeed = 9f;
-
-    [Tooltip("Van toc luc SAT mom (u/s). De cao hon flySpeed thi cang gan cang lao nhanh -\n" +
-             "dung cam giac bi hut, thay vi troi deu deu vao")]
-    public float flySpeedNear = 26f;
-
-    [Tooltip("Khoang cach de noi suy giua flySpeed va flySpeedNear (world).\n" +
-             "Xa hon khoang nay thi bay o flySpeed, cham mom thi dat flySpeedNear")]
-    public float speedRampDistance = 5f;
-
-    [Tooltip("Gan mom hon khoang nay thi coi nhu da toi -> hat tat")]
-    public float arriveDistance = 0.3f;
-
-    [Tooltip("Do TAN ngau nhien quanh diem xuat phat (world). 0 = moi hat ra tu dung mot diem")]
-    public float scatter = 0.6f;
-
-    [Tooltip("Toi da bao lau mot hat duoc phep song (giay). Chi la luoi an toan - binh thuong hat\n" +
-             "tu tat khi cham mom. Co no de hat khong ket lai vinh vien neu mom bien mat giua chung")]
-    public float maxFlyTime = 3f;
-
-    [Header("Mau hat")]
-    [Tooltip("BAT: hat mang mau skin cua NAN NHAN (Creature.skinColor) - an con xanh thi thay hat\n" +
-             "xanh bay vao mom, hut nhieu con cung luc thi phan biet duoc tung luong.\n" +
-             "TAT: giu nguyen mau dat trong ParticleSystem, de art tu chinh")]
-    public bool tintByVictim = true;
-
-    [Header("Co hat")]
-    [Tooltip("Co hat = CO THAN KE HUT x he so nay. 0.5 = bang nua than minh.\n" +
-             "Khong con so tuyet doi nhu ban cu (size 0.25 x he so, tran maxSizeMul 4): tran do cat\n" +
-             "tu khoang Lv100 nen moi con lon deu ra hat co 1.0 giong het nhau.")]
+    [Header("Co object")]
+    [Tooltip("Co object = CO THAN KE HUT x he so nay. 0.5 = bang nua than minh")]
     [Range(0.01f, 2f)] public float bodySizeFactor = 0.5f;
 
-    [Tooltip("BAT: kep co hat khong bao gio vuot qua CO NAN NHAN.\n\n" +
-             "Khong co no thi con Lv500 an mot con Lv5 van tuon ra nhung cuc to bang nua than minh -\n" +
-             "to hon ca con dang bi an. Kep lai thi luong hat noi dung mot su that: dang an con co nao.\n" +
-             "TAT: hat luon bang bodySizeFactor x than minh, khong quan tam an ai.")]
+    [Tooltip("BAT: kep co object khong bao gio vuot qua CO NAN NHAN - luong object noi dung mot\n" +
+             "su that: dang an con co nao. TAT: luon bang bodySizeFactor x than minh")]
     public bool clampToVictim = true;
 
-    /// <summary>Co san sang ban khong (du mom + he hat).</summary>
-    public bool IsReady { get { return _ps != null && _mouth != null; } }
+    [Header("Duong bay")]
+    [Tooltip("THOI LUONG bay: object luon mat dung bay nhieu GIAY de toi mom, xa hay gan cung the.\n\n" +
+             "VI SAO KHONG DUNG VAN TOC (u/s): tam hut o level thap chi ~1.5 don vi, ma van toc cu\n" +
+             "dat 30-40 u/s -> object bay het quang duong trong 10ms, tuc CHUA DUOC MOT FRAME, sinh\n" +
+             "ra va bien mat trong cung mot khung hinh nen khong ai nhin thay. Doi sang thoi luong\n" +
+             "thi object luon hien du lau de doc, o moi level va moi khoang cach.")]
+    public float flyDuration = 0.35f;
 
-    private ParticleSystem.Particle[] _buf;
+    [Range(0.5f, 4f)]
+    [Tooltip("Do CONG cua duong bay theo thoi gian. 1 = deu deu; >1 = luc dau cham roi LAO nhanh\n" +
+             "vao mom (dung cam giac bi hut). 2 = binh phuong.")]
+    public float flyAccel = 2f;
 
-    /// <summary>Chay khi VUA GAN component trong Editor: dien san ref de khoi phai keo tay.</summary>
+    [Tooltip("Do TAN ngau nhien quanh diem xuat phat (world). 0 = moi object ra tu dung mot diem")]
+    public float scatter = 0.6f;
+
+    // KHONG con maxFlyTime: doi sang bay theo THOI LUONG thi moi object deu ve dich sau dung
+    // flyDuration giay, khong the ket lai giua duong nen khong can luoi an toan theo gio nua.
+
+    [Header("Pool")]
+    [Tooltip("So object tao san luc dau. Dat khoang bang so object bay cung luc luc cao diem")]
+    public int prewarm = 8;
+
+    [Tooltip("TRAN so object song cung luc. Vuot qua thi object CU NHAT bi thu hoi som (va van\n" +
+             "tra du XP) - tha xau mot nhip con hon de so luong troi tu do")]
+    public int maxAlive = 64;
+
+    /// <summary>Co san sang khong (du mom). Thieu flyPrefab thi van 'san sang' - chi la khong co hinh.</summary>
+    public bool IsReady { get { return _mouth != null; } }
+
+    /// <summary>Mot object dang bay.</summary>
+    private class Flyer
+    {
+        public GameObject go;
+        public Transform tf;
+        public int xp;            // so level dang mang - toi mom thi ke hut an bay nhieu
+        public Vector3 from;      // diem xuat phat, de noi suy theo thoi gian
+        public float bornAt;      // gio sinh ra
+    }
+
+    private readonly List<Flyer> _alive = new List<Flyer>();
+    private readonly Stack<GameObject> _pool = new Stack<GameObject>();
+    private SimpleSuction _suction;   // cua chinh chu - nhan XP khi object ve toi mom
+
     void Reset() { AutoFill(); }
 
     void Awake()
     {
         AutoFill();
-        ConfigureSystem();
+        Prewarm();
     }
 
-    /// <summary>
-    /// LUOI AN TOAN cho ref bi quen keo. Ref da co san tren prefab thi khong ham nao o day dong toi.
-    /// </summary>
     private void AutoFill()
     {
-        if (_ps == null) _ps = GetComponent<ParticleSystem>();
-
         if (_body == null)
         {
             Creature c = GetComponentInParent<Creature>();
@@ -127,45 +118,67 @@ public class DevourVfx : MonoBehaviour
             }
             if (_mouth == null) _mouth = transform;
         }
+
+        if (_suction == null) _suction = GetComponentInParent<SimpleSuction>();
     }
 
-    /// <summary>
-    /// EP nhung thiet lap ma logic o day PHU THUOC VAO, ngay trong code.
-    ///
-    /// Khong de mac cho Inspector: chinh nham mot o trong ParticleSystem (vd doi simulationSpace
-    /// ve Local) la hat bay sai hoan toan ma khong bao loi gi - rat kho lan ra. Nhung thu thuoc
-    /// ve MY THUAT (material, mau, hinh dang hat) thi van de nguyen cho art chinh thoai mai.
-    /// </summary>
-    private void ConfigureSystem()
+    private void Prewarm()
     {
-        if (_ps == null) return;
+        if (flyPrefab == null) return;
+        for (int i = 0; i < prewarm; i++) _pool.Push(CreateInstance());
+    }
 
-        ParticleSystem.MainModule main = _ps.main;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;   // ta tu dat vi tri world moi frame
-        main.scalingMode = ParticleSystemScalingMode.Shape;           // co hat do code quyet, khong nhan theo scale cha
-        main.playOnAwake = false;
-        main.gravityModifier = 0f;                                    // hat bay vao mom, khong roi
-        main.maxParticles = Mathf.Max(16, maxParticles);
-        main.startLifetime = Mathf.Max(0.1f, maxFlyTime);
-
-        // Ta tu goi Emit(), khong dung nhip tu dong cua module emission
-        ParticleSystem.EmissionModule em = _ps.emission;
-        em.rateOverTime = 0f;
-        em.rateOverDistance = 0f;
-
-        // Vi tri xuat phat do EmitParams quyet dinh, khong phai hinh dang shape
-        ParticleSystem.ShapeModule shape = _ps.shape;
-        shape.enabled = false;
-
-        _ps.Play();   // "dang chay" thi Emit() moi vao duoc
+    private GameObject CreateInstance()
+    {
+        GameObject go = Instantiate(flyPrefab);
+        go.SetActive(false);
+        return go;
     }
 
     /// <summary>
-    /// Co hat hien tai: NUA than KE HUT, nhung khong bao gio to hon NAN NHAN.
-    ///
-    ///   co = than_ke_hut x bodySizeFactor,  roi kep xuong <= than_nan_nhan
-    ///
-    /// victimScale &lt;= 0 nghia la ben goi khong biet co nan nhan (vd overload cu) -> bo qua tran.
+    /// RUT: nan nhan vua tut 'levels' cap -> ban ra bay nhieu object, moi cai mang 1 level.
+    /// Goi tren VFX cua KE HUT, truyen tam than + mau skin + co than cua NAN NHAN.
+    /// </summary>
+    public void EmitDrain(Vector3 fromWorld, int levels, Color victimColor, float victimScale)
+    {
+        if (levels <= 0) return;
+        for (int i = 0; i < levels; i++) SpawnOne(fromWorld, victimColor, victimScale, 1);
+    }
+
+    /// <summary>CHET: mot phat that da, tat ca XP con lai bay ve ke giet trong MOT object.</summary>
+    public void EmitDeath(Vector3 fromWorld, Color victimColor, float victimScale, int xp)
+    {
+        SpawnOne(fromWorld, victimColor, victimScale, Mathf.Max(0, xp));
+    }
+
+    /// <summary>
+    /// Sinh mot object mang 'xp' level. Thieu flyPrefab thi TRA XP NGAY - khong co hinh nhung so
+    /// lieu van khop, khong bao gio boc hoi.
+    /// </summary>
+    private void SpawnOne(Vector3 center, Color color, float victimScale, int xp)
+    {
+        if (!IsReady || flyPrefab == null) { Deliver(xp); return; }
+
+        if (_alive.Count >= Mathf.Max(1, maxAlive)) RetireOldest();
+
+        GameObject go = _pool.Count > 0 ? _pool.Pop() : CreateInstance();
+        Transform tf = go.transform;
+
+        float s = CurrentSize(victimScale);
+        Vector3 start = center + Random.insideUnitSphere * scatter;
+        tf.position = start;
+        tf.rotation = Quaternion.identity;
+        tf.localScale = Vector3.one * s;
+        go.SetActive(true);
+
+        Tint(go, color);
+
+        _alive.Add(new Flyer { go = go, tf = tf, xp = xp, from = start, bornAt = Time.time });
+    }
+
+    /// <summary>
+    /// Co object: NUA than KE HUT, nhung khong bao gio to hon NAN NHAN.
+    /// victimScale &lt;= 0 = ben goi khong biet co nan nhan -> bo qua tran.
     /// </summary>
     private float CurrentSize(float victimScale)
     {
@@ -176,92 +189,125 @@ public class DevourVfx : MonoBehaviour
     }
 
     /// <summary>
-    /// RUT: nan nhan vua tut 'levelsLost' cap -> rac ra mot nhum hat tu than no.
-    /// Goi tren VFX cua KE HUT, truyen vao tam than + MAU SKIN + CO THAN cua NAN NHAN.
+    /// To mau object theo skin nan nhan. Ghi vao startColor cua MOI ParticleSystem con - khong
+    /// dung sharedMaterial: mau la thu doi theo tung nan nhan, ghi vao material dung chung la
+    /// doi mau cho tat ca object khac dang bay.
     /// </summary>
-    public void EmitDrain(Vector3 fromWorld, int levelsLost, Color victimColor, float victimScale)
+    private void Tint(GameObject go, Color color)
     {
-        if (levelsLost <= 0) return;
-        int n = Mathf.Clamp(levelsLost * particlesPerLevel, 1, Mathf.Max(1, maxPerEmit));
-        Spawn(fromWorld, n, victimColor, victimScale);
-    }
-
-    /// <summary>CHET: mot phat that da, tat ca XP con lai da ve ke giet.</summary>
-    public void EmitDeath(Vector3 fromWorld, Color victimColor, float victimScale)
-    {
-        Spawn(fromWorld, Mathf.Max(1, deathParticles), victimColor, victimScale);
-    }
-
-    /// <summary>
-    /// Ban 'count' hat quanh mot diem. Ban TUNG hat mot chu khong Emit(params, count):
-    /// mot lan goi voi count &gt; 1 se de moi hat vao DUNG MOT diem, nhin nhu mot cham duy nhat.
-    /// </summary>
-    private void Spawn(Vector3 center, int count, Color color, float victimScale)
-    {
-        if (!IsReady) return;
-
-        float s = CurrentSize(victimScale);
-        ParticleSystem.EmitParams ep = new ParticleSystem.EmitParams();
-        ep.applyShapeToPosition = false;
-        ep.startLifetime = Mathf.Max(0.1f, maxFlyTime);
-        ep.velocity = Vector3.zero;    // duong bay do LateUpdate lo, khong de physics cua PS xen vao
-
-        // Chi ghi mau khi duoc bat: tat thi EmitParams khong mang startColor, hat lay mau cua
-        // ParticleSystem nhu cu - art chinh tay van an
-        if (tintByVictim) ep.startColor = color;
-
-        for (int i = 0; i < count; i++)
+        ParticleSystem[] systems = go.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
         {
-            ep.position = center + Random.insideUnitSphere * scatter;
-            ep.startSize = s * Random.Range(0.75f, 1.25f);
-            _ps.Emit(ep, 1);
+            ParticleSystem.MainModule m = systems[i].main;
+            m.startColor = color;
+            systems[i].Clear(true);
+            systems[i].Play(true);   // lay tu pool ra: phai choi lai tu dau chu khong tiep ban cu
+        }
+
+        // Object co the la MESH chu khong phai he hat (vd mot Sphere). To bang
+        // MaterialPropertyBlock chu KHONG dung renderer.material: material se clone mot ban moi
+        // cho tung object moi lan doi mau - ro ri material instance, dung thu giet fps mobile.
+        // PropertyBlock ghi thang vao lenh ve, khong sinh material nao.
+        Renderer[] rends = go.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < rends.Length; i++)
+        {
+            if (rends[i] is ParticleSystemRenderer) continue;   // he hat da xu ly o tren
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
+
+            rends[i].GetPropertyBlock(_mpb);
+            _mpb.SetColor(BaseColorId, color);
+            _mpb.SetColor(ColorId, color);      // ghi ca hai ten: URP dung _BaseColor, Built-in dung _Color
+            rends[i].SetPropertyBlock(_mpb);
         }
     }
 
+    private MaterialPropertyBlock _mpb;
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
+
     /// <summary>
-    /// KEO ca mang hat ve phia mom, moi frame.
+    /// KEO ca dan object ve phia mom, moi frame.
     ///
-    /// Chay o LateUpdate chu khong Update: mom bam theo xuong nhan vat, ma xuong thi duoc
-    /// Animator ghi o giai doan sau Update. Keo o Update la doc vi tri mom cua FRAME TRUOC,
-    /// hat se lun nhun mot nhip khi nhan vat chay nhanh.
-    ///
-    /// Thoat som khi khong co hat nao - day la truong hop THUONG GAP nhat (khong danh nhau),
-    /// va no re bang dung mot phep so sanh.
+    /// Chay o LateUpdate chu khong Update: mom bam theo xuong nhan vat, ma xuong thi duoc Animator
+    /// ghi o giai doan sau Update. Keo o Update la doc vi tri mom cua FRAME TRUOC, object se lun
+    /// nhun mot nhip khi nhan vat chay nhanh.
     /// </summary>
     void LateUpdate()
     {
-        if (_ps == null || _mouth == null) return;
+        if (_alive.Count == 0 || _mouth == null) return;
 
-        int alive = _ps.particleCount;
-        if (alive == 0) return;
-
-        if (_buf == null || _buf.Length < alive)
-            _buf = new ParticleSystem.Particle[Mathf.NextPowerOfTwo(Mathf.Max(16, alive))];
-
-        int n = _ps.GetParticles(_buf);
         Vector3 target = _mouth.position;
-        float dt = Time.deltaTime;
-        float ramp = Mathf.Max(0.01f, speedRampDistance);
+        float now = Time.time;
+        float dur = Mathf.Max(0.01f, flyDuration);
 
-        for (int i = 0; i < n; i++)
+        for (int i = _alive.Count - 1; i >= 0; i--)
         {
-            Vector3 p = _buf[i].position;
-            Vector3 to = target - p;
-            float d = to.magnitude;
+            Flyer f = _alive[i];
+            if (f.go == null) { _alive.RemoveAt(i); continue; }
 
-            if (d <= arriveDistance)
+            float t = (now - f.bornAt) / dur;
+
+            if (t >= 1f)
             {
-                _buf[i].remainingLifetime = 0f;   // toi mom = tat, khong cho bay xuyen qua roi vong lai
+                Deliver(f.xp);          // TOI MOM = ke hut an duoc so XP object nay mang
+                Recycle(f);
+                _alive.RemoveAt(i);
                 continue;
             }
 
-            // Cang gan mom cang nhanh: giong bi hut, khac han voi troi deu mot toc do
-            float nearness = 1f - Mathf.Clamp01(d / ramp);
-            float step = Mathf.Lerp(flySpeed, flySpeedNear, nearness) * dt;
-
-            _buf[i].position = step >= d ? target : p + to * (step / d);
+            // Noi suy tu diem xuat phat toi MOM HIEN TAI (doc lai moi frame): nguoi choi dang
+            // chay thi mom di chuyen, ban toi diem cu se thay object lao tret ra sau lung.
+            float e = flyAccel <= 1.001f ? t : Mathf.Pow(t, flyAccel);
+            f.tf.position = Vector3.Lerp(f.from, target, e);
         }
+    }
 
-        _ps.SetParticles(_buf, n);
+    /// <summary>Ke hut an so XP mot object mang ve.</summary>
+    private void Deliver(int xp)
+    {
+        if (xp <= 0) return;
+        if (_suction == null) _suction = GetComponentInParent<SimpleSuction>();
+        if (_suction != null) _suction.GainXp(xp);
+    }
+
+    private void Recycle(Flyer f)
+    {
+        if (f.go == null) return;
+        f.go.SetActive(false);
+        _pool.Push(f.go);
+    }
+
+    /// <summary>Cham tran maxAlive: thu hoi cai CU NHAT nhung VAN TRA DU XP cua no.</summary>
+    private void RetireOldest()
+    {
+        if (_alive.Count == 0) return;
+        Flyer f = _alive[0];
+        Deliver(f.xp);
+        Recycle(f);
+        _alive.RemoveAt(0);
+    }
+
+    /// <summary>
+    /// Chu chet giua chung: TRA HET XP dang bay roi don sach.
+    ///
+    /// Khong co buoc nay thi so XP dang tren duong bay boc hoi - dung cai loi ma ban te-bao-vat-ly
+    /// ngay xua mac phai (nan nhan mat 30, ke hut an 28). Creature.Die goi ham nay truoc khi huy.
+    /// </summary>
+    public void FlushAll()
+    {
+        for (int i = 0; i < _alive.Count; i++)
+        {
+            Deliver(_alive[i].xp);
+            Recycle(_alive[i]);
+        }
+        _alive.Clear();
+    }
+
+    void OnDestroy()
+    {
+        // Khong goi Deliver o day: object cha dang bi huy, GainXp luc nay la ghi vao xac chet.
+        // Ben nao can giu XP thi goi FlushAll() TRUOC khi huy.
+        _alive.Clear();
+        _pool.Clear();
     }
 }

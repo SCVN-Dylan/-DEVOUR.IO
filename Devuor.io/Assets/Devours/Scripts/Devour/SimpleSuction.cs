@@ -80,14 +80,25 @@ public class SimpleSuction : MonoBehaviour
     public bool drainCreatures = true;
 
     [Range(0f, 1f)]
-    [Tooltip("SO LEVEL rut duoc moi giay - SO CUNG, khong phu thuoc level nan nhan.\n" +
-             "Lv10 hay Lv1000 deu tut cung mot toc.\n\n" +
-             "Ban truoc tinh theo % level nan nhan (0.12 = 12%/giay). Doi sang so cung theo yeu cau:\n" +
-             "de doan, de tune, va nan nhan thay minh tut DEU chu khong phai tut nhanh dan.\n\n" +
-             "TINH THOI GIAN MOT TRAN: nan nhan chet khi tut xuong duoi NUA level ke hut\n" +
-             "(Creature.devourLevelRatio = 0.5), khong phai bi rut ve 0. Nen hai con ngang co Lv100\n" +
-             "thi nan nhan can mat 50 level -> o 10 level/giay la ~5 giay.")]
-    public float creatureDrainPerSecond = 10f;
+    [Tooltip("NHIP RUT ban dau (giay): cu bay nhieu giay thi nan nhan mat 1 level va mot object\n" +
+             "VFX bay ve mom minh. 1.0 = 1 level/giay luc vua dinh.")]
+    public float drainInterval = 1f;
+
+    [Range(0.1f, 0.99f)]
+    [Tooltip("Moi lan rut xong thi nhip NHAN voi so nay -> o trong vung cang lau, rut cang nhanh.\n" +
+             "0.8 = moi nhip ngan di 20%: 1.0 -> 0.8 -> 0.64 -> 0.51 -> ... cho toi san.")]
+    public float drainIntervalDecay = 0.8f;
+
+    [Range(0.05f, 1f)]
+    [Tooltip("SAN: nhip khong duoc ngan hon bao nhieu PHAN so voi nhip goc.\n" +
+             "0.3 = dung lai o 30% (1.0 -> 0.3 giay, tuc toi da 3.33 level/giay).\n" +
+             "Khong co san thi nhip ve 0 va thanh rut vo han moi frame.")]
+    public float drainIntervalFloor = 0.3f;
+
+    [Tooltip("NGUOI DAN khi thoat ra: moi giay ngoai vung hut thi nhip hoi lai bao nhieu (giay/giay).\n" +
+             "Nguoi dan chu khong reset ngay - reset ngay thi nguoi choi lach ra lach vao la xoa\n" +
+             "sach do ghi, tran danh khong bao gio tich duoc ap luc.")]
+    public float drainIntervalRecover = 0.5f;
 
     [Range(0.05f, 1f)]
     [Tooltip("Ti le toc do rut o RIA XA nhat cua non so voi sat mom. Dung chung duong cong voi\n" +
@@ -315,7 +326,8 @@ public class SimpleSuction : MonoBehaviour
 
     private int _xp;
     private float _gainRemainder;      // phan XP le khi he so nhan khac 1
-    private float _drainRemainder;     // phan XP le chua du 1 don vi khi bi hut lien tuc
+    private float _drainClock;         // quy thoi gian da tich cho nhip rut hien tai
+    private float _drainInterval;      // nhip rut hien tai (giay/level) - siet dan khi bi ghi lau
     private float _scanTimer;
     private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
@@ -515,12 +527,9 @@ public class SimpleSuction : MonoBehaviour
             float nearness = 1f - Mathf.Clamp01(dist / eff);
             float prox = Mathf.Lerp(creatureFarDrainFactor, 1f, nearness);
 
-            // SO CUNG, khong con nhan voi c.Level: moi con tut cung mot toc.
-            // 'prox' van giu - dung ria thi bi gam nhe, bi dua vao sat mom thi tan nhanh.
-            // Muon rut deu tuyet doi ca trong nong thi dat creatureFarDrainFactor = 1.
-            float perSecond = creatureDrainPerSecond * prox;
-
-            c.ReceiveDrain(_creature, perSecond * dt);
+            // Truyen QUY THOI GIAN da nhan prox, khong phai luong XP: dung ria thi dong ho chay
+            // cham (nhip thua ra), sat mom thi chay du toc. Nan nhan tu giu nhip cua rieng no.
+            c.ReceiveDrain(_creature, dt * prox);
 
             // Ghi so cho CHINH MINH nua: ReceiveDrain chi bao cho nan nhan biet no dang danh nhau
             // voi ai. Khong co dong nay thi con di hut khong he biet minh dang o trong tran, va
@@ -822,40 +831,79 @@ public class SimpleSuction : MonoBehaviour
     }
 
     /// <summary>
-    /// RUT XP LIEN TUC - goi moi frame khi dang bi hut, amount = (xp/giay) x deltaTime.
+    /// RUT THEO NHIP - goi moi FixedUpdate khi dang bi hut. 'amount' la QUY THOI GIAN
+    /// (deltaTime da nhan he so gan/xa), KHONG phai luong XP.
     ///
-    /// Level la so NGUYEN con luc hut la LIEN TUC, nen phan le phai duoc giu lai trong
-    /// _drainRemainder, du 1 moi tru mot cai. Lam tron moi frame se sai nang: FloorToInt thi
-    /// rut duoi 1 xp/frame la mai mai khong mat gi, con RoundToInt/Ceil thi rut nhanh gap
-    /// vai chuc lan tuy framerate - may yeu va may khoe se an nhau khac han.
+    /// Du mot nhip thi mat DUNG 1 LEVEL va sinh DUNG 1 object VFX - dem object bay la biet chinh
+    /// xac bao nhieu level dang chuyen chu.
     ///
-    /// Tra ve so XP nguyen thuc su mat trong lan goi nay (thuong la 0, thinh thoang 1).
+    /// NHIP SIET DAN: moi lan rut xong, nhip nhan voi drainIntervalDecay -> nam trong vung cang
+    /// lau, level tut cang nhanh. Ep xuong san drainIntervalFloor de nhip khong ve 0.
+    ///
+    /// Tra ve so level thuc su mat trong lan goi nay (0 hoac 1).
     /// </summary>
     public int DrainXp(float amount)
     {
         if (amount <= 0f) return 0;
 
-        _drainRemainder += amount;
-        if (_drainRemainder < 1f) return 0;
+        _drainClock += amount;                     // 'amount' la QUY THOI GIAN da nhan prox
+        if (_drainClock < CurrentDrainInterval) return 0;
 
-        // TRU DUNG 1 LEVEL moi nhip, khong bao gio dong cuc nhieu level mot phat.
-        //
-        // Ban truoc lay FloorToInt ca phan tich luy nen o toc cao (cu tinh theo % level, Lv500 ra
-        // 60 level/giay) mot lan goi co the tru 2-3 level - nan nhan tut giat cuc, va so hat ban ra
-        // khong con tuong ung 1:1 voi so level nua. Gio moi nhip dung 1 level, deu tam tap.
-        //
-        // Phan du van GIU LAI (khong xoa) de tong toc trung binh van dung bang creatureDrainPerSecond:
-        // toc cao thi nhip lien tiep nhau day hon, chu khong phai mat bot.
-        _drainRemainder -= 1f;
+        _drainClock = 0f;                          // moi nhip bat dau dem lai tu 0
 
-        // Tran physics la 50 nhip/giay, tuc toi da 50 level/giay. Dat creatureDrainPerSecond cao
-        // hon the thi phan du chi phinh mai ma khong bao gio tra het - va khi nan nhan thoat ra,
-        // cai kho do van con nam day, lan sau vao la bi tru mot trang. Kep lai cho khong tich duoc.
-        if (_drainRemainder > 1f) _drainRemainder = 1f;
+        int lost = LoseXp(1);                      // DUNG 1 LEVEL mot nhip - 1 level = 1 object bay
+        if (lost <= 0) return 0;                   // cham san Lv1: khong rut, khong siet nhip
 
-        int lost = LoseXp(1);
-        if (lost <= 0) _drainRemainder = 0f;   // da cham san Lv1: dung tich luy vo ich
+        // SIET NHIP: o trong vung cang lau, moi nhip lai ngan di, level tut nhanh dan.
+        // Ep xuong san de nhip khong ve 0 (ve 0 la rut vo han moi frame).
+        _drainInterval = Mathf.Max(FloorInterval, _drainInterval * drainIntervalDecay);
         return lost;
+    }
+
+    /// <summary>
+    /// VUA DINH VAO NON: nap day dong ho de nhip DAU TIEN no ngay lap tuc, khong phai cho.
+    ///
+    /// Khong co buoc nay thi dong ho dem tu 0, ma o ria non no chay voi he so prox chi 0.35 -
+    /// nguoi choi cham duoc nan nhan roi phai cho toi ~2.9 giay moi thay object dau tien bay ra,
+    /// khong biet minh da an duoc hay chua.
+    ///
+    /// Khong so bi lam dung bang cach ra-vao lien tuc: Creature chi goi ham nay khi IsBeingDrained
+    /// dang FALSE, ma co do co san do tre drainMemory (0.5s). Muon nap lai phai roi han nua giay,
+    /// tuc cham hon la cu dung yen ma hut.
+    /// </summary>
+    public void PrimeDrain()
+    {
+        _drainClock = CurrentDrainInterval;
+    }
+
+    /// <summary>Nhip rut hien tai (giay/level). Khoi tao bang drainInterval, siet dan khi bi ghi.</summary>
+    private float CurrentDrainInterval
+    {
+        get
+        {
+            if (_drainInterval <= 0f) _drainInterval = Mathf.Max(0.01f, drainInterval);
+            return _drainInterval;
+        }
+    }
+
+    private float FloorInterval
+    {
+        get { return Mathf.Max(0.01f, drainInterval * drainIntervalFloor); }
+    }
+
+    /// <summary>
+    /// NGUOI DAN khi khong con bi hut: nhip bo ve lai gia tri goc.
+    ///
+    /// Nguoi dan chu KHONG reset ngay. Reset ngay thi nguoi choi chi can lach ra khoi non nua
+    /// giay la xoa sach toan bo do ghi da tich - tran danh khong bao gio don duoc ap luc, va
+    /// ke hut vinh vien khong ket thuc duoc mot pha nao.
+    /// </summary>
+    public void CoolDrain(float dt)
+    {
+        float baseInterval = Mathf.Max(0.01f, drainInterval);
+        if (_drainInterval >= baseInterval) { _drainClock = 0f; return; }
+
+        _drainInterval = Mathf.Min(baseInterval, _drainInterval + drainIntervalRecover * dt);
     }
 
     /// <summary>Dat thang cap (cheat/test). XP dong bo theo cho dung Level = 1 + Xp.</summary>

@@ -85,6 +85,22 @@ public class SuctionZoneVisual : MonoBehaviour
     private void Refresh()
     {
         if (suction == null) { suction = GetComponentInParent<SimpleSuction>(); if (suction == null) return; }
+
+        // CHU HET HUT thi non cung phai tat theo.
+        //
+        // Cu the la luc con nay CHET: Creature.PlaySwallowedInto tat SimpleSuction de no thoi rut
+        // XP con khac, nhung non van ve nhu thuong - thanh ra mot cai nón trong suot bay vao mom
+        // ke giet, van quet qua quet lai nhu con dang san moi.
+        //
+        // Kiem o day chu khong bat Creature tu tay tat: lam o day thi MOI cho tat SimpleSuction
+        // (chet, doi scene, cheat, tam dung) deu tu dong dung - khong phai nho ai goi ho.
+        if (!suction.isActiveAndEnabled)
+        {
+            if (_mr != null && _mr.enabled) _mr.enabled = false;
+            return;
+        }
+        if (_mr != null && !_mr.enabled) _mr.enabled = true;
+
         if (mouth == null) mouth = suction.mouth != null ? suction.mouth : suction.transform;
         if (_mesh == null) return;
 

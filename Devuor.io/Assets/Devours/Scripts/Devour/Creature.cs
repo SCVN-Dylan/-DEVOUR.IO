@@ -214,7 +214,11 @@ public class Creature : MonoBehaviour
         if (attacker == null || attacker == this || _suction == null || _dead) return;
 
         // Thoat duoc mot luc roi bi hut lai = tran moi, dem lai tu dau
-        if (!IsBeingDrained) _drainedTotal = 0;
+        if (!IsBeingDrained)
+        {
+            _drainedTotal = 0;
+            _suction.PrimeDrain();   // nhip DAU TIEN no ngay, khong bat nguoi choi cho
+        }
 
         _lastAttacker = attacker;
         _lastDrainTime = Time.time;
@@ -225,10 +229,13 @@ public class Creature : MonoBehaviour
         {
             _drainedTotal += lost;
 
-            // Minh tut bao nhieu, ke hut an dung bay nhieu - va an NGAY, khong qua trung gian nao.
-            // Van di qua GainXp de con dinh xpGainMultiplier: GameManager.BalanceAiLevels ghim
-            // level bot bang he so do, bo qua la bot an cua nhau se vot len khong ai ham duoc.
-            if (attacker.Suction != null) attacker.Suction.GainXp(lost);
+            // XP KHONG cong ngay nua: no BAY THEO OBJECT va chi vao bung ke hut khi object cham
+            // mom (DevourVfx.Deliver). Chi khi ke hut khong co VFX thi DevourVfx moi tra ngay -
+            // no tu lo, o day khong can biet.
+            //
+            // Chi con mot cua duy nhat de XP di qua, nen khong the co canh nan nhan mat 30 ma ke
+            // hut an 28 nhu ban te-bao-vat-ly ngay xua.
+            if (attacker.Vfx == null && attacker.Suction != null) attacker.Suction.GainXp(lost);
 
             // Hat bay tu than MINH ve mom KE HUT. He hat nam ben ke hut nen moi hat trong do deu
             // ve cung mot mom - khong phai gan dich cho tung hat.
@@ -286,14 +293,20 @@ public class Creature : MonoBehaviour
         if (_dead) return;
         _dead = true;
 
-        // XP + hat trao NGAY, khong doi animation xong: neu doi thi tween bi ngat giua chung
-        // (ke giet chet theo, doi scene) la XP boc hoi mat.
+        // MINH chet: so XP dang bay tren duong (do minh rut duoc cua nguoi khac) phai duoc tra
+        // het truoc khi object bi huy, khong thi no boc hoi.
+        if (_vfx != null) _vfx.FlushAll();
+
         int remain = _suction != null ? _suction.Xp : 0;
         bool killerAlive = killer != null && !killer.IsDead;
         if (killerAlive)
         {
-            if (remain > 0 && killer.Suction != null) killer.Suction.GainXp(remain);
-            if (killer.Vfx != null) killer.Vfx.EmitDeath(Center, skinColor, transform.lossyScale.x);
+            // XP con lai BAY THEO OBJECT ve mom ke giet, khong cong ngay. Khong co VFX thi
+            // EmitDeath tu tra ngay - xem DevourVfx.SpawnOne.
+            if (killer.Vfx != null)
+                killer.Vfx.EmitDeath(Center, skinColor, transform.lossyScale.x, remain);
+            else if (remain > 0 && killer.Suction != null)
+                killer.Suction.GainXp(remain);
         }
 
         if (onDied != null) onDied.Invoke();
@@ -395,6 +408,10 @@ public class Creature : MonoBehaviour
         TickStruggle();
         ApplyCombatSpeed();
         TickDevourCheck();
+
+        // Khong con bi hut -> nhip rut NGUOI DAN ve goc. Goi o day chu khong o ben ke hut:
+        // nan nhan phai tu nguoi ke ca khi ke hut da bo di / da chet.
+        if (!IsBeingDrained && _suction != null) _suction.CoolDrain(Time.deltaTime);
     }
 
     /// <summary>
