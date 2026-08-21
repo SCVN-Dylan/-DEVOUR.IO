@@ -509,9 +509,12 @@ public class AIController : MonoBehaviour
         int n = Physics.OverlapSphereNonAlloc(transform.position, radius, _searchBuf,
             _suction.suckableLayers, QueryTriggerInteraction.Ignore);
 
-        PhysicsDevourable best = null;
+        PhysicsDevourable best = null;      // NGOAI non - mieng ke tiep de di toi
         float bestSqr = float.MaxValue;
+        PhysicsDevourable mine = null;      // TRONG non va con phan minh - an cho xong da
+        float mineSqr = float.MaxValue;
         int stage = _suction.Stage;
+        float coneSqr = _suction.CurrentRange * _suction.CurrentRange;
 
         for (int i = 0; i < n; i++)
         {
@@ -523,9 +526,28 @@ public class AIController : MonoBehaviour
             Vector3 d = it.Center - transform.position;
             d.y = 0f;
             float sqr = d.sqrMagnitude;
+
+            if (sqr <= coneSqr)
+            {
+                // DA TRONG NON: khong con la thu de "di toi" nua, no tu bay vao mom.
+                // Con phan minh (hoac chua ai giu) thi van giu lam target de ItemDirection biet
+                // ma dung yen huong cho no bay vao. Con da vao tay con khac thi BO HAN - di toi
+                // cung khong gianh duoc, chi ton mot cu ngoat dau.
+                if ((it.Owner == _suction || it.Owner == null) && sqr < mineSqr) { mineSqr = sqr; mine = it; }
+                continue;
+            }
+
             if (sqr < bestSqr) { bestSqr = sqr; best = it; }
         }
-        return best;
+
+        // AN CHO XONG MIENG DANG BAY TRUOC, roi moi ngam mieng ke tiep.
+        //
+        // Nguoc voi truc giac ("ngam luon mieng sau cho do phi thoi gian") nhung do la vi _turnSpeed
+        // = 0: bot XOAY TUC THI. Ngoat sang mieng khac giua chung la giat ca cai non ra khoi mieng
+        // dang bay -> no bi Release va rot xuong dat. Ma mieng dang bay chi can ~0.17 giay de toi
+        // mom (1.12u tu dung yen, gia toc 78.5), trong khi nhip nghi la 0.35 giay - tuc ngoat som
+        // se cat ngang khoang mot nua so lan. Cho 0.17 giay re hon nhieu so voi tha mot mieng.
+        return mine != null ? mine : best;
     }
 
     /// <summary>
@@ -550,10 +572,9 @@ public class AIController : MonoBehaviour
         }
 
         if (_prey != null) return HuntDirection(_prey);
+        if (_target != null) return ItemDirection(_target);
 
-        Vector3 aim = _target != null ? _target.Center : _wanderPoint;
-
-        Vector3 to = aim - transform.position;
+        Vector3 to = _wanderPoint - transform.position;
         to.y = 0f;
         return to.sqrMagnitude > 0.0001f ? to.normalized : Vector3.zero;
     }
@@ -605,6 +626,38 @@ public class AIController : MonoBehaviour
         fwd.y = 0f;
         if (fwd.sqrMagnitude < 0.0001f) return 1;
         return Vector3.Cross(dir, fwd).y >= 0f ? 1 : -1;
+    }
+
+    /// <summary>
+    /// HUONG DI TOI ITEM. Da lot vao NON HUT roi thi GIU NGUYEN HUONG, khong lai theo no nua.
+    ///
+    /// VI SAO: trong non la item dang bi CHINH MINH giat ve mom o toi 50 u/s, trong khi bot chi di
+    /// 3.7 u/s. No vot qua mom, van sang ben hoac ra sau lung, roi ra khoi non va bi tha. Bot van
+    /// ngam no nen quay 180 do lai; quay xong non quet ngang qua no, hut lai, lap vo tan. Bot dang
+    /// duoi theo dung cai thu ma luc hut cua no dang quang di - cho duoi duoi cua chinh no.
+    ///
+    /// SO DO THAT (bot Lv2, chay o timeScale 0.1 cho min):
+    ///   - mot con quay 151 do trong 0.6 giay
+    ///   - bam CUNG MOT mieng suot hon 4 giay ma khong an noi
+    ///   - mau cuoi: no dang quay lung 179 do vao dung cai item no dang ngam
+    ///   - moi bot o trang thai Wander thi yaw KHONG DOI mot do nao -> chi state Item moi quay
+    ///
+    /// Giu nguyen huong thi non dung yen tren item, va no chui gon vao mom trong ~0.17 giay.
+    /// </summary>
+    private Vector3 ItemDirection(PhysicsDevourable item)
+    {
+        Vector3 to = item.Center - transform.position;
+        to.y = 0f;
+
+        float range = _suction != null ? _suction.CurrentRange : 0f;
+        if (range > 0.01f && to.sqrMagnitude <= range * range)
+        {
+            Vector3 fwd = transform.forward;
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude > 0.0001f) return fwd.normalized;
+        }
+
+        return to.sqrMagnitude > 0.0001f ? to.normalized : Vector3.zero;
     }
 
     /// <summary>Huong THUC SU di: huong muon di, hoac huong ne neu phia truoc bi chan.</summary>
