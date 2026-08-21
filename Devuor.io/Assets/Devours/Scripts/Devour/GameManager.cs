@@ -137,6 +137,10 @@ public class GameManager : MonoBehaviour
     private static readonly RaycastHit[] _groundBuf = new RaycastHit[8];
     private float _balanceTimer;
     private bool _pushLockLast = true;
+    private bool _matchRunning;
+
+    /// <summary>Van da bat dau chua (da de bot ra map chua). UIManager bat co nay khi bam Play.</summary>
+    public bool MatchRunning { get { return _matchRunning; } }
 
     /// <summary>Co KHOA ITEM co dang bat khong. PhysicsDevourable doc moi lan va cham.</summary>
     public bool PushLockEnabled { get { return _pushLock; } }
@@ -178,6 +182,25 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        // UIManager la thang cam nhip van (Home -> bam Play -> vao choi), no se goi StartMatch.
+        // Scene KHONG co UIManager (scene test) thi vao van ngay - giu nguyen hanh vi cu.
+        if (UIManager.Instance == null) StartMatch();
+    }
+
+    /// <summary>
+    /// VAO VAN: de bot ra map. Goi tu UIManager.StartMatch luc bam Play.
+    ///
+    /// Vi sao khong spawn o Start nhu truoc: luc do 8 con bot da chay long nhong sau tam BG cua
+    /// man Home, an mat item va lon len trong khi nguoi choi chua bam gi. Nang hon nua la dieu
+    /// kien THANG dem "con bao nhieu bot" - dem luc chua spawn thi ra 0, thang ngay tu man Home.
+    ///
+    /// Goi lai lan hai khong lam gi (khong sinh them mot lua bot nua).
+    /// </summary>
+    public void StartMatch()
+    {
+        if (_matchRunning) return;
+        _matchRunning = true;
+
         SpawnAI();
     }
 
@@ -191,7 +214,7 @@ public class GameManager : MonoBehaviour
             if (!_pushLock) ReleaseAllPushLocks();
         }
 
-        if (!_balanceAiLevel) return;
+        if (!_balanceAiLevel || !_matchRunning) return;
 
         _balanceTimer -= Time.deltaTime;
         if (_balanceTimer > 0f) return;
@@ -450,12 +473,37 @@ public class GameManager : MonoBehaviour
 
         if (victim.isPlayer)
         {
-            if (UIManager.Instance != null) UIManager.Instance.GameOver();
+            if (UIManager.Instance != null) UIManager.Instance.EndMatch(false);
             victim.gameObject.SetActive(false);
             return;
         }
 
         Destroy(victim.gameObject);
+
+        // BOT CUOI CUNG chet -> THANG.
+        //
+        // Dem o day (su kien chet) chu khong quet moi frame: mot van chi co dam chuc lan chet, va
+        // moi lan chi duyet mot List <10 phan tu - re hon nhieu so voi mot phep dem moi frame.
+        if (_matchRunning && CountAiAlive() == 0 && UIManager.Instance != null)
+            UIManager.Instance.EndMatch(true);
+    }
+
+    /// <summary>
+    /// So bot CON SONG. victim da bi Unregister ngay dau ReportDeath nen no khong con bi dem.
+    ///
+    /// Loc ca IsDead: con dang bay vao mom ke giet da rut ten khoi danh sach roi, nhung con nao
+    /// vua goi Die() trong cung frame ma chua toi luot ReportDeath thi van con trong list.
+    /// </summary>
+    private int CountAiAlive()
+    {
+        int n = 0;
+        for (int i = 0; i < _creatures.Count; i++)
+        {
+            Creature c = _creatures[i];
+            if (c == null || c == _player || c.isPlayer || c.IsDead) continue;
+            n++;
+        }
+        return n;
     }
 
     /// <summary>Creature tu goi luc OnDisable / bi nuot.</summary>
