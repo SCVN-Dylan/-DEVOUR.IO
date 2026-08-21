@@ -47,9 +47,20 @@ public class PlayerNameTag : MonoBehaviour
     private void Refresh()
     {
         if (billboard && cam != null)
-            // Dung cam.up (khong phai world up) de nhan quay THANG mat vao camera ke ca khi
-            // camera nhin cheo xuong (khong bi mong/nghieng). +Z huong ra xa camera = mat doc.
-            transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position, cam.transform.up);
+            // COPY THANG rotation cua camera, KHONG dung LookRotation(vi_tri - vi_tri_cam).
+            //
+            // Camera cua game la ORTHOGRAPHIC: phep chieu song song, moi vat len man hinh theo
+            // CUNG MOT huong nhin. Ngam theo "huong tu camera toi vat" la moi bang ten ra mot
+            // forward khac nhau, roi LookRotation truc giao hoa 'up' theo cai forward do -> vat
+            // cang lech khoi truc camera thi bang ten cang bi XOAY NGHIENG.
+            //
+            // So do that (camera chuc xuong 55 do): nguoi choi dung giua man hinh chi nghieng 2 do
+            // nen khong ai de y, nhung bot o ria nghieng toi 41.6 do. Do la ly do loi nay chi
+            // "thay o bot" - that ra player cung sai, chi la sai it.
+            //
+            // Copy rotation thi moi bang ten deu song song mat phang camera: khong nghieng, khong
+            // meo, va tat ca giong het nhau. +Z van huong ra xa camera nen chu doc binh thuong.
+            transform.rotation = cam.transform.rotation;
 
         if (keepConstantSize && transform.parent != null)
         {
