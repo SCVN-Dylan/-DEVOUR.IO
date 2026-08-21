@@ -30,6 +30,15 @@ public class PhysicsDevourable : MonoBehaviour
     [Tooltip("Diem cong vao UIManager khi bi nuot")]
     public int scoreValue = 1;
 
+    [Header("Khoa khi ke huc vao qua yeu")]
+    [Tooltip("Hon MAY HANG thi item khoa cung lai, huc vao nhu huc tuong. 0 = tat han.\n\n" +
+             "3 = con hon minh 3 hang tro len thi day khong nhuc nhich. Hon 2 hang van day duoc\n" +
+             "(nang hay nhe la do mass), hon 1 hang thi da di duong RUNG TAI CHO cua he hut roi.\n\n" +
+             "Kiem NGAY LUC VA CHAM, lay dung hang cua con vua huc vao - khong phai doan theo mot\n" +
+             "con nao co dinh. Nho vay cung mot toa nha co the bat dong voi con Lv1 va an duoc voi\n" +
+             "con Lv50, khong can trang thai toan cuc nao ca.")]
+    public int pushLockStageDiff = 3;
+
     [Header("Ngu/thuc")]
     [Tooltip("Sau bao lau (giay) khong con bi hut / khong con va cham thi tu ngu lai")]
     public float sleepDelay = 5f;
@@ -147,6 +156,8 @@ public class PhysicsDevourable : MonoBehaviour
     private Quaternion _anchorRot;
     private float _noiseSeed;
     private float _sleepAt;
+    private bool _pushLocked;          // dang khoa cung vi ke huc vao qua yeu
+    private float _startDrag = -1f;    // drag authored tren prefab. -1 = chua chup
     private float _grabDist = -1f;     // khoang cach toi mom luc VUA BI TOM. -1 = chua tom
     private float _swirlAngle;
     private float _swirlSign;          // moi item luon mot chieu, cho khong dong loat giong nhau
@@ -155,6 +166,7 @@ public class PhysicsDevourable : MonoBehaviour
     private Quaternion _leanRot = Quaternion.identity;   // huong dau dang nghieng toi
     private float _spinAngle;
     private Collider[] _cols;
+    private static readonly RaycastHit[] _groundBuf = new RaycastHit[8];
     private Collider[] _ignoredCols;   // collider cua CHU dang duoc bo qua va cham (null = khong bo qua ai)
     private Tween _swallowTween;
 
@@ -442,12 +454,113 @@ public class PhysicsDevourable : MonoBehaviour
     /// CHI CHU moi tha duoc. Con khac goi vao day khong co tac dung - neu khong thi con A vua di
     /// ngang qua het tam la tha luon cai item con B dang keo do dang.
     /// </summary>
+    /// <summary>
+    /// KHOA CUNG item lai: ke vua huc vao qua yeu so voi no, nen no dung im nhu mot buc tuong.
+    ///
+    /// DUNG constraints CHU KHONG DUNG isKinematic. isKinematic dang duoc BA cho khac bat/tat
+    /// (EnterSleep, EnterSucked, PlaySwallow); chen them nguoi thu tu vao cung mot co la kieu bug
+    /// im lang toi nhat - item tu nhien bat dong khong ly do, va khong lan ra duoc ai ghi cuoi.
+    /// constraints la o rieng, khong ai dong toi.
+    ///
+    /// Body van la DONG (khong kinematic) nen callback va cham van ban binh thuong - do la duong
+    /// de sau nay co con du cap den mo khoa.
+    /// </summary>
+    /// <summary>Chup drag authored tren prefab, mot lan duy nhat - de con tra lai sau khi bi hut.</summary>
+    private void CacheStartDrag()
+    {
+        if (_startDrag < 0f && _rb != null) _startDrag = _rb.linearDamping;
+    }
+
+    /// <summary>Tra drag ve nhu prefab. Goi o moi cua RA khoi trang thai dang bi hut.</summary>
+    private void RestoreDrag()
+    {
+        if (_startDrag >= 0f && _rb != null) _rb.linearDamping = _startDrag;
+    }
+
+    private void SetPushLock(bool locked)
+    {
+        EnsureReferences();
+        if (_rb == null) return;
+
+        RigidbodyConstraints want = RigidbodyConstraints.None;
+        if (locked)
+        {
+            want = RigidbodyConstraints.FreezePositionX
+                 | RigidbodyConstraints.FreezePositionZ
+                 | RigidbodyConstraints.FreezeRotation;
+
+            // KHOA CA Y - nhung CHI KHI DANG DUNG TREN DAT. Khoa Y vo dieu kien thi mon nao bi
+            // khoa dung luc dang bay se TREO LO LUNG mai mai: no khong roi duoc nua, va cai duy
+            // nhat mo khoa duoc no la mot con du cap di ngang qua - co the khong bao gio xay ra.
+            //
+            // Dang bay thi chi khoa ngang thoi: no van roi binh thuong, cham dat, roi cu cham ke
+            // tiep se nang len thanh khoa du. So sanh 'want' voi constraints hien tai (chu khong
+            // so voi co _pushLocked) chinh la de cai nang cap do chay duoc.
+            if (IsGrounded()) want |= RigidbodyConstraints.FreezePositionY;
+        }
+
+        if (_rb.constraints == want) { _pushLocked = locked; return; }
+        _pushLocked = locked;
+
+        _rb.constraints = want;
+
+        if (locked)
+        {
+            // Cu huc cua frame nay da kip truyen van toc TRUOC khi ta khoa (OnCollisionEnter ban
+            // sau khi PhysX giai xong va cham) - xoa di, khong thi item van truot/vot len them mot
+            // doan theo quan tinh du da khoa.
+            Vector3 v = _rb.linearVelocity;
+            bool yLocked = (want & RigidbodyConstraints.FreezePositionY) != 0;
+            _rb.linearVelocity = yLocked ? Vector3.zero : new Vector3(0f, v.y, 0f);
+            _rb.angularVelocity = Vector3.zero;
+        }
+        else _rb.WakeUp();
+    }
+
+    /// <summary>
+    /// Item co dang DUNG TREN mot cai gi do khong - ban mot tia ngan tu day than xuong.
+    ///
+    /// Bat dau tia tu day bounds cong mot chut, va bo qua collider CUA CHINH MINH: ban tu tam than
+    /// thi tia dam vao chinh no truoc va luc nao cung tra ve "dang dung dat".
+    ///
+    /// Khong do duoc bounds thi tra TRUE - tha khoa nham con hon de mot mon treo lo lung.
+    /// </summary>
+    private bool IsGrounded()
+    {
+        if (_cols == null || _cols.Length == 0) _cols = GetComponentsInChildren<Collider>(false);
+        if (_cols == null || _cols.Length == 0) return true;
+
+        Bounds b = new Bounds(); bool has = false;
+        for (int i = 0; i < _cols.Length; i++)
+        {
+            if (_cols[i] == null || !_cols[i].enabled) continue;
+            if (!has) { b = _cols[i].bounds; has = true; }
+            else b.Encapsulate(_cols[i].bounds);
+        }
+        if (!has) return true;
+
+        Vector3 origin = new Vector3(b.center.x, b.min.y + 0.05f, b.center.z);
+        int n = Physics.RaycastNonAlloc(origin, Vector3.down, _groundBuf, 0.4f, ~0, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < n; i++)
+        {
+            Collider c = _groundBuf[i].collider;
+            if (c == null) continue;
+            if (c.transform == transform || c.transform.IsChildOf(transform)) continue;   // chinh minh
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Tha khoa tu ben ngoai - GameManager goi khi co khoa bi tat giua chung.</summary>
+    public void ClearPushLock() { SetPushLock(false); }
+
     public void Release(SimpleSuction by)
     {
         if (by != null && _owner != null && _owner != by) return;
 
         _owner = null;
         _grabDist = -1f;
+        RestoreDrag();
         SetPlayerCollision(null, false);   // bat lai va cham voi player
         if (_state != State.Sucked && _state != State.Struggling) return;
 
@@ -563,6 +676,22 @@ public class PhysicsDevourable : MonoBehaviour
         {
             suction.EatByContact(this, other);   // du cap thi bi nuot; qua cap thi khong
             if (_consumed) return;
+
+            // KHOA / MO KHOA theo dung hang cua ke VUA HUC VAO.
+            //
+            // Khoa NGAY tu cu cham dau tien, khong hoi han gi them: khoa chi chan truc ngang nen
+            // vat dang roi van roi binh thuong, khong co canh treo lo lung de phai de phong.
+            // Dang bi hut / dang rung thi he hut lo, o day khong dong vao.
+            // Co TAT thi khong khoa gi het - va van tha cai dang khoa (neu co) de khong con nao
+            // ket lai. Khong co GameManager (scene test) thi coi nhu BAT, giu nguyen hanh vi cu.
+            bool allowed = !GameManager.HasInstance || GameManager.Instance.PushLockEnabled;
+
+            if (pushLockStageDiff > 0 && allowed && _state != State.Sucked && _state != State.Struggling)
+            {
+                int diff = suction.StageAtLevel(requiredLevel) - suction.Stage;
+                SetPushLock(diff >= pushLockStageDiff);
+            }
+            else if (!allowed) SetPushLock(false);
         }
 
         if (_state == State.Sucked || _state == State.Struggling) return;   // suction dang dieu khien, physics khong xen vao
@@ -581,6 +710,22 @@ public class PhysicsDevourable : MonoBehaviour
     private void EnterSucked()
     {
         EnsureReferences();
+
+        // MO KHOA NGAY TU DAY, truoc moi dong ghi van toc trong Pull(). Day la CUA VAO cua he hut,
+        // nen dat o day thi khong ton tai duong nao ma mot con du cap lai bi cai khoa can. Dat o
+        // cho va cham thi hut TU XA se khong mo duoc - do moi la lo hong that.
+        SetPushLock(false);
+
+        // TAT DRAG trong luc bay vao mom. Drag sinh ra de item bi DAY thi dung lai som (vat cang
+        // to cang dung nhanh = cam giac nang), no khong co viec gi trong pha hut.
+        //
+        // De nguyen thi no bop chet toc do hut: moi buoc Pull chi cong duoc accel x dt = 1.57 u/s,
+        // con drag cat di v x (1 - 1/(1+drag x dt)) - can bang lai thi drag 4 chi con hut duoc
+        // 21 u/s thay vi 50, drag 12 con 7.6. Item cang to (drag cang cao) cang bi hut cham nhu rua,
+        // dung nguoc voi y do.
+        CacheStartDrag();
+        _rb.linearDamping = 0f;
+
         _state = State.Sucked;
         _rb.isKinematic = false;   // VAT LY, khong ngu
         _rb.useGravity = false;    // bay thang vao mieng, khong bi trong luc keo xuong
@@ -597,6 +742,8 @@ public class PhysicsDevourable : MonoBehaviour
 
     private void EnterStruggle()
     {
+        RestoreDrag();
+        SetPushLock(false);   // di duong RUNG TAI CHO: he hut lo phan dung yen, khong phai cai khoa
         _state = State.Struggling;
         _rb.isKinematic = true;    // rung tai cho bang transform, khong cho physics keo di
         _anchor = transform.position;
@@ -605,6 +752,7 @@ public class PhysicsDevourable : MonoBehaviour
 
     private void EnterSleep()
     {
+        RestoreDrag();
         _state = State.Asleep;
         _owner = null;             // nam yen tren dat roi thi ai gianh cung duoc
         if (_rb.isKinematic) _rb.isKinematic = false;

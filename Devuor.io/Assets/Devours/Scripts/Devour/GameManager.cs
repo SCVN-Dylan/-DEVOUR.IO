@@ -101,6 +101,14 @@ public class GameManager : MonoBehaviour
              "nhien teo di khong ly do")]
     [SerializeField] private float _stopGrowRatio = 1.5f;
 
+    [Header("Khoa item khi ke huc vao qua yeu")]
+    [Tooltip("BAT (mac dinh): item hon ke huc vao tu 3 hang tro len se KHOA CUNG, huc vao nhu huc\n" +
+             "tuong. Bao nhieu hang moi khoa thi chinh o tung item (PhysicsDevourable.pushLockStageDiff).\n\n" +
+             "TAT: khong con khoa gi ca, dung cai gi cung day duoc nhu vat ly binh thuong.\n\n" +
+             "Tat GIUA LUC DANG CHAY thi moi item dang bi khoa duoc tha ra ngay - khong con con nao\n" +
+             "ket cung lai giua map.")]
+    [SerializeField] private bool _pushLock = true;
+
     [Header("Bu level khi bot KHUAT khoi camera")]
     [Tooltip("BAT: bot dang nam ngoai khung hinh thi duoc keo level len thang toi moc, khong phai\n" +
              "cho an du item.\n\n" +
@@ -128,6 +136,10 @@ public class GameManager : MonoBehaviour
     private readonly List<Creature> _creatures = new List<Creature>();
     private static readonly RaycastHit[] _groundBuf = new RaycastHit[8];
     private float _balanceTimer;
+    private bool _pushLockLast = true;
+
+    /// <summary>Co KHOA ITEM co dang bat khong. PhysicsDevourable doc moi lan va cham.</summary>
+    public bool PushLockEnabled { get { return _pushLock; } }
 
     /// <summary>Con nguoi choi dieu khien. null = chua vao van hoac da bi nuot.</summary>
     public Creature Player { get { return _player; } }
@@ -171,6 +183,14 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
+        // TAT co giua luc dang chay -> tha ngay moi item dang bi khoa. Khong co doan nay thi
+        // nhung con da khoa se ket cung vinh vien, vi khoa chi duoc go o luc va cham / bi hut.
+        if (_pushLock != _pushLockLast)
+        {
+            _pushLockLast = _pushLock;
+            if (!_pushLock) ReleaseAllPushLocks();
+        }
+
         if (!_balanceAiLevel) return;
 
         _balanceTimer -= Time.deltaTime;
@@ -343,6 +363,21 @@ public class GameManager : MonoBehaviour
 
         float slot = (_aiBiasMax - _aiBiasMin) / count;
         return bias + Random.Range(-slot * 0.35f, slot * 0.35f);
+    }
+
+    /// <summary>
+    /// Tha het item dang bi khoa. Chi goi luc co VUA bi tat, khong phai moi frame.
+    /// </summary>
+    private static void ReleaseAllPushLocks()
+    {
+        int n = 0;
+        foreach (PhysicsDevourable it in Object.FindObjectsByType<PhysicsDevourable>(FindObjectsSortMode.None))
+        {
+            if (it == null) continue;
+            it.ClearPushLock();
+            n++;
+        }
+        Debug.Log("[GameManager] Da tat khoa item, tha " + n + " item.");
     }
 
     /// <summary>
