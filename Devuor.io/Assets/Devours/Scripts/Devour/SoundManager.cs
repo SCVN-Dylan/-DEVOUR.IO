@@ -77,12 +77,15 @@ public class SoundManager : MonoBehaviour
     public enum Sfx
     {
         None = 0,
-        Pop = 1,        // mot te bao bi rut ra khoi con dang bi hut
+        Drain = 1,      // mot te bao bi rut ra khoi con dang bi hut
         Sucking = 2,    // tieng hut, chay lap trong suot luc anim hut dang mo
         EatHead = 3,    // nuot dut mot con - chi khi co nguoi choi o mot trong hai dau
         Upgrade = 4,    // vua vuot mot moc trong LevelSteps
         EatFeed = 5,    // nuot mot mon item
         AccessDenied = 6,   // chia mom vao vat khong an noi - no chi giang co chu khong vao duoc
+        Win = 7,        // ket thuc van - THANG
+        Lose = 8,       // ket thuc van - THUA
+        Click = 9,      // bam mot nut bat ky tren UI
     }
 
     [System.Serializable]
@@ -295,6 +298,24 @@ public class SoundManager : MonoBehaviour
 
         _musicSource.clip = clip;
         _musicSource.loop = loop;
+        _musicSource.volume = MusicLevel();
+        _musicSource.Play();
+    }
+
+    /// <summary>
+    /// Cho bai nhac dang phat chay LAI TU DAU.
+    ///
+    /// Khac PlayMusic(cung bai): ham do co y KHONG lam gi de nhac chay lien mach, con day la co y
+    /// cat ve dau - dung khi mo mot van moi.
+    ///
+    /// Chua co bai nao thi khong lam gi.
+    /// </summary>
+    public void RestartMusic()
+    {
+        if (_musicSource == null || _musicSource.clip == null) return;
+
+        _musicSource.Stop();
+        _musicSource.time = 0f;
         _musicSource.volume = MusicLevel();
         _musicSource.Play();
     }

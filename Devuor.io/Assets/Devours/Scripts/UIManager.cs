@@ -121,6 +121,8 @@ public class UIManager : MonoBehaviour
 
     void Start()
     {
+        HookClickSound();
+
         if (playButton != null) playButton.onClick.AddListener(StartMatch);
         if (loseButton != null) loseButton.onClick.AddListener(Replay);
         if (winButton != null) winButton.onClick.AddListener(Replay);
@@ -156,6 +158,31 @@ public class UIManager : MonoBehaviour
             return;
         }
         RefreshTimer();
+    }
+
+    /// <summary>
+    /// Gan tieng CLICK vao MOI nut nam duoi canvas nay - ke ca nut trong panel dang tat.
+    ///
+    /// Quet mot lan luc Start thay vi gan tay tung nut: them nut moi vao prefab UI la no co tieng
+    /// ngay, khong ai phai nho ra day noi day. Doi lai, nut duoc TAO LUC CHAY se khong co tieng -
+    /// hien khong co cai nao nhu vay.
+    ///
+    /// Gan truoc cac listener khac nen tieng keu ngay khi bam, khong doi viec cua nut xong (nut
+    /// Replay se load lai scene - gan sau thi khong bao gio toi luot no).
+    /// </summary>
+    private void HookClickSound()
+    {
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            if (buttons[i] == null) continue;
+            buttons[i].onClick.AddListener(PlayClick);
+        }
+    }
+
+    private void PlayClick()
+    {
+        if (SoundManager.HasInstance) SoundManager.Instance.PlaySfx(SoundManager.Sfx.Click);
     }
 
     /// <summary>
@@ -223,6 +250,10 @@ public class UIManager : MonoBehaviour
         TimeLeft = matchDuration;
         RefreshTimer();
 
+        // Nhac nen chay lai tu dau moi van. SoundManager song xuyen scene nen khong co no thi bam
+        // PLAY AGAIN se nghe tiep doan giua cua bai truoc do.
+        if (SoundManager.HasInstance) SoundManager.Instance.RestartMusic();
+
         // HasInstance chu khong phai Instance: Instance se TU TAO mot GameManager rong neu scene
         // khong co san, tao ra roi cung khong sinh duoc bot nao (thieu prefab) - rac vo nghia.
         if (GameManager.HasInstance) GameManager.Instance.StartMatch();
@@ -261,6 +292,10 @@ public class UIManager : MonoBehaviour
 
         if (freezeOnEnd) Time.timeScale = 0f;
         if (joystick != null) joystick.gameObject.SetActive(false);
+
+        // Tieng ket thuc van. Ten chua gan clip trong bang thi SoundManager tu bo qua, khong loi.
+        if (SoundManager.HasInstance)
+            SoundManager.Instance.PlaySfx(win ? SoundManager.Sfx.Win : SoundManager.Sfx.Lose);
 
         Text scoreLabel = win ? winScoreText : loseScoreText;
         GameObject panel = win ? winPanel : losePanel;

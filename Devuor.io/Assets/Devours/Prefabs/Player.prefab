@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 31102183964803502}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.059999943, z: 0}
+  m_LocalPosition: {x: 0, y: 0.06, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1366,11 +1366,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '<size=65%>Lv 1</size>
+  m_text: 'Player
 
-    Player
-
-'
+    <size=65%>Lv 1</size>'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0161d805a3764c089bef00bfe00793f5, type: 2}
   m_sharedMaterial: {fileID: 2147374, guid: 0161d805a3764c089bef00bfe00793f5, type: 2}
@@ -1719,6 +1717,7 @@ MonoBehaviour:
   pullSpeed: 50
   farSpeedFactor: 0.26
   pullAccel: 78.5
+  deniedSoundInterval: 1.5
   swallowDistance: 0.3
   swallowSpeedMargin: 1.5
   suckableLayers:
@@ -1777,7 +1776,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ccdc0feab173407db1117819809a9bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerVisual
-  skinTarget: {fileID: 0}
+  skinTarget: {fileID: 12073159940532582}
   forms:
   - name: Teeth
     target: {fileID: 5581887115263585066}
@@ -1790,19 +1789,7 @@ MonoBehaviour:
     skin: {fileID: 0}
   onFormChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2105436078823071695}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &3995865763585234974
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3609,11 +3596,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
---- !u!1 &2105436078823071695 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 931352995334258111, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
-  m_PrefabInstance: {fileID: 1284887536827540080}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2105436078823402825 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}

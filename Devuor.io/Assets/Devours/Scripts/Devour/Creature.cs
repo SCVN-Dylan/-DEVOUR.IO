@@ -288,7 +288,7 @@ public class Creature : MonoBehaviour
             // thi ca van chi con mot trang tieng pop khong ro cua ai.
             _popStreak++;
             if ((isPlayer || attacker.isPlayer) && SoundManager.HasInstance)
-                SoundManager.Instance.PlaySfxStreak(SoundManager.Sfx.Pop, _popStreak);
+                SoundManager.Instance.PlaySfxStreak(SoundManager.Sfx.Drain, _popStreak);
         }
 
         // KHONG con cua chet nao o day. Chet chi xay ra o mot cho duy nhat: TickDevourCheck(),
