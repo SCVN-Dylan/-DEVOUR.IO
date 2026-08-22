@@ -160,6 +160,7 @@ public class Creature : MonoBehaviour
     private Creature _lastAttacker;
     private float _lastDrainTime = -999f;
     private int _drainedTotal;
+    private int _popStreak;               // so te bao da bi rut trong PHA hut nay - de tieng Pop len dan
     private bool _dead;
     private Creature _rival;              // doi thu MANH NHAT cua tran DANG dien ra
     private int _rivalLevel;
@@ -241,6 +242,7 @@ public class Creature : MonoBehaviour
         if (!IsBeingDrained)
         {
             _drainedTotal = 0;
+            _popStreak = 0;              // pha moi -> tieng Pop keu lai tu do to/cao thap nhat
             // CHOT CA HAI DAU CUA THANH cho pha nay va khong doi nua: thanh vi the co so nac
             // co dinh (Lv100 dinh mot con Lv120 -> can o 60 -> thanh dung 41 nac), moi nhip rut
             // tut dung mot nac. Moc can KHONG bo len theo ke hut: no len 1 level moi nhip no rut
@@ -278,6 +280,15 @@ public class Creature : MonoBehaviour
             // la biet dang an con nao va con do co bao nhieu
             if (attacker.Vfx != null)
                 attacker.Vfx.EmitDrain(Center, lost, skinColor, transform.lossyScale.x);
+
+            // TIENG POP: mot te bao vua bi rut ra khoi minh. Hut cang lien tuc thi cang to va cang
+            // cao - chuoi tu tut ve 0 o khoi reset phia tren khi thoat duoc mot luc.
+            //
+            // Chi keu khi co NGUOI CHOI o mot trong hai dau: hai bot an nhau o goc map ma van keu
+            // thi ca van chi con mot trang tieng pop khong ro cua ai.
+            _popStreak++;
+            if ((isPlayer || attacker.isPlayer) && SoundManager.HasInstance)
+                SoundManager.Instance.PlaySfxStreak(SoundManager.Sfx.Pop, _popStreak);
         }
 
         // KHONG con cua chet nao o day. Chet chi xay ra o mot cho duy nhat: TickDevourCheck(),
@@ -343,6 +354,12 @@ public class Creature : MonoBehaviour
             else if (remain > 0 && killer.Suction != null)
                 killer.Suction.GainXp(remain);
         }
+
+        // TIENG NUOT DUT. Chi khi co NGUOI CHOI o mot trong hai dau - AI an AI thi im, dung yeu cau.
+        // Keu o day chu khong o GameManager.ReportDeath: ReportDeath chay SAU khi xac bay xong vao
+        // mom, tieng se tre nua giay so voi cai nhin thay.
+        if (killerAlive && (isPlayer || killer.isPlayer) && SoundManager.HasInstance)
+            SoundManager.Instance.PlaySfx(SoundManager.Sfx.EatHead);
 
         if (onDied != null) onDied.Invoke();
 
