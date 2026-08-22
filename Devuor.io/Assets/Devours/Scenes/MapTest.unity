@@ -20713,6 +20713,9 @@ MonoBehaviour:
   - id: 9
     clip: {fileID: 8300000, guid: 6951b2f0c614348c5abff1550d067306, type: 3}
     volume: 1
+  - id: 10
+    clip: {fileID: 8300000, guid: 30cb248e1a56e4986922411921023027, type: 3}
+    volume: 1
   _streakSteps: 8
   _streakVolumeFrom: 0.6
   _streakVolumeTo: 1

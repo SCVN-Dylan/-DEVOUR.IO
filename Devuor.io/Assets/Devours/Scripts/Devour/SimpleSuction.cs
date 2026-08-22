@@ -229,6 +229,11 @@ public class SimpleSuction : MonoBehaviour
              "day so lan tien hoa sang no de doi hinh dang")]
     public PlayerVisual playerVisual;
 
+    [Tooltip("VFX ban ra moi lan TIEN HOA (moc co isEvolution). De trong = tu tim ParticleSystem\n" +
+             "ten 'LevelupCylinderBlue' trong con.\n\n" +
+             "Ban bang Play(true) nen ba he hat con (than tru + Dust + Lines) cung no mot luot")]
+    public ParticleSystem evolveVfx;
+
     [Header("Tham chieu (keo vao Inspector)")]
     [Tooltip("Bo di chuyen - nhan he so toc do theo co than. Reset/them component la tu dien san")]
     [SerializeField] private RbMovement _movement;
@@ -355,6 +360,10 @@ public class SimpleSuction : MonoBehaviour
         if (_movement == null) _movement = GetComponent<RbMovement>();
         if (_creature == null) _creature = GetComponent<Creature>();
         if (playerVisual == null) playerVisual = GetComponent<PlayerVisual>();
+
+        if (evolveVfx == null)
+            foreach (ParticleSystem ps in GetComponentsInChildren<ParticleSystem>(true))
+                if (ps != null && ps.name == "LevelupCylinderBlue") { evolveVfx = ps; break; }
         if (mouth == null)
         {
             Transform m = transform.Find("Mouth");
@@ -1056,6 +1065,18 @@ public class SimpleSuction : MonoBehaviour
             cameraZoom.ApplyForLevel(ZoomLevel, instant, camStep, camEvo);
 
         if (scaleStepped) PlayStepPop();
+
+        // TIEN HOA: ban VFX + tieng gam. 'evolved' la moc co isEvolution, da loai san hai ca khong
+        // duoc keu - luc tut nguoc mot moc, va luc dat level o Awake / Edit mode.
+        //
+        // Chi nguoi choi: level bot bam theo level nguoi choi (xem GameManager.BalanceAiLevels) nen
+        // ca 8 con deu tien hoa quanh cung mot luc - 8 tieng gam chong nhau va 8 cot anh sang moc
+        // len khap map cho mot khoanh khac le ra chi cua nguoi choi.
+        if (evolved && IsPlayerOwned)
+        {
+            if (evolveVfx != null) evolveVfx.Play(true);   // true = keo theo ca he hat con
+            if (SoundManager.HasInstance) SoundManager.Instance.PlaySfx(SoundManager.Sfx.Evolve);
+        }
 
         // TIENG UPGRADE: vua vuot mot moc trong LevelSteps. Dung 'steppedUp' co san chu khong tu do
         // level: bien do da loai san hai ca khong duoc keu - luc tut mot moc, va luc dat level o

@@ -1753,6 +1753,7 @@ MonoBehaviour:
   shrinkTweenEase: 6
   cameraZoom: {fileID: 0}
   playerVisual: {fileID: 463955257305386523}
+  evolveVfx: {fileID: 0}
   _movement: {fileID: 7715685529842263537}
   _creature: {fileID: 3995865763585234974}
   onDevour:
@@ -1776,7 +1777,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ccdc0feab173407db1117819809a9bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerVisual
-  skinTarget: {fileID: 12073159940532582}
+  skinTargets:
+  - {fileID: 12073159940532582}
+  - {fileID: 5943756679245296210}
+  - {fileID: 3226445018890497373}
   forms:
   - name: Teeth
     target: {fileID: 5581887115263585066}
@@ -3543,6 +3547,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 2027882394173846488}
     m_Modifications:
+    - target: {fileID: 931352995315593577, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: playOnAwake
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 931352995315678419, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: playOnAwake
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -3583,12 +3607,20 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 931352995334258111, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_Name
       value: LevelupCylinderBlue
       objectReference: {fileID: 0}
     - target: {fileID: 931352995334258111, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9114302974981536476, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+      propertyPath: playOnAwake
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []

@@ -9,7 +9,7 @@ using UnityEngine.Events;
 ///
 /// Moi lan tien hoa co the lam MOT hoac CA HAI viec, cam cai nao chay cai do:
 ///   - target : bat object len (rang, chi tiet than, ham...)
-///   - skin   : doi material cho than player
+///   - skin   : doi material cho than player (moi Renderer trong skinTargets)
 /// De trong ca hai thi lan do khong doi gi ve hinh (van ban onFormChanged de cam VFX/SFX).
 ///
 /// CONG DON: qua lan 3 thi lan 1 va 2 VAN GIU. Material lay cua lan gan nhat co gan skin,
@@ -34,8 +34,11 @@ public class PlayerVisual : MonoBehaviour
         public Material skin;
     }
 
-    [Tooltip("Renderer nhan material khi doi skin.\nDe trong = tu tim SkinnedMeshRenderer dau tien trong con")]
-    public Renderer skinTarget;
+    [Tooltip("Cac Renderer nhan material khi doi skin. Tat ca deu mac CUNG mot material.\n\n" +
+             "De TRONG = tu tim SkinnedMeshRenderer dau tien trong con (khong vo het): Crown va Teeth\n" +
+             "cung la SkinnedMeshRenderer nhung co material rieng (Gold, M_Body) - vo ca vao day thi\n" +
+             "vuong mien va rang bi son cung mau voi than.")]
+    public List<Renderer> skinTargets = new List<Renderer>();
 
     [Tooltip("Danh sach cac lan TIEN HOA theo thu tu.\n" +
              "forms[0] = lan tien hoa THU NHAT. Dang goc khong nam trong danh sach nay -\n" +
@@ -49,19 +52,38 @@ public class PlayerVisual : MonoBehaviour
     public int CurrentForm { get { return _current; } }
 
     private int _current;
-    private Material _baseSkin;
     private bool _ready;
+
+    private Material[] _prefabSkins;   // material goc cua TUNG renderer, chup luc Awake
+    private Material _override;        // material do SetSkin dat. null = dung material goc
 
     void Awake() { Prepare(); }
 
     private void Prepare()
     {
         if (_ready) return;
-        if (skinTarget == null) skinTarget = GetComponentInChildren<SkinnedMeshRenderer>(true);
-        if (skinTarget == null) skinTarget = GetComponentInChildren<Renderer>(true);
 
-        // Chup material goc de con duong lui khi SetForm(0)
-        if (skinTarget != null) _baseSkin = skinTarget.sharedMaterial;
+        if (skinTargets == null) skinTargets = new List<Renderer>();
+
+        // Don o trong truoc: mot o rong giua danh sach khong duoc lam lech chi so cua _prefabSkins
+        for (int i = skinTargets.Count - 1; i >= 0; i--)
+            if (skinTargets[i] == null) skinTargets.RemoveAt(i);
+
+        // De trong thi tu tim - chi MOT cai, giong hanh vi cu. Vo het SkinnedMeshRenderer se dinh
+        // ca Crown/Teeth von co material rieng.
+        if (skinTargets.Count == 0)
+        {
+            Renderer r = GetComponentInChildren<SkinnedMeshRenderer>(true);
+            if (r == null) r = GetComponentInChildren<Renderer>(true);
+            if (r != null) skinTargets.Add(r);
+        }
+
+        // Chup material goc cua tung cai de con duong lui khi SetForm(0) / SetSkin(null).
+        // Chup RIENG tung renderer chu khong chung mot cai: chung thi luc tra ve, moi cai deu bi
+        // son cung mot material - cai nao von khac mau se mat mau vinh vien.
+        _prefabSkins = new Material[skinTargets.Count];
+        for (int i = 0; i < skinTargets.Count; i++)
+            _prefabSkins[i] = skinTargets[i].sharedMaterial;
 
         _ready = true;
         _current = 0;
@@ -85,37 +107,24 @@ public class PlayerVisual : MonoBehaviour
     }
 
     /// <summary>
-    /// Doi material THAN, va dat luon lam MATERIAL NEN cho cac lan tien hoa sau.
+    /// Doi material THAN cho MOI renderer trong skinTargets, va giu no lam material NEN cho cac
+    /// lan tien hoa sau.
     ///
-    /// VI SAO PHAI GHI CA _baseSkin: ApplyState() moi lan tien hoa deu bat dau tu _baseSkin roi
-    /// moi chong material cua cac form len. _baseSkin duoc chup trong Prepare() luc Awake - tuc
-    /// TRUOC khi GameManager kip gan skin ngau nhien cho bot. Neu chi doi sharedMaterial ma khong
-    /// doi _baseSkin thi bot mac dung skin luc sinh ra, den moc tien hoa dau tien (Lv10) la
-    /// ApplyState keo material ve mac dinh cua prefab - skin bien mat, ma khong mot dong loi nao.
+    /// VI SAO PHAI GIU: ApplyState() moi lan tien hoa deu dung lai material tu dau. Neu chi gan
+    /// thang sharedMaterial mot lan thi bot mac dung skin luc sinh ra, den moc tien hoa dau tien
+    /// (Lv10) la ApplyState keo material ve mac dinh cua prefab - skin bien mat, ma khong mot dong
+    /// loi nao. Giu trong _override thi no song qua moi lan doi dang.
     ///
-    /// Truyen null = tra ve material goc cua prefab (con duong lui).
+    /// Form nao co skin rieng thi skin do VAN THANG - doi skin nen khong duoc pha dang dang mac.
+    ///
+    /// Truyen null = tra tung renderer ve material goc cua chinh no.
     /// </summary>
     public void SetSkin(Material skin)
     {
         Prepare();
-        if (skinTarget == null) return;
-
-        if (skin != null)
-        {
-            if (_prefabSkin == null) _prefabSkin = _baseSkin;   // giu material goc de con duong lui
-            _baseSkin = skin;
-        }
-        else
-        {
-            _baseSkin = _prefabSkin != null ? _prefabSkin : _baseSkin;
-        }
-
-        // Ap lai theo dang hien tai, khong gan thang: dang o lan tien hoa co material rieng thi
-        // material do van phai thang - doi skin nen khong duoc pha dang dang mac.
+        _override = skin;
         ApplyState(_current);
     }
-
-    private Material _prefabSkin;   // material goc tren prefab, chup lan dau khi bi doi skin
 
     private void ApplyState(int index)
     {
@@ -130,12 +139,26 @@ public class PlayerVisual : MonoBehaviour
             if (f.target.activeSelf != on) f.target.SetActive(on);
         }
 
-        // Material: lay cua lan tien hoa GAN NHAT co gan skin; khong co thi ve material goc
-        Material m = _baseSkin;
+        // Material theo thu tu uu tien:
+        //   1. skin cua lan tien hoa GAN NHAT co gan skin
+        //   2. skin do SetSkin dat (skin ngau nhien cua bot)
+        //   3. material goc cua CHINH renderer do
+        Material formSkin = null;
         for (int i = 0; i < forms.Count && (i + 1) <= index; i++)
-            if (forms[i] != null && forms[i].skin != null) m = forms[i].skin;
+            if (forms[i] != null && forms[i].skin != null) formSkin = forms[i].skin;
 
-        if (skinTarget != null && m != null && skinTarget.sharedMaterial != m)
-            skinTarget.sharedMaterial = m;
+        if (skinTargets == null) return;
+
+        for (int i = 0; i < skinTargets.Count; i++)
+        {
+            Renderer r = skinTargets[i];
+            if (r == null) continue;
+
+            Material want = formSkin;
+            if (want == null) want = _override;
+            if (want == null && _prefabSkins != null && i < _prefabSkins.Length) want = _prefabSkins[i];
+
+            if (want != null && r.sharedMaterial != want) r.sharedMaterial = want;
+        }
     }
 }

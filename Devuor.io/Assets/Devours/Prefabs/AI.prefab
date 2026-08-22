@@ -114,16 +114,23 @@ MonoBehaviour:
   _movement: {fileID: 7021834969316326656}
   _suction: {fileID: 3266639472561187519}
   _creature: {fileID: 4401463871055446255}
+  _rb: {fileID: 0}
   thinkInterval: 0.35
   searchRangeMul: 3
   searchRangeMax: 25
   maxSearchHits: 48
   detectRangeMul: 4
   detectRangeMax: 30
-  huntLevelRatio: 0.9
+  huntRatioShy: 0.75
+  huntRatioBold: 1.05
+  fleeRatioShy: 1
+  fleeRatioBold: 1.25
+  holdRangeFactor: 0.6
+  orbitAngle: 25
   huntDuration: 5
   huntCooldown: 8
-  fleeLevelRatio: 1.1
+  escapeWhenDrained: 1
+  escapeLateral: 0.7
   fleeDuration: 3
   wanderRadius: 20
   wanderRepickTime: 5
@@ -133,6 +140,8 @@ MonoBehaviour:
   obstacleLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  avoidInterval: 0.1
+  avoidCommitTime: 0.6
   stuckCheckTime: 1.5
   stuckDistance: 0.4
 --- !u!114 &3266639472561187519 stripped

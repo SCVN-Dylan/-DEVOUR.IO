@@ -86,6 +86,7 @@ public class SoundManager : MonoBehaviour
         Win = 7,        // ket thuc van - THANG
         Lose = 8,       // ket thuc van - THUA
         Click = 9,      // bam mot nut bat ky tren UI
+        Evolve = 10,    // vuot mot moc TIEN HOA (isEvolution) - doi hinh dang
     }
 
     [System.Serializable]
