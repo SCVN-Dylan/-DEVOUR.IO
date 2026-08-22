@@ -2226,6 +2226,7 @@ MonoBehaviour:
   _groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  _spawnClearance: 0.6
   _balanceAiLevel: 1
   _aiBiasMin: -0.3
   _aiBiasMax: 0.2
@@ -53606,13 +53607,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2050076700}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: 0, y: -0.5, z: 0}
   m_LocalScale: {x: 120, y: 0.5, z: 120}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1434898888}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!64 &2050076702
 MeshCollider:
   m_ObjectHideFlags: 0
