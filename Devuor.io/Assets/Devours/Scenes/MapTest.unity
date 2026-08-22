@@ -20687,7 +20687,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SoundManager
   _sfxTable:
   - id: 1
-    clip: {fileID: 8300000, guid: 6951b2f0c614348c5abff1550d067306, type: 3}
+    clip: {fileID: 8300000, guid: 6866394eb3d784a3a94d76a7a6e5501d, type: 3}
     volume: 1
   - id: 2
     clip: {fileID: 8300000, guid: c8570c4c5a74543908e2bbab9ad82b17, type: 3}
@@ -20704,7 +20704,12 @@ MonoBehaviour:
   _streakSteps: 8
   _streakVolumeFrom: 0.6
   _streakVolumeTo: 1
-  _streakGap: 0.6
+  _pitchStep: 0.06
+  _pitchMax: 1.6
+  _pitchResetDelay: 0.8
+  _minInterval: 0.05
+  _pitchVolumeAtMax: 0.7
+  _duckWhenCrowded: 1
   _musicOnStart: {fileID: 8300000, guid: 30d3e075ec5134de1b79b5d4a4e16a85, type: 3}
   _masterVolume: 1
   _musicVolume: 0.2
@@ -31000,11 +31005,12 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   _ringSamples: 8
-  _radiusScale: 1
+  _radiusScale: 0
   _checkInterval: 0.05
   _fadedAlpha: 0.3
   _fadeTime: 0.15
   _dropShadowWhileFaded: 1
+  _drawRays: 1
 --- !u!1001 &1188805234
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -54593,6 +54599,12 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4971381581295975268, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_text
+      value: 'Player
+
+        <size=65%>Lv 1</size>'
+      objectReference: {fileID: 0}
     - target: {fileID: 5305163158164827225, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: joystick
       value: 
@@ -54640,6 +54652,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2251249438202425184, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4656733696184856897, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_IsActive
       value: 0

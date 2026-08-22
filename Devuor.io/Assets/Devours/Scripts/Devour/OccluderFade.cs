@@ -7,15 +7,22 @@ using UnityEngine.Rendering;
 ///
 /// Gan len chinh Camera (canh CameraFollow / CameraLevelZoom).
 ///
-/// CACH DO KHUAT: ban mot chum tia tu bong player NGUOC ve phia camera - diem giua cong mot vanh
-/// diem quanh no. Vanh nam trong MAT PHANG MAN HINH (dung theo camera.right/up) chu khong phai mat
-/// phang ngang: "khuat" la chuyen cua man hinh, khong phai cua the gioi.
+/// CACH DO KHUAT: ban mot chum tia TU CAMERA XUONG player - toi diem giua cong mot vanh diem quanh
+/// no. Vanh nam trong MAT PHANG MAN HINH (dung theo camera.right/up) chu khong phai mat phang ngang:
+/// "bi che" la chuyen cua man hinh, khong phai cua the gioi.
+///
+/// VI SAO BAN TU CAMERA XUONG chu khong phai tu player len: Unity KHONG tinh la trung khi tia xuat
+/// phat tu BEN TRONG mot collider. Ban tu player len thi luc player dung lot trong long mot toa nha
+/// - dung luc bi che kin nhat - moi tia deu bao "duong thong" va khong co gi mo ca. Ban tu camera
+/// xuong thi tia luon xuat phat ngoai troi va dam vao mat ngoai vat can.
 ///
 /// Camera cua game la ORTHOGRAPHIC va khong bao gio xoay, nen huong nhin la mot hang so - moi tia
 /// deu song song, khong phai tinh phoi canh gi ca.
 ///
-/// CON MOT TIA LOT LA THOI: chi mo khi TAT CA tia bi chan. Nap sau goc tuong ma con ho ra mot mep
-/// thi khong mo - dung nhu yeu cau "che hoan toan".
+/// CU CO VAT CHAN LA MO: khong doi phai che kin. Mot toa nha an mot goc player cung duoc lam mo.
+///
+/// CHI ITEM duoc tinh la vat che (nha cua trong game nay deu la item). Mat dat, tuong bao va sinh
+/// vat khong bao gio bi lam mo - xem OccluderOf.
 ///
 /// CACH LAM MO: moi material goc sinh MOT ban trong suot dung chung (project nay ca map chi co 8
 /// material). Do mo cua tung vat dat rieng bang MaterialPropertyBlock, nen khong con nao phai sinh
@@ -30,11 +37,12 @@ public class OccluderFade : MonoBehaviour
     [SerializeField] private Creature _target;
 
     [Header("Do khuat")]
-    [Tooltip("Layer duoc phep tinh la VAT CHE. Hien ca map deu o layer Default nen de Everything")]
+    [Tooltip("Layer duoc phep BAN TIA vao. Day chi la buoc loc tho - vat co qua duoc hay khong con\n" +
+             "phai la ITEM nua, xem OccluderOf. Ca map dang o layer Default nen de Everything")]
     [SerializeField] private LayerMask _occluderLayers = ~0;
 
-    [Tooltip("So diem tren VANH quanh player (chua ke diem giua). Nhieu hon = do khuat chinh xac\n" +
-             "hon nhung ton tia hon. 8 la du cho mot bong tron")]
+    [Tooltip("So diem tren VANH quanh player (chua ke diem giua). Ban toi nhieu diem thi bat duoc ca\n" +
+             "truong hop vat can chi an mot goc player, khong phai an dung giua. 8 la du cho mot bong tron")]
     [Range(3, 16)]
     [SerializeField] private int _ringSamples = 8;
 
@@ -59,6 +67,14 @@ public class OccluderFade : MonoBehaviour
     [Tooltip("BAT: vat dang mo thi thoi do bong. Khong tat thi cai bong van nam nguyen tren dat,\n" +
              "lo ra la toa nha van con do - nhin rat ky")]
     [SerializeField] private bool _dropShadowWhileFaded = true;
+
+    [Header("Debug")]
+    [Tooltip("Ve chum tia trong SCENE VIEW (khong hien trong game).\n\n" +
+             "  xanh la = tia thong, khong co gi chan\n" +
+             "  do      = tia bi chan, cham do la diem cham vat can\n" +
+             "  vang    = vanh lay mau quanh player\n\n" +
+             "Chi ve trong Editor, khong ton gi trong ban build.")]
+    [SerializeField] private bool _drawRays = true;
 
     /// <summary>Mot vat dang duoc lam mo. Giu du thu de tra ve nguyen trang.</summary>
     private class Ghosted
@@ -123,7 +139,10 @@ public class OccluderFade : MonoBehaviour
     /// </summary>
     void LateUpdate()
     {
-        _timer -= Time.deltaTime;
+        // unscaledDeltaTime chu khong phai deltaTime: man ket thuc dat timeScale = 0, luc do
+        // deltaTime = 0 -> khong quet lai va khong mo/hien dan nua -> vat dang mo KET CUNG o
+        // trang thai do cho toi het man hinh ket thuc.
+        _timer -= Time.unscaledDeltaTime;
         if (_timer <= 0f)
         {
             _timer = Mathf.Max(0f, _checkInterval);
@@ -146,7 +165,8 @@ public class OccluderFade : MonoBehaviour
         if (!TargetSilhouette(t, out center, out radius)) return;
 
         _hitBuf.Clear();
-        if (!IsFullyOccluded(center, radius)) return;   // con thay player -> khong mo gi
+        CollectOccluders(center, radius);
+        if (_hitBuf.Count == 0) return;                 // khong co gi chan -> khong mo gi
 
         for (int i = 0; i < _hitBuf.Count; i++)
         {
@@ -165,15 +185,18 @@ public class OccluderFade : MonoBehaviour
     }
 
     /// <summary>
-    /// TAT CA tia deu bi chan chua. Tra false NGAY khi mot tia lot - khong ban not nhung tia con lai.
+    /// Gom moi vat dang NAM GIUA camera va player, do vao _hitBuf.
     ///
-    /// Diem giua ban truoc: player bi che thi thuong la che tu giua ra, nen tia giua bi chan gan nhu
-    /// chac chan. Nguoc lai, luc KHONG bi che thi tia giua cung lot ngay - thoat sau mot tia.
+    /// Ban toi diem giua truoc roi toi cac diem tren vanh: vat can an dung giua nguoi la truong hop
+    /// hay gap nhat, con vanh de bat nhung vat chi an mot goc.
+    ///
+    /// KHONG thoat som nhu ban truoc: gio cu co vat chan la lam mo, nen phai gom HET, khong phai
+    /// tim mot tia lot roi bo cuoc.
     /// </summary>
-    private bool IsFullyOccluded(Vector3 center, float radius)
+    private void CollectOccluders(Vector3 center, float radius)
     {
         Transform ct = _cam.transform;
-        Vector3 toCam = -ct.forward;
+        Vector3 fwd = ct.forward;
         Vector3 right = ct.right;
         Vector3 up = ct.up;
 
@@ -186,27 +209,29 @@ public class OccluderFade : MonoBehaviour
                 float a = (i - 1) * Mathf.PI * 2f / n;
                 p += (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * radius;
             }
-
-            if (!SampleBlocked(p, toCam)) { _hitBuf.Clear(); return false; }
+            CollectAlongRay(p, fwd, radius);
         }
-        return true;
     }
 
     /// <summary>
-    /// Mot tia: tu diem tren bong player ban thang ve camera. Tra ve co bi chan khong, dong thoi
-    /// ghi lai nhung vat da chan vao _hitBuf.
+    /// Mot tia: tu MAT PHANG CAMERA ban xuong mot diem tren than player, ghi lai moi vat chan duoc.
     ///
-    /// Chi ban toi DUNG MAT PHANG CAMERA chu khong ban mot doan dai co dinh: ban thua ra sau lung
-    /// camera la nhat ve nhung vat khong he che gi.
+    /// Camera la orthographic nen "mat" cua tia nay khong phai vi tri camera ma la hinh chieu cua
+    /// chinh diem do len mat phang camera - co vay moi tia moi song song dung nhu cach camera nhin.
+    ///
+    /// Cat NGAN mot doan bang ban kinh than truoc khi toi noi: khong cat thi mon do an dang bay sat
+    /// mom cung bi tinh la vat che, va no nhap nhay theo tung mieng bay vao.
     /// </summary>
-    private bool SampleBlocked(Vector3 origin, Vector3 toCam)
+    private void CollectAlongRay(Vector3 target, Vector3 fwd, float radius)
     {
-        float dist = Vector3.Dot(origin - _cam.transform.position, _cam.transform.forward);
-        if (dist <= 0.01f) return false;   // diem nay da nam sau camera roi
+        float dist = Vector3.Dot(target - _cam.transform.position, fwd);
+        if (dist <= 0.01f) return;                       // diem nam sau lung camera
 
-        int n = Physics.RaycastNonAlloc(origin, toCam, _rayBuf, dist, _occluderLayers, QueryTriggerInteraction.Ignore);
+        Vector3 origin = target - fwd * dist;            // chieu nguoc len mat phang camera
+        float len = dist - Mathf.Max(0f, radius);        // dung lai truoc khi cham than player
+        if (len <= 0.01f) return;
 
-        bool blocked = false;
+        int n = Physics.RaycastNonAlloc(origin, fwd, _rayBuf, len, _occluderLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
         {
             Collider c = _rayBuf[i].collider;
@@ -215,18 +240,23 @@ public class OccluderFade : MonoBehaviour
             Renderer r = OccluderOf(c);
             if (r == null) continue;
 
-            blocked = true;
             if (!_hitBuf.Contains(r)) _hitBuf.Add(r);
         }
-        return blocked;
     }
 
     /// <summary>
     /// Vat nay co phai VAT CHE khong, va neu phai thi lam mo Renderer nao.
     ///
-    /// SINH VAT khong bao gio la vat che - ke ca chinh player. Nho vay khong phai loc than player
-    /// bang IsChildOf nua (phep do phai leo nguoc ca cay phan cap), va con bot dung chen ngang cung
-    /// tu dong bi bo qua: no di mat trong nua giay, lam mo no chi tao nhap nhay.
+    /// CHI ITEM (PhysicsDevourable) moi duoc tinh. Moi thu khac - mat dat, tuong bao, sinh vat -
+    /// deu tra ve null.
+    ///
+    /// VI SAO PHAI CHAT NHU VAY: da tung dinh dung canh mat dat va tuong bao bi lam mo trong khi
+    /// player dung giua dong trong (Ground_Circle + Wall_44 + Wall_45 cung mo mot luc). Trong game
+    /// nay thu duy nhat that su che khuat la nha cua, ma nha cua deu la item (CoffeeShop la item
+    /// Lv250) - nen loc theo item vua dung y do vua het sach ca lop nhieu do.
+    ///
+    /// GetComponentInParent chu khong phai GetComponent: collider nam o object con
+    /// (Model/coffee_shop_001) con PhysicsDevourable nam o goc cua item.
     /// </summary>
     private Renderer OccluderOf(Collider c)
     {
@@ -234,9 +264,7 @@ public class OccluderFade : MonoBehaviour
         if (_occluderOf.TryGetValue(c, out r)) return r;   // null cung la mot cau tra loi da luu
 
         r = null;
-        Rigidbody rb = c.attachedRigidbody;
-        bool isCreature = rb != null && rb.GetComponent<Creature>() != null;
-        if (!isCreature)
+        if (c.GetComponentInParent<PhysicsDevourable>() != null)
         {
             r = c.GetComponent<Renderer>();
             if (r == null) r = c.GetComponentInChildren<Renderer>();
@@ -324,7 +352,7 @@ public class OccluderFade : MonoBehaviour
     {
         if (_ghosted.Count == 0) return;
 
-        float step = _fadeTime > 0.0001f ? Time.deltaTime / _fadeTime : 1f;
+        float step = _fadeTime > 0.0001f ? Time.unscaledDeltaTime / _fadeTime : 1f;
         _doneBuf.Clear();
 
         foreach (KeyValuePair<Renderer, Ghosted> kv in _ghosted)
@@ -444,4 +472,99 @@ public class OccluderFade : MonoBehaviour
         foreach (KeyValuePair<Renderer, Ghosted> kv in _ghosted) Restore(kv.Value);
         _ghosted.Clear();
     }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Ve chum tia ra SCENE VIEW de nhin tan mat no dang do cai gi.
+    ///
+    /// OnDrawGizmos chu khong phai OnDrawGizmosSelected: khoi phai chon Main Camera moi thay.
+    /// Toan bo ham nay bi cat khoi ban build (Unity khong bien dich Gizmo vao player), nen khong
+    /// ton gi ca - phep raycast o day chi chay trong Editor.
+    ///
+    /// Ban lai tia mot lan nua thay vi luu ket qua cua Recheck: Recheck chay theo nhip 0.1s con
+    /// gizmo ve moi lan Scene view repaint, luu lai thi duong ve giat theo nhip do.
+    /// </summary>
+    void OnDrawGizmos()
+    {
+        if (!_drawRays) return;
+        if (_cam == null) _cam = GetComponent<Camera>();
+        if (_cam == null) return;
+
+        Creature t = _target;
+        if (t == null && GameManager.HasInstance) t = GameManager.Instance.Player;
+        if (t == null) return;
+
+        Vector3 center;
+        float radius;
+        if (_targetRoot != t.transform)
+        {
+            _targetRoot = t.transform;
+            _targetRenderers = t.GetComponentsInChildren<Renderer>(true);
+            _baseRadius = 0f;
+        }
+        if (!TargetSilhouette(t, out center, out radius)) return;
+
+        Transform ct = _cam.transform;
+        Vector3 fwd = ct.forward, right = ct.right, up = ct.up;
+
+        // Vanh lay mau
+        Gizmos.color = new Color(1f, 0.85f, 0.2f, 0.9f);
+        int n = Mathf.Max(3, _ringSamples);
+        Vector3 prev = center + (right * Mathf.Cos(0f) + up * Mathf.Sin(0f)) * radius;
+        for (int i = 1; i <= n; i++)
+        {
+            float a = i * Mathf.PI * 2f / n;
+            Vector3 cur = center + (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * radius;
+            Gizmos.DrawLine(prev, cur);
+            prev = cur;
+        }
+
+        for (int i = 0; i <= n; i++)
+        {
+            Vector3 target = center;
+            if (i > 0)
+            {
+                float a = (i - 1) * Mathf.PI * 2f / n;
+                target += (right * Mathf.Cos(a) + up * Mathf.Sin(a)) * radius;
+            }
+            DrawOneRay(target, fwd, radius);
+        }
+    }
+
+    private void DrawOneRay(Vector3 target, Vector3 fwd, float radius)
+    {
+        float dist = Vector3.Dot(target - _cam.transform.position, fwd);
+        if (dist <= 0.01f) return;
+
+        Vector3 origin = target - fwd * dist;
+        float len = dist - Mathf.Max(0f, radius);
+        if (len <= 0.01f) return;
+
+        // Tim vat chan GAN CAMERA NHAT de biet cat duong ve o dau
+        float bestDist = -1f;
+        int hits = Physics.RaycastNonAlloc(origin, fwd, _rayBuf, len, _occluderLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < hits; i++)
+        {
+            Collider c = _rayBuf[i].collider;
+            if (c == null || c.GetComponentInParent<PhysicsDevourable>() == null) continue;   // chi item moi tinh
+            if (bestDist < 0f || _rayBuf[i].distance < bestDist) bestDist = _rayBuf[i].distance;
+        }
+
+        Vector3 end = origin + fwd * len;
+        if (bestDist < 0f)
+        {
+            Gizmos.color = new Color(0.2f, 1f, 0.3f, 0.75f);   // thong suot
+            Gizmos.DrawLine(origin, end);
+            return;
+        }
+
+        Vector3 hit = origin + fwd * bestDist;
+        Gizmos.color = new Color(0.2f, 1f, 0.3f, 0.75f);
+        Gizmos.DrawLine(origin, hit);                          // doan truoc vat can
+
+        Gizmos.color = new Color(1f, 0.15f, 0.1f, 0.9f);
+        Gizmos.DrawLine(hit, end);                             // doan bi chan
+        Gizmos.DrawSphere(hit, 0.15f);                         // diem cham
+    }
+#endif
 }

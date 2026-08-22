@@ -709,13 +709,13 @@ public class SimpleSuction : MonoBehaviour
         // cho nguoi choi - van chua choi gi diem da tu chay.
         if (IsPlayerOwned && UIManager.Instance != null) UIManager.Instance.AddScore(it.scoreValue);
 
-        // TIENG AN ITEM, to dan khi an lien tuc. SoundManager tu dem chuoi va tu reset sau mot
-        // khoang lang - an item khong co khai niem "mot pha" nhu luc bi hut nen khong co moc nao
-        // ro rang de reset.
+        // TIENG AN ITEM, CAO DAN khi an lien tuc. SoundManager tu dem, tu reset sau khoang lang,
+        // va tu chan neu hai mon vao mom qua sat nhau (nuot 4 mon trong mot frame ma keu ca 4 thi
+        // bien do cong don vuot tran roi vo tieng).
         //
         // Chi nguoi choi: mot con bot an ca tram mon moi van, 8 con thi thanh tieng ran ri lien tuc.
         if (IsPlayerOwned && SoundManager.HasInstance)
-            SoundManager.Instance.PlaySfxStreakTimed(SoundManager.Sfx.EatFeed);
+            SoundManager.Instance.PlaySfxRising(SoundManager.Sfx.EatFeed);
 
         AddXp(it.xpValue);
         it.Devour(mouth);        // item xoay tit + teo lao vao mom

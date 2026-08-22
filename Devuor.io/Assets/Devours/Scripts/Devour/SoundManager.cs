@@ -107,9 +107,32 @@ public class SoundManager : MonoBehaviour
     [Range(0f, 1f)] [SerializeField] private float _streakVolumeFrom = 0.6f;
     [Range(0f, 1f)] [SerializeField] private float _streakVolumeTo = 1f;
 
-    [Tooltip("Chi dung cho PlaySfxStreakTimed: ngung lau hon bao nhieu giay thi chuoi ve day.\n" +
-             "An item khong co khai niem 'mot pha' nhu luc bi hut, nen phai dem bang khoang lang.")]
-    [SerializeField] private float _streakGap = 0.6f;
+    [Header("Chuoi CAO DAN - dung cho tieng an moi")]
+    [Tooltip("Moi lan lien tiep thi pitch cong them bao nhieu. 0.06 ~ nua cung mot nua cung nhac")]
+    [SerializeField] private float _pitchStep = 0.06f;
+
+    [Tooltip("TRAN pitch. Cham tran thi GIU o day chu khong rot ve 1 - rot thang xuong nghe rat gay.\n\n" +
+             "1.6 la nguong an toan: pitch la resample, 3.0 nghia la clip co lai con 1/3 do dai va\n" +
+             "dai cao bi aliasing -> tieng 'chip chip' meo. Qua 1.8 la bat dau nghe ra.")]
+    [SerializeField] private float _pitchMax = 1.6f;
+
+    [Tooltip("Ngung lau hon bao nhieu giay thi pitch ve lai 1.0")]
+    [SerializeField] private float _pitchResetDelay = 0.8f;
+
+    [Tooltip("Hai tieng lien tiep phai cach nhau it nhat bao nhieu giay. Nuot mot luc 4 mon trong\n" +
+             "mot frame ma keu ca 4 thi bien do cong don vuot tran 1.0 -> vo tieng ngay o mixer")]
+    [SerializeField] private float _minInterval = 0.05f;
+
+    [Range(0f, 1f)]
+    [Tooltip("Do to khi pitch da cham tran. Pitch cao nghe da chua tai hon nen ha bot lai cho can")]
+    [SerializeField] private float _pitchVolumeAtMax = 0.7f;
+
+    [Header("Ducking")]
+    [Tooltip("BAT: tieng don dap (Pop / an moi) tu nho lai khi dang co nhieu tieng chong nhau.\n" +
+             "He so 1/can(1 + so tieng dang keu) - hai tieng chong thi con 71%, bon tieng con 45%.\n\n" +
+             "KHONG ap cho tieng su kien mot lan (nuot dut, len moc): nhung tieng do can duoc nghe ro\n" +
+             "dung luc dong nhat, ha chung xuong la mat han y nghia.")]
+    [SerializeField] private bool _duckWhenCrowded = true;
 
     [Header("Nhac nen")]
     [Tooltip("Bai nhac phat ngay khi vao game. De trong = khong tu phat gi, cho code goi PlayMusic")]
@@ -151,8 +174,9 @@ public class SoundManager : MonoBehaviour
     private AudioSource _musicSource;
     private int _nextSlot;
     private SfxEntry[] _byId;      // tra cuu theo (int)Sfx - nhanh hon duyet bang moi lan phat
-    private int[] _streakCount;    // chuoi dang dem cho PlaySfxStreakTimed, theo tung Sfx
+    private int[] _streakCount;    // chuoi dang dem, theo tung Sfx
     private float[] _streakLast;   // lan goi gan nhat cua tung Sfx
+    private float[] _pitch;        // pitch dang o dau trong chuoi cao dan, theo tung Sfx
 
     /// <summary>Nhac dang phat. null = khong co bai nao.</summary>
     public AudioClip CurrentMusic { get { return _musicSource != null ? _musicSource.clip : null; } }
@@ -326,35 +350,74 @@ public class SoundManager : MonoBehaviour
     {
         SfxEntry e;
         if (!TryGet(id, out e)) return;
-        Play(e.clip, StreakVolume(streak) * EntryVolume(e), 1f, false);
+        Play(e.clip, StreakVolume(streak) * EntryVolume(e) * VoiceDuck(), 1f, false);
     }
 
     /// <summary>
-    /// Nhu PlaySfxStreak nhung TU DEM: ngung goi lau hon _streakGap giay thi chuoi tu ve day.
+    /// Ban mot phat trong chuoi CAO DAN: lam lien tuc thi pitch leo len, cham tran thi GIU nguyen.
     ///
-    /// Dung cho tieng an item - an lien tuc trong mot dong thi to dan, roi dong di cho khac thi ve
-    /// nho. Ben goi khong phai giu bien dem nao ca, chi goi moi lan an duoc mot mon.
+    /// Tu dem va tu reset - ngung lau hon _pitchResetDelay la pitch ve 1.0. Ben goi khong giu bien
+    /// nao ca, chi goi moi lan an duoc mot mon.
+    ///
+    /// BA thu chong meo tieng nam o day:
+    ///   1. TRAN pitch 1.6 chu khong phai 3.0 - pitch la resample, cao qua la aliasing
+    ///   2. Cham tran thi GIU, khong rot ve 1.0 - rot thang xuong nghe gay khuc
+    ///   3. THROTTLE _minInterval - nuot 4 mon trong mot frame chi keu mot tieng, khong cong don
+    ///      bien do vuot tran roi vo tieng
     /// </summary>
-    public void PlaySfxStreakTimed(Sfx id)
+    public void PlaySfxRising(Sfx id)
     {
         SfxEntry e;
         if (!TryGet(id, out e)) return;
 
+        EnsureStreakArrays();
         int i = (int)id;
-        if (_streakCount == null || _streakCount.Length != _byId.Length)
-        {
-            _streakCount = new int[_byId.Length];
-            _streakLast = new float[_byId.Length];
-        }
 
-        // unscaledTime: man ket thuc dat timeScale = 0, Time.time dung han thi chuoi khong bao gio dut
+        // unscaledTime: man ket thuc dat timeScale = 0, Time.time dung han thi moi phep do gio deu sai
         float now = Time.unscaledTime;
-        if (now - _streakLast[i] > Mathf.Max(0f, _streakGap)) _streakCount[i] = 0;
+        float delta = now - _streakLast[i];
 
-        _streakCount[i]++;
+        if (delta < Mathf.Max(0f, _minInterval)) return;   // an don -> chi mot tieng
+
+        _pitch[i] = delta >= Mathf.Max(0f, _pitchResetDelay)
+            ? 1f
+            : Mathf.Min(_pitch[i] + _pitchStep, _pitchMax);
         _streakLast[i] = now;
 
-        Play(e.clip, StreakVolume(_streakCount[i]) * EntryVolume(e), 1f, false);
+        // Pitch cao nghe da tai hon nen ha do to lai cho can
+        float vol = Mathf.Lerp(1f, _pitchVolumeAtMax, Mathf.InverseLerp(1f, _pitchMax, _pitch[i]));
+        Play(e.clip, vol * EntryVolume(e) * VoiceDuck(), _pitch[i], false);
+    }
+
+    /// <summary>
+    /// He so ha am khi DANG co nhieu tieng chong nhau, de tong bien do khong vuot tran 1.0 roi vo.
+    ///
+    /// 1/can(1 + n) chu khong phai 1/(1+n): tai nghe theo cong suat chu khong theo bien do, chia
+    /// tuyen tinh thi hai tieng chong nhau se nho hon MOT tieng - nguoc voi cai minh muon.
+    ///
+    /// Chi dem o dang phat mot phat, khong dem loop: tieng hut keu suot ca van, tinh no vao thi moi
+    /// tieng khac deu bi ha mai mai.
+    /// </summary>
+    private float VoiceDuck()
+    {
+        if (!_duckWhenCrowded || _voices == null) return 1f;
+
+        int playing = 0;
+        for (int i = 0; i < _voices.Length; i++)
+        {
+            Voice v = _voices[i];
+            if (v.source != null && !v.loop && v.source.isPlaying) playing++;
+        }
+        return 1f / Mathf.Sqrt(1f + playing);
+    }
+
+    private void EnsureStreakArrays()
+    {
+        if (_streakLast != null && _streakLast.Length == _byId.Length) return;
+
+        _streakCount = new int[_byId.Length];
+        _streakLast = new float[_byId.Length];
+        _pitch = new float[_byId.Length];
     }
 
     /// <summary>Do to cua lan thu <paramref name="streak"/> trong chuoi (dem tu 1).</summary>

@@ -56,6 +56,12 @@ public class UIManager : MonoBehaviour
     public Text winScoreText;
     public Button winButton;
 
+    [Header("Ket thuc van")]
+    [Tooltip("BAT: ket thuc van thi DONG BANG the gioi (timeScale = 0).\n\n" +
+             "TAT (mac dinh): the gioi chay tiep phia sau man ket thuc - bot van di lai, item van\n" +
+             "bay, nhac van chay. Man hinh ket thuc chi la mot lop UI dat len tren.")]
+    public bool freezeOnEnd = false;
+
     [Header("Match")]
     [Tooltip("Thoi gian moi van tinh bang giay. De 0 de tat dong ho")]
     public float matchDuration = 120f;
@@ -153,6 +159,33 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Bat mot panel len, va ep moi Animator ben trong chay theo GIO THAT.
+    ///
+    /// VI SAO PHAI EP: ca ba man (Home, Thang, Thua) deu hien luc timeScale = 0. Animator mac dinh
+    /// chay theo gio DA NHAN timeScale, nen o timeScale = 0 no dung im o frame dau tien - ma frame
+    /// dau cua mot animation "bung ra" thi moi thu deu o scale 0. Ket qua: panel bat len that,
+    /// activeInHierarchy = true, moi Image alpha = 1, nhung tren man hinh KHONG THAY GI.
+    ///
+    /// Da dinh dung canh do: WinPanel/Main mang controller C_Win, cac con deu nam o scale 0.00.
+    ///
+    /// Ep trong code chu khong sua tay tung Animator trong prefab: lam tay thi popup nao them sau
+    /// nay cung se tat mot lan nua, va khong ai nho ra vi sao.
+    /// </summary>
+    private void ShowPanel(GameObject panel)
+    {
+        if (panel == null) return;
+
+        panel.SetActive(true);
+
+        Animator[] anims = panel.GetComponentsInChildren<Animator>(true);
+        for (int i = 0; i < anims.Length; i++)
+        {
+            if (anims[i] == null) continue;
+            anims[i].updateMode = AnimatorUpdateMode.UnscaledTime;
+        }
+    }
+
+    /// <summary>
     /// Man chao: dong bang the gioi cho toi khi bam Play.
     ///
     /// timeScale = 0 dung mot phat tat het: physics khong tick nen khong ai di chuyen duoc, dong
@@ -163,7 +196,7 @@ public class UIManager : MonoBehaviour
         State = MatchState.Home;
         Time.timeScale = 0f;
 
-        if (homePanel != null) homePanel.SetActive(true);
+        ShowPanel(homePanel);
         if (hudRoot != null) hudRoot.SetActive(false);
         if (joystick != null) joystick.gameObject.SetActive(false);
     }
@@ -195,9 +228,17 @@ public class UIManager : MonoBehaviour
         if (GameManager.HasInstance) GameManager.Instance.StartMatch();
     }
 
-    /// <summary>Cong them diem, dung khi nhan vat "nuot" duoc mot vat the.</summary>
+    /// <summary>
+    /// Cong them diem, dung khi nhan vat "nuot" duoc mot vat the.
+    ///
+    /// KHONG cong nua sau khi van da ket thuc: the gioi van chay tiep phia sau man ket thuc (xem
+    /// freezeOnEnd), nen nguoi choi con song sau khi THANG van tiep tuc hut item duoc. Khong chan
+    /// thi so diem tren HUD cu chay len trong khi man ket thuc dang trung ra mot con so khac -
+    /// hai con so cua cung mot van ma khong khop nhau.
+    /// </summary>
     public void AddScore(int amount)
     {
+        if (State == MatchState.Ended) return;
         SetScore(Score + amount);
     }
 
@@ -218,14 +259,14 @@ public class UIManager : MonoBehaviour
         if (State != MatchState.Playing) return;
         State = MatchState.Ended;
 
-        Time.timeScale = 0f;
+        if (freezeOnEnd) Time.timeScale = 0f;
         if (joystick != null) joystick.gameObject.SetActive(false);
 
         Text scoreLabel = win ? winScoreText : loseScoreText;
         GameObject panel = win ? winPanel : losePanel;
 
         if (scoreLabel != null) scoreLabel.text = "SCORE  " + Score;
-        if (panel != null) panel.SetActive(true);
+        ShowPanel(panel);
     }
 
     /// <summary>Giu lai cho code cu goi: thua = ket thuc van ma khong thang.</summary>
