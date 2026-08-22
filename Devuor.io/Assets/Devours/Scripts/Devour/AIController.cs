@@ -21,6 +21,7 @@ public class AIController : MonoBehaviour
     [SerializeField] private RbMovement _movement;
     [SerializeField] private SimpleSuction _suction;
     [SerializeField] private Creature _creature;
+    [SerializeField] private Rigidbody _rb;
 
     [Header("Nhip suy nghi")]
     [Tooltip("Giay giua 2 lan bot NGHI LAI (quet item + do vat can). Giua 2 lan thi cu bam huong cu.\n" +
@@ -131,8 +132,22 @@ public class AIController : MonoBehaviour
     public float whiskerAngle = 35f;
 
     [Tooltip("Layer tinh la VAT CAN. Vat co Rigidbody (item, sinh vat khac) tu dong KHONG tinh -\n" +
-             "khong thi bot se ne chinh cai no dinh an")]
+             "khong thi bot se ne chinh cai no dinh an.\n\n" +
+             "NGOAI TRU item qua to voi con nay: no se KHOA CUNG khi bi huc (xem\n" +
+             "PhysicsDevourable.pushLockStageDiff), tuc la mot buc tuong that su - xem IsWallLikeItem.")]
     public LayerMask obstacleLayers = ~0;
+
+    [Tooltip("Bao lau QUET vat can mot lan (giay). TACH RIENG khoi thinkInterval vi hai viec nay khac\n" +
+             "nhip nhau: nghi (quet item, chon moi) la viec dat va cham doi, con ne tuong phai NHANH.\n\n" +
+             "Voi thinkInterval 0.35s va toc do ~6u/s thi bot di duoc ~2u trong mu - dai hon ca tia rau\n" +
+             "(whiskerLength 3), nen no dam vao tuong roi moi biet.\n\n" +
+             "Dang BI HUT thi bo qua nhip nay, quet moi frame - do la luc mot buoc di sai la mat may level.")]
+    public float avoidInterval = 0.1f;
+
+    [Tooltip("Sau khi cham vat can, NHO ben da re trong bao lau (giay).\n\n" +
+             "Khong nho thi o goc tuong bot chon lai ben moi lan quet: trai - phai - trai, dung tai cho\n" +
+             "ma khong thoat ra duoc. Nho ben roi thi no re dut khoat mot huong cho toi khi ra khoi goc.")]
+    public float avoidCommitTime = 0.6f;
 
     [Header("Chong ket")]
     [Tooltip("Cu bao nhieu giay thi kiem tra xem co nhich duoc khong")]
@@ -201,6 +216,12 @@ public class AIController : MonoBehaviour
     private Vector3 _home;
     private Vector3 _wanderPoint;
     private Vector3 _avoidDir;          // Vector3.zero = duong thong, khong phai ne
+    private int _avoidSide;             // ben dang re: -1 trai, +1 phai. 0 = chua chot ben nao
+    private float _avoidSideUntil;      // giu ben da chot toi gio nay
+    private float _avoidTimer;          // nhip quet vat can, chay rieng voi _thinkTimer
+    private Vector3 _hitNormal;         // phap tuyen cua vat vua chan duong - de chon ben re
+    private Vector3 _unstickDir;        // huong THOAT KET, de cao hon moi huong khac. zero = khong ket
+    private float _unstickUntil;        // giu huong thoat ket toi gio nay
     private float _thinkTimer;
     private float _wanderTimer;
     private float _stuckTimer;
@@ -209,7 +230,11 @@ public class AIController : MonoBehaviour
     // Buffer dung CHUNG cho moi bot: cac bot deu nghi tren main thread va khong long nhau,
     // nen mot mang la du - khong can moi bot mot mang rieng.
     private static Collider[] _searchBuf;
-    private static readonly RaycastHit[] _rayBuf = new RaycastHit[4];
+    // 8 cho chu khong phai 4: RaycastNonAlloc KHONG sap theo khoang cach, day buffer la no bo phan
+    // con lai tuy y. Map nay day item (320 mon Lv1), ma item an duoc thi bi loc ra khong tinh la vat
+    // can - 4 cho rat de bi may mon do chiem het truoc khi den luot buc tuong that su.
+    private static readonly RaycastHit[] _rayBuf = new RaycastHit[8];
+    private static readonly Collider[] _overlapBuf = new Collider[8];
 
     /// <summary>Chay khi VUA GAN component trong Editor: dien san ref de khoi phai keo tay.</summary>
     void Reset() { AutoFill(); }
@@ -238,6 +263,7 @@ public class AIController : MonoBehaviour
         if (_movement == null) _movement = GetComponent<RbMovement>();
         if (_suction == null) _suction = GetComponent<SimpleSuction>();
         if (_creature == null) _creature = GetComponent<Creature>();
+        if (_rb == null) _rb = GetComponent<Rigidbody>();
     }
 
     void Update()
@@ -251,8 +277,20 @@ public class AIController : MonoBehaviour
         _thinkTimer -= Time.deltaTime;
         if (_thinkTimer <= 0f)
         {
-            Think();
+            Think();                                      // Think() tu goi SenseObstacles o cuoi moi nhanh
             _thinkTimer = Mathf.Max(0f, thinkInterval);
+            _avoidTimer = Mathf.Max(0f, avoidInterval);    // vua quet xong, khoi quet lai ngay trong frame nay
+        }
+
+        // QUET VAT CAN theo nhip RIENG, day hon nhip nghi - xem avoidInterval.
+        // Dang bi hut thi ep quet moi frame: mot buoc di sai luc do la mat may level.
+        if (_escapeCone) _avoidTimer = 0f;
+
+        _avoidTimer -= Time.deltaTime;
+        if (_avoidTimer <= 0f)
+        {
+            SenseObstacles(DesiredDirection());
+            _avoidTimer = Mathf.Max(0f, avoidInterval);
         }
 
         CheckStuck();
@@ -660,24 +698,49 @@ public class AIController : MonoBehaviour
         return to.sqrMagnitude > 0.0001f ? to.normalized : Vector3.zero;
     }
 
-    /// <summary>Huong THUC SU di: huong muon di, hoac huong ne neu phia truoc bi chan.</summary>
+    /// <summary>
+    /// Huong THUC SU di. Uu tien tu cao xuong thap:
+    ///   1. THOAT KET - dang nam trong long mot vat, phai ra khoi da
+    ///   2. NE VAT CAN - phia truoc bi chan
+    ///   3. Huong muon di
+    ///
+    /// Thoat ket phai dung TREN ne vat can: luc ket trong long collider thi tia rau bao TRONG o moi
+    /// huong (Unity khong tinh la trung khi tia xuat phat tu ben trong), nen _avoidDir luon bang 0 -
+    /// de no quyet dinh thi bot cu di thang vao tuong vo hinh mai.
+    /// </summary>
     private Vector3 SteerDirection()
     {
+        if (_unstickDir.sqrMagnitude > 0.0001f)
+        {
+            if (Time.time < _unstickUntil) return _unstickDir;
+            _unstickDir = Vector3.zero;
+        }
+
         Vector3 desired = DesiredDirection();
         if (_avoidDir.sqrMagnitude > 0.0001f) return _avoidDir;
         return desired;
     }
 
     /// <summary>
-    /// Ba tia RAU: thang, lech trai, lech phai. Thang bi chan thi re sang ben con trong.
+    /// TIA RAU: ban thang truoc mat, bi chan thi RE MOT GOC roi di thang - khong bam dinh mat tuong.
     ///
-    /// Vat co Rigidbody bi loai khoi danh sach vat can: item va sinh vat khac deu co Rigidbody,
-    /// con nha cua/dia hinh thi khong - nho vay bot ne nha ma khong ne do an. Cach nay re hon
-    /// nhieu so voi GetComponentInParent tren tung tia.
+    /// Quat cac goc tu HEP toi RONG (1x, 2x, 3x whiskerAngle) va thu BEN DA CHOT truoc. Ban cu chi
+    /// thu dung +-whiskerAngle roi bo cuoc: tuong cheo hay goc tuong la ca hai ben deu dinh, roi roi
+    /// vao nhanh LUI - lui ra xong nhip sau lai nham dung muc tieu cu va dam lai y het. Do la cai
+    /// vong "quay qua dam vao tuong lien tuc".
+    ///
+    /// Goc re la BOI SO cua whiskerAngle chu khong phai so moi: chinh mot cho van doi ca quat.
+    ///
+    /// Vat co Rigidbody bi loai khoi danh sach vat can (item, sinh vat khac deu co Rigidbody, nha cua
+    /// thi khong) - TRU item qua to voi con nay, xem IsWallLikeItem.
     /// </summary>
     private void SenseObstacles(Vector3 desired)
     {
         _avoidDir = Vector3.zero;
+
+        // Het han nho ben: quen di de lan ket sau duoc chon lai tu dau theo dia hinh moi
+        if (_avoidSide != 0 && Time.time > _avoidSideUntil) _avoidSide = 0;
+
         if (desired.sqrMagnitude < 0.0001f) return;
 
         Vector3 origin = transform.position + Vector3.up * 0.3f;
@@ -685,13 +748,75 @@ public class AIController : MonoBehaviour
 
         if (!Blocked(origin, desired, len)) return;
 
-        Vector3 left = Quaternion.Euler(0f, -whiskerAngle, 0f) * desired;
-        Vector3 right = Quaternion.Euler(0f, whiskerAngle, 0f) * desired;
+        // Da cham vat can: chot mot ben (neu chua co) va gia han thoi gian nho ben do
+        if (_avoidSide == 0) _avoidSide = PickAvoidSide(desired);
+        _avoidSideUntil = Time.time + Mathf.Max(0f, avoidCommitTime);
 
-        if (!Blocked(origin, left, len)) { _avoidDir = left; return; }
-        if (!Blocked(origin, right, len)) { _avoidDir = right; return; }
+        // Goc hep truoc (lech it nhat ma van di duoc), moi goc thu ben da chot truoc
+        for (int step = 1; step <= 3; step++)
+        {
+            float angle = Mathf.Min(whiskerAngle * step, 150f);
 
-        _avoidDir = -desired;   // bit ca ba huong: lui ra roi tinh sau
+            Vector3 a = Quaternion.Euler(0f, angle * _avoidSide, 0f) * desired;
+            if (!Blocked(origin, a, len)) { _avoidDir = a; return; }
+
+            Vector3 b = Quaternion.Euler(0f, -angle * _avoidSide, 0f) * desired;
+            if (!Blocked(origin, b, len)) { _avoidDir = b; return; }
+        }
+
+        _avoidDir = LastResort(desired);
+    }
+
+    /// <summary>
+    /// RE VE BEN NAO khi vua cham vat can. Chot mot lan roi giu - xem avoidCommitTime.
+    ///
+    /// Dang BI HUT: chon ben lam minh XA ke hut ra - do la ca muc dich cua pha nay.
+    /// Binh thuong: re theo huong ma MAT TUONG dang quay ve (phap tuyen), tuc la truot ra phia
+    /// thoang thay vi hup vao goc. Dam vuong goc that (phap tuyen nguoc han huong di) thi khong ben
+    /// nao hon ben nao, boc bua mot ben.
+    /// </summary>
+    private int PickAvoidSide(Vector3 desired)
+    {
+        Vector3 right = Vector3.Cross(Vector3.up, desired);
+        if (right.sqrMagnitude < 0.0001f) return Random.value < 0.5f ? -1 : 1;
+        right.Normalize();
+
+        if (_escapeCone) return AwaySide(right);
+
+        float d = Vector3.Dot(right, _hitNormal);
+        if (Mathf.Abs(d) < 0.05f) return Random.value < 0.5f ? -1 : 1;
+        return d > 0f ? 1 : -1;
+    }
+
+    /// <summary>
+    /// BIT MOI HUONG. Binh thuong thi lui ra roi tinh sau, y nhu cu.
+    ///
+    /// NHUNG dang BI HUT thi TUYET DOI khong lui: luc do desired la huong thoat khoi non, nen
+    /// -desired la huong lao thang vao mom ke dang hut minh. Bot se ra khoi tuong roi lai bi hut
+    /// vao, ra roi lai vao - dung cai canh "dam dau vao con hut roi quay qua dam vao tuong".
+    ///
+    /// Thay bang DI NGANG: bo vuong goc voi huong thoat, chon ben xa ke hut hon. Di ngang doc tuong
+    /// thi it ra khoang cach toi mom con tang len, con lui la chac chan chet.
+    /// </summary>
+    private Vector3 LastResort(Vector3 desired)
+    {
+        if (!_escapeCone) return -desired;
+
+        Vector3 right = Vector3.Cross(Vector3.up, desired);
+        if (right.sqrMagnitude < 0.0001f) return -desired;
+        right.Normalize();
+
+        return right * AwaySide(right);
+    }
+
+    /// <summary>Ben nao cua truc <paramref name="right"/> la ben XA ke hut ra.</summary>
+    private int AwaySide(Vector3 right)
+    {
+        Vector3 away = transform.position - (_threat != null ? _threat.Center : _threatPos);
+        away.y = 0f;
+        if (away.sqrMagnitude < 0.0001f) return Random.value < 0.5f ? -1 : 1;
+
+        return Vector3.Dot(right, away) >= 0f ? 1 : -1;
     }
 
     private bool Blocked(Vector3 origin, Vector3 dir, float len)
@@ -699,12 +824,44 @@ public class AIController : MonoBehaviour
         int n = Physics.RaycastNonAlloc(origin, dir, _rayBuf, len, obstacleLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
         {
-            if (_rayBuf[i].rigidbody != null) continue;          // item / sinh vat -> khong phai vat can
-            if (_rayBuf[i].collider == null) continue;
-            if (_rayBuf[i].collider.transform.IsChildOf(transform)) continue;   // collider cua chinh minh
+            Collider col = _rayBuf[i].collider;
+            if (col == null) continue;
+            if (col.transform.IsChildOf(transform)) continue;    // collider cua chinh minh
+
+            Rigidbody rb = _rayBuf[i].rigidbody;
+            if (rb != null && !IsWallLikeItem(rb)) continue;      // item day duoc / sinh vat -> khong phai vat can
+
+            _hitNormal = _rayBuf[i].normal;
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Vat co Rigidbody nay co phai la BUC TUONG doi voi rieng con nay khong.
+    ///
+    /// Item hon minh tu pushLockStageDiff hang tro len se KHOA CUNG ngay khi bi huc vao
+    /// (PhysicsDevourable), tuc no dung nghia la tuong - nhung vi no co Rigidbody nen tia rau van
+    /// bo qua, va bot cu the ma huc mai. Day la cho sua.
+    ///
+    /// TINH LAI theo hang cua CHINH MINH chu khong doc co khoa cua item: co do duoc dat theo con
+    /// VUA HUC vao gan nhat, mot con Lv1 huc phai toa nha la co bat len - doc co do thi con Lv500
+    /// di ngang qua se ne chinh mon no an duoc.
+    ///
+    /// Chi ton mot GetComponent tren nhung tia trung vat CO Rigidbody, do duoc 0.091 us/lan.
+    /// </summary>
+    private bool IsWallLikeItem(Rigidbody rb)
+    {
+        if (_suction == null) return false;
+
+        PhysicsDevourable it = rb.GetComponent<PhysicsDevourable>();
+        if (it == null || it.Consumed) return false;      // sinh vat khac / vat vo danh -> khong ne
+        if (it.pushLockStageDiff <= 0) return false;      // item nay khong bao gio khoa
+
+        // Co khoa toan cuc dang TAT thi khong co gi khoa ca - day duoc het, khong phai ne
+        if (GameManager.HasInstance && !GameManager.Instance.PushLockEnabled) return false;
+
+        return _suction.StageAtLevel(it.RequiredLevel) - _suction.Stage >= it.pushLockStageDiff;
     }
 
     /// <summary>
@@ -726,11 +883,126 @@ public class AIController : MonoBehaviour
             if (_prey != null) { _gaveUpOn = _prey; _gaveUpUntil = Time.time + huntCooldown; _prey = null; }
             PickWanderPoint();
             _avoidDir = Vector3.zero;
+
+            // Doi muc tieu khong cuu duoc neu dang KET TRONG LONG mot vat - muc tieu moi cung nam
+            // ben kia buc tuong do. Phai chu dong go ra.
+            Unstick();
         }
 
         _stuckTimer = 0f;
         _stuckLastPos = transform.position;
     }
+
+    /// <summary>
+    /// GO KET. Hai canh khac han nhau nen cach xu ly cung khac:
+    ///
+    ///   1. LOT HAN vao trong long mot ITEM qua to  -> DAT THANG ra ngoai
+    ///   2. Ty vao tuong / vat can tu ben ngoai      -> lai huong ra, di bang chan
+    ///
+    /// VI SAO ca 1 phai dat thang ra: do duoc roi - bot lot trong long toa nha van chon dung huong
+    /// va van day, nhung chi nhich 0.083 u/s (vantoc lenh 1.28 bi solver day nguoc lai ~94%). No bi
+    /// ep giua nen dat va day khoi hop, moi luc di ngang bi an gan het. Thoat 5.5u mat ~45 giay -
+    /// gan nua van dau. Lai huong tu te den may cung khong cuu duoc canh nay.
+    ///
+    /// Dat thang ra CHI ap cho item (vat co Rigidbody), khong ap cho dia hinh tinh: item dung khoi
+    /// hop nen phep thu "co nam trong khong" la chinh xac, con tuong/nha cua dung MeshCollider khong
+    /// loi thi ClosestPoint tra ve chinh diem hoi - moi con di sat tuong deu bi cho la dang o trong.
+    ///
+    /// Nguoi choi khong thay cu dat nay: luc do bot dang khuat HAN trong long toa nha.
+    ///
+    /// Chi chay khi CheckStuck bao ket (1.5 giay mot lan, va chi khi that su khong nhich duoc).
+    /// </summary>
+    private void Unstick()
+    {
+        Vector3 center = transform.position + Vector3.up * 0.3f;
+        float r = ProbeRadius;
+
+        int n = Physics.OverlapSphereNonAlloc(center, r, _overlapBuf, obstacleLayers, QueryTriggerInteraction.Ignore);
+
+        Vector3 push = Vector3.zero;
+        for (int i = 0; i < n; i++)
+        {
+            Collider c = _overlapBuf[i];
+            if (c == null || c.transform.IsChildOf(transform)) continue;
+
+            Bounds b = c.bounds;
+            if (b.max.y <= transform.position.y + 0.05f) continue;   // mat dat duoi chan, khong phai cai giu minh
+
+            Rigidbody rb = c.attachedRigidbody;
+            if (rb != null && !IsWallLikeItem(rb)) continue;          // do an / sinh vat khac: khong phai vat can
+
+            // Nam TRON trong long mot item: ClosestPoint tra ve chinh minh nghia la diem nam ben trong
+            if (rb != null && b.Contains(center) && (c.ClosestPoint(center) - center).sqrMagnitude < 0.0001f)
+            {
+                TeleportOut(b, c.name);
+                return;
+            }
+
+            Vector3 away = center - c.ClosestPoint(center);
+            away.y = 0f;
+            if (away.sqrMagnitude < 0.0001f) away = NearestExitVector(b, center);
+            if (away.sqrMagnitude < 0.0001f) continue;
+
+            push += away.normalized;
+        }
+
+        push.y = 0f;
+        _unstickDir = push.sqrMagnitude > 0.0001f ? push.normalized : Vector3.zero;
+        _unstickUntil = _unstickDir.sqrMagnitude > 0.0001f ? Time.time + stuckCheckTime : 0f;
+    }
+
+    /// <summary>
+    /// Dat bot ra NGOAI khoi hop, theo mat gan nhat, cong them mot doan le cho khoi ty lai vao no.
+    /// Giu nguyen do cao - chi dich tren mat phang ngang.
+    /// </summary>
+    private void TeleportOut(Bounds b, string what)
+    {
+        Vector3 p = transform.position;
+        Vector3 v = NearestExitVector(b, p + Vector3.up * 0.3f);
+        if (v.sqrMagnitude < 0.0001f) return;
+
+        Vector3 target = p + v.normalized * (v.magnitude + ProbeRadius);
+        target.y = p.y;
+
+        if (_rb != null)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _rb.position = target;
+        }
+        transform.position = target;
+
+        _unstickDir = Vector3.zero;
+        _unstickUntil = 0f;
+        _stuckLastPos = target;
+
+        // Canh nay le ra khong duoc xay ra (GameManager da chan cho sinh bi chiem). Con thay log nay
+        // tuc la co duong khac lot vao trong ma minh chua biet - dung nuot im.
+        Debug.LogWarning("[AIController] " + name + " ket trong long " + what + ", da dat ra " + target.ToString("0.0"), this);
+    }
+
+    /// <summary>
+    /// Vector ra MAT GAN NHAT cua khoi hop tren mat phang ngang: HUONG la huong thoat, DO DAI la
+    /// doan con phai di. Chay ra xa tam hop thi cung ra duoc, nhung dung gan giua mot toa nha 15u
+    /// thi duong do dai gap ba lan.
+    /// </summary>
+    private static Vector3 NearestExitVector(Bounds b, Vector3 point)
+    {
+        float xMin = point.x - b.min.x;
+        float xMax = b.max.x - point.x;
+        float zMin = point.z - b.min.z;
+        float zMax = b.max.z - point.z;
+
+        float best = xMin;
+        Vector3 dir = Vector3.left;
+        if (xMax < best) { best = xMax; dir = Vector3.right; }
+        if (zMin < best) { best = zMin; dir = Vector3.back; }
+        if (zMax < best) { best = zMax; dir = Vector3.forward; }
+
+        return dir * Mathf.Max(0f, best);
+    }
+
+    /// <summary>Ban kinh do quanh than khi go ket - du de tim cai dang om lay minh, khong quet ca khu.</summary>
+    private float ProbeRadius { get { return Mathf.Max(0.5f, whiskerLength * 0.35f); } }
 
     private void PickWanderPoint()
     {

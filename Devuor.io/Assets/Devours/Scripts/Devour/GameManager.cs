@@ -79,6 +79,14 @@ public class GameManager : MonoBehaviour
     [Tooltip("Layer tinh la MAT DAT khi ban tia xuong tim cho dat chan")]
     [SerializeField] private LayerMask _groundLayers = ~0;
 
+    [Tooltip("Ban kinh khoang TRONG bat buoc phai co o cho dat chan (world).\n\n" +
+             "Khong co cai nay thi bot co the sinh ra NGAY TRONG LONG mot toa nha: tia do dat co y bo\n" +
+             "qua moi vat co Rigidbody (de bot khong dung tren nong cai banh mi), nen no khong he biet\n" +
+             "cho do dang co nha, cu tha bot xuong nen dat ben duoi.\n\n" +
+             "Ket trong long collider la ket VINH VIEN: raycast khong tinh la trung khi tia xuat phat\n" +
+             "tu ben trong, nen tia rau cua bot bao trong o ca 8 huong trong khi no dang bi chan cung.")]
+    [SerializeField] private float _spawnClearance = 0.6f;
+
     [Header("Can bang level AI theo nguoi choi")]
     [Tooltip("BAT: level bot luon bam quanh level nguoi choi. TAT: bot choi song phang, muon len\n" +
              "bao nhieu thi len (luc test bot da len toi Lv1550 trong 40 giay)")]
@@ -135,6 +143,7 @@ public class GameManager : MonoBehaviour
 
     private readonly List<Creature> _creatures = new List<Creature>();
     private static readonly RaycastHit[] _groundBuf = new RaycastHit[8];
+    private static readonly Collider[] _clearBuf = new Collider[8];
     private float _balanceTimer;
     private bool _pushLockLast = true;
     private bool _matchRunning;
@@ -443,7 +452,32 @@ public class GameManager : MonoBehaviour
             }
             if (!found) continue;
 
-            pos = new Vector3(probe.x, bestY + 0.1f, probe.z);
+            Vector3 candidate = new Vector3(probe.x, bestY + 0.1f, probe.z);
+            if (IsSpawnBlocked(candidate)) continue;   // cho nay dang co nha/item dung - boc cho khac
+
+            pos = candidate;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Cho dinh tha bot co bi vat gi CHIEM CHO khong.
+    ///
+    /// Do o TAM THAN chu khong o chan: dat qua thap thi qua cau nao cung cham mat dat.
+    /// Bo qua nhung gi nam TRON VEN duoi chan (mat dat, via he, buc them phang) - do la cho dung
+    /// chu khong phai vat can.
+    /// </summary>
+    private bool IsSpawnBlocked(Vector3 pos)
+    {
+        float r = Mathf.Max(0.05f, _spawnClearance);
+        int n = Physics.OverlapSphereNonAlloc(pos + Vector3.up * r, r, _clearBuf, ~0, QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < n; i++)
+        {
+            Collider c = _clearBuf[i];
+            if (c == null) continue;
+            if (c.bounds.max.y <= pos.y + 0.05f) continue;   // nam duoi chan - la cho dung, khong phai vat can
             return true;
         }
         return false;
