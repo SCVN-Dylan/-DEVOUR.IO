@@ -100,14 +100,16 @@ public class PhysicsDevourable : MonoBehaviour
     public float leanSpeed = 540f;
 
     [Header("Giang co (item hon player dung 1 cap)")]
-    [Tooltip("Bien do RUNG tai cho (don vi world). Item hon 1 cap chi rung, khong bi hut/di chuyen")]
-    public float struggleShake = 0.08f;
+    [Tooltip("Do NGHIENG NEN ve phia mom (degree). Item hon 1 cap khong bi keo di, nhung nguon\n" +
+             "chui ve phia ke dang hut - nhu mot cai cay bi keo ma re con bam dat.\n" +
+             "0 = dung thang, chi lac lu tai cho")]
+    public float struggleLean = 10f;
 
-    [Tooltip("Tan so rung. Cao = rung gap")]
-    public float struggleFreq = 26f;
-
-    [Tooltip("Do (degree) lac nghieng nhe khi rung. 0 = khong lac")]
+    [Tooltip("Bien do LAC LU quanh the nghieng do (degree). 0 = nghieng cung mot goc, khong dong dua")]
     public float struggleTilt = 5f;
+
+    [Tooltip("Toc do lac lu (radian/giay). ~4-6 la dong dua nang ne; 20+ thanh rung ban bat")]
+    public float struggleFreq = 5f;
 
     [Header("Hieu ung nuot (swallow)")]
     [Tooltip("Thoi gian item xoay tit + teo lao vao mom truoc khi bien mat (giay). 0 = bien mat ngay")]
@@ -426,26 +428,51 @@ public class PhysicsDevourable : MonoBehaviour
     }
 
     /// <summary>
-    /// GIANG CO: item hon player dung 1 cap. Chi RUNG LAC TAI CHO (khong bi hut, khong di chuyen,
-    /// khong nuot). Kinematic + jitter transform quanh diem neo bang Perlin noise cho tu nhien.
+    /// GIANG CO: item hon player dung 1 cap. Khong bi keo di, khong bi nuot - nhung NGHIENG VE PHIA
+    /// MOM va dong dua quanh the nghieng do.
+    ///
+    /// Truc xoay chinh la duong vuong goc voi huong toi mom (Cross(up, huong)), nen goc duong lam
+    /// NGON item chui dung ve phia ke dang hut - khong phai nghieng bua mot ben. Kem mot truc phu
+    /// lac ngang cho chuyen dong khong nam gon trong mot mat phang.
+    ///
+    /// DUNG YEN MOT CHO: chan van o nguyen diem neo. Ban truoc rung ca vi tri bang Perlin noise,
+    /// nhin ra vat nhe bi rung bần bật - nguoc voi y do, vi day toan la vat TO qua tam nguoi choi.
+    ///
+    /// mouthPos truoc day duoc truyen vao nhung khong dung toi; gio no la ca huong nghieng.
     /// </summary>
     public void Struggle(Vector3 mouthPos)
     {
         if (_state != State.Struggling) EnterStruggle();
 
-        float t = Time.time * struggleFreq + _noiseSeed;
-        Vector3 jitter = new Vector3(
-            Mathf.PerlinNoise(t, _noiseSeed) - 0.5f,
-            Mathf.PerlinNoise(_noiseSeed, t) - 0.5f,
-            Mathf.PerlinNoise(t, t) - 0.5f) * (2f * struggleShake);
-        transform.position = _anchor + jitter;
+        transform.position = _anchor;   // giang co la GHIM TAI CHO, khong nhuc nhich
 
-        if (struggleTilt > 0.01f)
-        {
-            float rx = (Mathf.PerlinNoise(t, 1.7f) - 0.5f) * 2f * struggleTilt;
-            float rz = (Mathf.PerlinNoise(1.7f, t) - 0.5f) * 2f * struggleTilt;
-            transform.rotation = _anchorRot * Quaternion.Euler(rx, 0f, rz);
-        }
+        Vector3 toMouth = mouthPos - transform.position;
+        toMouth.y = 0f;
+        if (toMouth.sqrMagnitude < 0.0001f) { transform.rotation = _anchorRot; return; }
+        toMouth.Normalize();
+
+        Vector3 axisMain = Vector3.Cross(Vector3.up, toMouth);   // nghieng TOI / LUI theo huong mom
+        if (axisMain.sqrMagnitude < 0.0001f) { transform.rotation = _anchorRot; return; }
+        axisMain.Normalize();
+
+        float t = Time.time * struggleFreq + _noiseSeed;
+
+        // HAI SIN LECH TAN thay vi mot sin thuan. Mot sin deu tam tap nghe thi hay nhung nhin thi
+        // ra ngay may danh nhip - vat dang co tru lai khong bao gio dao dong deu nhu the. Ti so
+        // 1.7 la so vo ti nen hai song khong bao gio khop lai, chu ky tong khong lap.
+        float sway = Mathf.Sin(t) * 0.65f + Mathf.Sin(t * 1.7f + 1.3f) * 0.35f;
+
+        // Ghim goc trong khoang [0 .. lean + tilt]: KHONG cho lac qua dau ve ben kia.
+        // Nga nguoc ra xa mom giua luc dang bi keo la vo ly, va do chinh la cai lam no trong gia.
+        float angle = Mathf.Max(0f, struggleLean + struggleTilt * sway);
+
+        // Lac ngang mot chut quanh chinh truc huong mom, tan so khac han -> chuyen dong khong
+        // nam gon trong mot mat phang, nhin moi ra "vung vay" thay vi "gat nuoc mua"
+        float side = struggleTilt * 0.35f * Mathf.Sin(t * 0.63f + _noiseSeed * 2f);
+
+        transform.rotation = Quaternion.AngleAxis(angle, axisMain)
+                           * Quaternion.AngleAxis(side, toMouth)
+                           * _anchorRot;
     }
 
     /// <summary>

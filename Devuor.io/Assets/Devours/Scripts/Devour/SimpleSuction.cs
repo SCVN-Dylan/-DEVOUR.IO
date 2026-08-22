@@ -43,6 +43,10 @@ public class SimpleSuction : MonoBehaviour
     [Tooltip("Gia toc keo (u/s^2) = do QUAN TINH. Thap = nang, tang toc tu tu; cao = bat toc nhanh")]
     public float pullAccel = 18f;
 
+    [Tooltip("Bao lau nhac lai tieng 'khong an noi' mot lan (giay), khi con chia mom vao vat qua cap.\n" +
+             "Phai >= do dai clip (access denied dai 1.4s), khong thi tieng sau de len tieng truoc")]
+    public float deniedSoundInterval = 1.5f;
+
     [Tooltip("Tam item vao gan mieng hon khoang nay thi nuot")]
     public float swallowDistance = 0.6f;
 
@@ -660,6 +664,8 @@ public class SimpleSuction : MonoBehaviour
         float eff = CurrentRange;
         _toRemove.Clear();
 
+        int pulled = 0, struggling = 0;
+
         foreach (PhysicsDevourable it in _active)
         {
             // Owner != this = vua bi con khac gianh mat giua hai lan quet. Bo ra ngay va KHONG
@@ -692,13 +698,25 @@ public class SimpleSuction : MonoBehaviour
                 // Truyen 'capture' chu khong phai swallowDistance: day moi la nguong item THUC SU
                 // bien mat o frame nay. Item teo ve 0 dung tai do, khong hut chet mot cuc.
                 it.Pull(mp, originPos, coneAngle, speed, pullAccel, capture);
+                pulled++;
             }
             else
             {
                 it.SetPlayerCollision(_ownCols, false);   // qua cap: van chan duong nguoi choi
-                it.Struggle(mp);   // diff == 1: rung tai cho
+                it.Struggle(mp);   // diff == 1: nghieng ve phia mom + lac lu, khong di chuyen
+                struggling++;
             }
         }
+
+        // TIENG "KHONG AN NOI": trong non khong con gi hut duoc, ma van co vat dang giang co.
+        //
+        // Doi CA HAI dieu kien: dang vua hut duoc mon gi do vua co mot toa nha to trong tam thi
+        // khong phai luc bao "khong an duoc" - nguoi choi dang an binh thuong.
+        //
+        // Ham nay chay moi nhip vat ly (50 lan/giay) nen bat buoc phai co cooldown, khong thi mot
+        // giay 50 tieng chong len nhau.
+        if (pulled == 0 && struggling > 0 && IsPlayerOwned && SoundManager.HasInstance)
+            SoundManager.Instance.PlaySfxCooldown(SoundManager.Sfx.AccessDenied, deniedSoundInterval);
 
         for (int i = 0; i < _toRemove.Count; i++) _active.Remove(_toRemove[i]);
     }

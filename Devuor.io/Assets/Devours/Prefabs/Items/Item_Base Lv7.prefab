@@ -220,6 +220,7 @@ MonoBehaviour:
   requiredLevel: 7
   xpValue: 7
   scoreValue: 1
+  pushLockStageDiff: 3
   sleepDelay: 5
   minShrink: 0.1
   shrinkRadiusMul: 2.5
@@ -231,9 +232,9 @@ MonoBehaviour:
   swirlSpin: 360
   leanIntoPull: 0.8
   leanSpeed: 540
-  struggleShake: 0.08
-  struggleFreq: 26
-  struggleTilt: 5
+  struggleLean: 14
+  struggleTilt: 12
+  struggleFreq: 13
   swallowDuration: 0
   swallowSpin: 1200
   onDevoured:

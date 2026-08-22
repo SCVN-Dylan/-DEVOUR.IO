@@ -8,6 +8,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 699540964631579142, guid: 41ddc6c11f0104afc918e8634f24c4a1, type: 3}
+      propertyPath: struggleFreq
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 699540964631579142, guid: 41ddc6c11f0104afc918e8634f24c4a1, type: 3}
+      propertyPath: struggleLean
+      value: 14
+      objectReference: {fileID: 0}
+    - target: {fileID: 699540964631579142, guid: 41ddc6c11f0104afc918e8634f24c4a1, type: 3}
+      propertyPath: struggleTilt
+      value: 12
+      objectReference: {fileID: 0}
     - target: {fileID: 1274617937326852088, guid: 41ddc6c11f0104afc918e8634f24c4a1, type: 3}
       propertyPath: m_IsActive
       value: 0

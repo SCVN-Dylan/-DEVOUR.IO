@@ -82,6 +82,7 @@ public class SoundManager : MonoBehaviour
         EatHead = 3,    // nuot dut mot con - chi khi co nguoi choi o mot trong hai dau
         Upgrade = 4,    // vua vuot mot moc trong LevelSteps
         EatFeed = 5,    // nuot mot mon item
+        AccessDenied = 6,   // chia mom vao vat khong an noi - no chi giang co chu khong vao duoc
     }
 
     [System.Serializable]
@@ -418,6 +419,33 @@ public class SoundManager : MonoBehaviour
         _streakCount = new int[_byId.Length];
         _streakLast = new float[_byId.Length];
         _pitch = new float[_byId.Length];
+
+        // -999 chu khong phai 0: bang 0 thi ngay dau van (unscaledTime ~ 0) moi phep so "cach lan
+        // truoc bao lau" deu ra gan 0, va tieng dau tien bi cooldown chan oan.
+        for (int i = 0; i < _streakLast.Length; i++) _streakLast[i] = -999f;
+    }
+
+    /// <summary>
+    /// Phat mot tieng nhung CHAN neu vua phat cach day chua du <paramref name="cooldown"/> giay.
+    ///
+    /// Dung cho tieng nhac lai lien tuc trong khi mot trang thai con keo dai - ben goi cu goi moi
+    /// nhip vat ly (50 lan/giay) cung khong sao, o day tu thua.
+    ///
+    /// cooldown phai >= do dai clip, khong thi tieng sau de len tieng truoc.
+    /// </summary>
+    public void PlaySfxCooldown(Sfx id, float cooldown)
+    {
+        SfxEntry e;
+        if (!TryGet(id, out e)) return;
+
+        EnsureStreakArrays();
+        int i = (int)id;
+
+        float now = Time.unscaledTime;
+        if (now - _streakLast[i] < Mathf.Max(0f, cooldown)) return;
+
+        _streakLast[i] = now;
+        Play(e.clip, EntryVolume(e), 1f, false);
     }
 
     /// <summary>Do to cua lan thu <paramref name="streak"/> trong chuoi (dem tu 1).</summary>
