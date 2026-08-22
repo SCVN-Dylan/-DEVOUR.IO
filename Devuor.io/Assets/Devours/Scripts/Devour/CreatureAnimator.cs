@@ -48,6 +48,7 @@ public class CreatureAnimator : MonoBehaviour
 
     private bool _lastRun;
     private bool _lastSucking;
+    private SoundHandle _suckLoop;   // tieng hut dang keu. Rong = khong keu
     private float _lastSpeed = -1f;
     private bool _first = true;
 
@@ -97,6 +98,7 @@ public class CreatureAnimator : MonoBehaviour
         {
             _animator.SetBool(SuckingHash, sucking);
             _lastSucking = sucking;
+            UpdateSuckLoop(sucking);   // tieng hut di CUNG NHIP voi anim, khong co dong ho rieng
         }
         if (_first || run != _lastRun)
         {
@@ -106,6 +108,43 @@ public class CreatureAnimator : MonoBehaviour
 
         ApplyRoleSpeed(attacker, victim);
         _first = false;
+    }
+
+    /// <summary>
+    /// Than bi tat (nguoi choi bi nuot -> SetActive(false)) thi tieng hut phai tat theo.
+    /// Khong co ham nay thi tieng do keu den het van: object da tat, Update khong con chay, khong
+    /// ai con goi Stop cho no nua.
+    /// </summary>
+    void OnDisable()
+    {
+        if (SoundManager.HasInstance) SoundManager.Instance.Stop(_suckLoop);
+        _suckLoop = SoundHandle.None;
+
+        _lastSucking = false;
+        _first = true;      // bat lai thi ghi lai ca hai co tu dau
+    }
+
+    /// <summary>
+    /// TIENG HUT chay dung bang nhip voi anim hut: bat luc anim ha mieng, tat luc anim ngam lai.
+    /// Goi tu dung cho SetBool nen khong bao gio lech nhau.
+    ///
+    /// CHI NGUOI CHOI. He am thanh dang la 2D (khong theo khoang cach), nen 8 bot cung loop mot
+    /// tieng hut se thanh mot lop on nen deu deu suot van, ma khong con nao trong so do la minh.
+    /// </summary>
+    private void UpdateSuckLoop(bool sucking)
+    {
+        if (_creature == null || !_creature.isPlayer || !SoundManager.HasInstance) return;
+
+        if (sucking)
+        {
+            if (!SoundManager.Instance.IsPlaying(_suckLoop))
+                _suckLoop = SoundManager.Instance.PlayLoop(SoundManager.Sfx.Sucking);
+        }
+        else
+        {
+            SoundManager.Instance.Stop(_suckLoop);
+            _suckLoop = SoundHandle.None;
+        }
     }
 
     /// <summary>

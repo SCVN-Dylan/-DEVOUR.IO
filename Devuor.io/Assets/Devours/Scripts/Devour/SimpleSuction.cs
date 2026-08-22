@@ -708,6 +708,15 @@ public class SimpleSuction : MonoBehaviour
         // Diem tren HUD la diem cua NGUOI CHOI. Bo gate nay thi 3 con AI an item cung nhay diem
         // cho nguoi choi - van chua choi gi diem da tu chay.
         if (IsPlayerOwned && UIManager.Instance != null) UIManager.Instance.AddScore(it.scoreValue);
+
+        // TIENG AN ITEM, to dan khi an lien tuc. SoundManager tu dem chuoi va tu reset sau mot
+        // khoang lang - an item khong co khai niem "mot pha" nhu luc bi hut nen khong co moc nao
+        // ro rang de reset.
+        //
+        // Chi nguoi choi: mot con bot an ca tram mon moi van, 8 con thi thanh tieng ran ri lien tuc.
+        if (IsPlayerOwned && SoundManager.HasInstance)
+            SoundManager.Instance.PlaySfxStreakTimed(SoundManager.Sfx.EatFeed);
+
         AddXp(it.xpValue);
         it.Devour(mouth);        // item xoay tit + teo lao vao mom
         PlayGulp();              // than nhan vat 'uc' mot cai
@@ -1029,6 +1038,14 @@ public class SimpleSuction : MonoBehaviour
             cameraZoom.ApplyForLevel(ZoomLevel, instant, camStep, camEvo);
 
         if (scaleStepped) PlayStepPop();
+
+        // TIENG UPGRADE: vua vuot mot moc trong LevelSteps. Dung 'steppedUp' co san chu khong tu do
+        // level: bien do da loai san hai ca khong duoc keu - luc tut mot moc, va luc dat level o
+        // Awake / Edit mode.
+        //
+        // Chi nguoi choi: bot len moc lien tuc ca van, va moc cua chung khong phai thanh tuu cua ai.
+        if (steppedUp && IsPlayerOwned && SoundManager.HasInstance)
+            SoundManager.Instance.PlaySfx(SoundManager.Sfx.Upgrade);
         if (playerVisual != null) playerVisual.SetForm(_evolutionCount);   // SetForm tu bo qua neu khong doi
     }
 
