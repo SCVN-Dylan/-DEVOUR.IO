@@ -41,11 +41,6 @@ MonoBehaviour:
     zoomAdd: 20
     rangeAdd: 5
     isEvolution: 1
-  - level: 500
-    add: 8
-    zoomAdd: 20
-    rangeAdd: 3
-    isEvolution: 1
   maxScale: 20
   speedFollowScale: 0.4
   rangePerLevel: 0.01

@@ -1725,6 +1725,12 @@ MonoBehaviour:
     m_Bits: 4294967295
   scanInterval: 0.05
   maxActiveItems: 64
+  highlightEdibleItems: 1
+  highlightLayer: ItemHighlight
+  highlightRadius: 7
+  maxHighlight: 12
+  showHighlightGizmo: 1
+  highlightGizmoColor: {r: 1, g: 1, b: 1, a: 0.9}
   itemStealMargin: 0.85
   drainCreatures: 1
   drainInterval: 0.1

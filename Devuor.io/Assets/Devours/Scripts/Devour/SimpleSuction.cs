@@ -70,6 +70,37 @@ public class SimpleSuction : MonoBehaviour
              "0 = khong gioi han, hut het moi thu trong non.")]
     public int maxActiveItems = 64;
 
+    [Header("Vien sang item an duoc (CHI NGUOI CHOI)")]
+    [Tooltip("BAT: item nam trong tam ma minh AN DUOC thi hien vien trang. Khong an duoc = de yen.\n\n" +
+             "Chi con isPlayer moi lam sang - bot hut item cung khong lam sang gi ca, day la chi\n" +
+             "dan cho nguoi choi chu khong phai hieu ung cua the gioi.")]
+    public bool highlightEdibleItems = true;
+
+    [Tooltip("Layer danh rieng cho item dang sang. PHAI trung ten voi layer da khai trong\n" +
+             "Project Settings > Tags and Layers, va phai la layer ma Renderer Feature 'ItemOutline'\n" +
+             "dang loc (xem Mobile_Renderer / PC_Renderer).\n\n" +
+             "Khong tim thay ten nay = tu tat tinh nang, kem mot dong canh bao - khong am tham hong.")]
+    public string highlightLayer = "ItemHighlight";
+
+    [Tooltip("BAN KINH lam sang (world unit) - MOT VONG TRON quanh nguoi choi, DOC LAP voi tam hut.\n\n" +
+             "Khong bam theo tam hut vi hai thu tra loi hai cau khac nhau: tam hut la 'voi toi duoc\n" +
+             "khong', con vong nay la 'quanh day co gi an duoc'. Tam hut o Lv1 chi 1.5u - bam theo no\n" +
+             "thi phai di dam vao mon do moi thay vien, chi dan den qua muon.\n\n" +
+             "Vong quet se tu no rong bang MAX(tam hut, so nay), nen dat cao hon tam hut la co them\n" +
+             "chi phi quet - xem showHighlightGizmo de nhin ro no to co nao.")]
+    public float highlightRadius = 3f;
+
+    [Tooltip("TRAN so item sang cung luc - giu nhung cai GAN nhat. 0 = khong gioi han (khong nen).\n" +
+             "Day la luoi chan cuoi cung cho truong hop dung giua mot dong item day dac.")]
+    public int maxHighlight = 12;
+
+    [Tooltip("CHI TRONG EDITOR: ve vong tron ban kinh len Scene view khi chon con nay.\n" +
+             "Ca khoi ve nam trong #if UNITY_EDITOR nen ban build khong he co no.")]
+    public bool showHighlightGizmo = true;
+
+    [Tooltip("Mau vong tron ban kinh trong Scene view (chi de nhin, khong dinh gi toi gameplay)")]
+    public Color highlightGizmoColor = new Color(1f, 1f, 1f, 0.9f);
+
     [Range(0.5f, 1f)]
     [Tooltip("GIANH ITEM tu tay con khac: phai gan mom hon chu cu it nhat bay nhieu lan moi gianh\n" +
              "duoc (0.85 = phai gan hon 15%). Mot item chi duoc DUNG MOT con keo.\n\n" +
@@ -360,6 +391,11 @@ public class SimpleSuction : MonoBehaviour
     private readonly List<PhysicsDevourable> _toRemove = new List<PhysicsDevourable>();
     private struct Candidate { public PhysicsDevourable item; public float dist; public bool canEat; }
     private readonly List<Candidate> _candidates = new List<Candidate>();
+    private readonly HashSet<PhysicsDevourable> _highlit = new HashSet<PhysicsDevourable>();   // dang sang
+    private readonly HashSet<PhysicsDevourable> _hlFound = new HashSet<PhysicsDevourable>();   // duoc sang o lan quet nay
+    private readonly List<Candidate> _hlCandidates = new List<Candidate>();
+    private readonly List<PhysicsDevourable> _hlToDrop = new List<PhysicsDevourable>();
+    private int _hlLayer = -1;         // -1 = khong co layer -> tinh nang tu tat
 
     private const int MaxOverlapBuffer = 4096;   // chan tren, phong truong hop map dien ro
     private static Collider[] _hits = new Collider[128];
@@ -425,6 +461,7 @@ public class SimpleSuction : MonoBehaviour
         }
         _ownCols = keep.ToArray();
 
+        ResolveHighlightLayer();
         ResolveCameraZoom();
 
         // Giu bat bien Level = 1 + Xp ngay tu dau (level authored tren prefab = level khoi dau)
@@ -622,6 +659,85 @@ public class SimpleSuction : MonoBehaviour
 
     private static int CompareByDist(Candidate a, Candidate b) { return a.dist.CompareTo(b.dist); }
 
+    /// <summary>
+    /// Doc ten layer trong Inspector ra chi so, MOT LAN luc Awake. Khong tim thay thi tat han
+    /// tinh nang va bao mot dong - de nguoi sau khong ngoi do hoi "sao vien khong len" trong khi
+    /// thu ra la chua khai layer.
+    /// </summary>
+    private void ResolveHighlightLayer()
+    {
+        _hlLayer = -1;
+        if (!highlightEdibleItems || string.IsNullOrEmpty(highlightLayer)) return;
+
+        _hlLayer = LayerMask.NameToLayer(highlightLayer);
+        if (_hlLayer < 0)
+            Debug.LogWarning("[SimpleSuction] Khong co layer ten '" + highlightLayer +
+                             "' - tat vien sang item. Khai bao no trong Project Settings > Tags and Layers.", this);
+    }
+
+    /// <summary>
+    /// BAT vien cho danh sach vua gom duoc, TAT nhung cai da roi ra ngoai.
+    ///
+    /// Chi dong vao phan CHENH LECH giua lan quet nay va lan truoc: item nam yen trong tam thi
+    /// khong ai dong toi no ca. Dung yen giua mot dong do an ma moi lan quet lai di gan layer cho
+    /// ca dong thi 20 lan/giay deu la viec thua.
+    /// </summary>
+    private void ApplyHighlight()
+    {
+        if (_hlLayer < 0)
+        {
+            if (_highlit.Count > 0) ClearHighlight();   // vua bi tat giua chung -> don sach
+            return;
+        }
+
+        // Qua dong thi giu nhung cai GAN nhat - cat bang khoang cach, khong cat ngau nhien
+        if (maxHighlight > 0 && _hlCandidates.Count > maxHighlight)
+        {
+            _hlCandidates.Sort(CompareByDist);
+            _hlCandidates.RemoveRange(maxHighlight, _hlCandidates.Count - maxHighlight);
+            _hlFound.Clear();
+            for (int i = 0; i < _hlCandidates.Count; i++) _hlFound.Add(_hlCandidates[i].item);
+        }
+
+        // TAT truoc: item da ra khoi tam / het an duoc / da bi nuot.
+        // Gom vao list roi moi xoa - sua HashSet ngay trong luc dang duyet no la nem loi.
+        _hlToDrop.Clear();
+        foreach (PhysicsDevourable it in _highlit)
+            if (it == null || !_hlFound.Contains(it)) _hlToDrop.Add(it);
+
+        for (int i = 0; i < _hlToDrop.Count; i++)
+        {
+            PhysicsDevourable it = _hlToDrop[i];
+            if (it != null) it.SetHighlight(false, _hlLayer);
+            _highlit.Remove(it);
+        }
+
+        // BAT cai moi vao
+        for (int i = 0; i < _hlCandidates.Count; i++)
+        {
+            PhysicsDevourable it = _hlCandidates[i].item;
+            if (it == null) continue;
+            if (_highlit.Add(it)) it.SetHighlight(true, _hlLayer);
+        }
+    }
+
+    /// <summary>
+    /// Tra HET item ve binh thuong. Goi khi component bi tat/huy (nguoi choi chet, doi scene):
+    /// khong co buoc nay thi item dang sang se ket layer ItemHighlight vinh vien - vien trang
+    /// lo lung giua map ma khong con ai chiu trach nhiem.
+    /// </summary>
+    private void ClearHighlight()
+    {
+        foreach (PhysicsDevourable it in _highlit)
+            if (it != null) it.SetHighlight(false, _hlLayer);
+
+        _highlit.Clear();
+        _hlFound.Clear();
+        _hlCandidates.Clear();
+    }
+
+    void OnDisable() { ClearHighlight(); }
+
     /// <summary>Quet lai danh sach item nam trong non (phan dat tien). Item roi khoi non -> tha ra.</summary>
     private void Scan()
     {
@@ -633,7 +749,18 @@ public class SimpleSuction : MonoBehaviour
         _found.Clear();
         _candidates.Clear();
 
-        int n = OverlapAll(origin, eff);
+        // VONG SANG doc lap voi tam hut. Quet phai lay ban kinh LON HON trong hai - item nam ngoai
+        // tam hut nhung trong vong sang thi van phai nhin thay moi lam sang duoc.
+        //
+        // Level thap: vong sang thuong to hon tam hut -> quet rong ra mot chut (day la cho ton them).
+        // Level cao: tam hut vuot xa vong sang -> quet giu nguyen nhu cu, khong ton them gi.
+        bool doHighlight = highlightEdibleItems && _hlLayer >= 0 && _creature != null && _creature.isPlayer;
+        float hlRange = doHighlight ? Mathf.Max(0f, highlightRadius) : 0f;
+        float scanRange = Mathf.Max(eff, hlRange);
+        _hlFound.Clear();
+        _hlCandidates.Clear();
+
+        int n = OverlapAll(origin, scanRange);
         for (int i = 0; i < n; i++)
         {
             if (_hits[i] == null) continue;
@@ -646,7 +773,15 @@ public class SimpleSuction : MonoBehaviour
             Vector3 to = it.Center - origin;
             to.y = 0f;   // Kiem tra goc va khoang cach phang tren mat dat
             float dist = to.magnitude;
-            if (dist > eff) continue;
+            if (dist > scanRange) continue;
+
+            // VIEN SANG: gom o DAY - truoc ca buoc loc tam hut lan buoc loc goc non. Vien la mot
+            // VONG TRON quanh nguoi choi: no tra loi cau "quanh day co gi an duoc", cau do khong
+            // phu thuoc minh dang quay mat di dau, cung khong phu thuoc voi toi chua.
+            if (doHighlight && dist <= hlRange && (!UseLevelGate || diff <= 0) && _hlFound.Add(it))
+                _hlCandidates.Add(new Candidate { item = it, dist = dist, canEat = true });
+
+            if (dist > eff) continue;   // ngoai tam hut: sang thi duoc, nhung khong hut duoc
             if (dist > 0.001f && Vector3.Angle(fwd, to) > half) continue;
 
             if (_found.Add(it))
@@ -678,6 +813,8 @@ public class SimpleSuction : MonoBehaviour
 
         _active.Clear();
         foreach (PhysicsDevourable it in _found) _active.Add(it);
+
+        ApplyHighlight();
     }
 
     /// <summary>Keo (hut) hoac giang co cac item dang trong non - chay moi frame, khong quet lai.</summary>
@@ -1189,6 +1326,10 @@ public class SimpleSuction : MonoBehaviour
         _scaleFactor = (MaxScale > 0f && raw >= MaxScale) ? MaxScale : raw;
     }
 
+#if UNITY_EDITOR
+    // CA KHOI VE NAY CHI TON TAI TRONG EDITOR. Unity von da khong goi OnDrawGizmos* trong ban
+    // build, nhung boc them #if thi ngay ca CODE cung khong di vao ban build - khong con cua nao
+    // de no ton mot byte hay mot nhip CPU nao cua may nguoi choi.
     void OnDrawGizmosSelected()
     {
         Transform m = mouth != null ? mouth : transform;
@@ -1208,5 +1349,43 @@ public class SimpleSuction : MonoBehaviour
             Vector3 edge = Quaternion.AngleAxis(half, rotAxis) * f;
             Gizmos.DrawLine(p, p + edge * eff);
         }
+
+        DrawHighlightGizmo();
     }
+
+    /// <summary>
+    /// VE VONG SANG len Scene view: vong TRANG (mau tuy chinh) la ban kinh lam sang item, vong CAM
+    /// mo hon la tam hut - de canh nhau moi thay duoc cai nao dang trum cai nao.
+    ///
+    /// Ve tren MAT DAT (mat phang XZ) chu khong theo huong nhan vat: luat lam sang do khoang cach
+    /// phang, khong dinh gi toi chieu cao hay huong mom.
+    /// </summary>
+    private void DrawHighlightGizmo()
+    {
+        if (!showHighlightGizmo || !highlightEdibleItems) return;
+
+        Vector3 c = transform.position;
+        DrawGroundCircle(c, Mathf.Max(0f, highlightRadius), highlightGizmoColor);
+
+        // Tam hut ve cung mot kieu, mau nhat hon - de so sanh hai vong
+        Color faint = new Color(1f, 0.45f, 0.1f, 0.35f);
+        DrawGroundCircle(c, CurrentRange, faint);
+    }
+
+    private static void DrawGroundCircle(Vector3 center, float radius, Color color)
+    {
+        if (radius <= 0.001f) return;
+
+        Gizmos.color = color;
+        const int Segments = 48;   // du min o moi co vong, ma van re
+        Vector3 prev = center + new Vector3(radius, 0f, 0f);
+        for (int i = 1; i <= Segments; i++)
+        {
+            float a = i / (float)Segments * Mathf.PI * 2f;
+            Vector3 next = center + new Vector3(Mathf.Cos(a) * radius, 0f, Mathf.Sin(a) * radius);
+            Gizmos.DrawLine(prev, next);
+            prev = next;
+        }
+    }
+#endif
 }

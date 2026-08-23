@@ -176,6 +176,74 @@ public class PhysicsDevourable : MonoBehaviour
     private float _ownerDist;          // khoang cach chu -> item, chu tu cap nhat moi lan quet
     private bool _ownerCanEat;         // chu du cap NUOT hay chi lam item giay tai cho
 
+    private Transform[] _hlNodes;      // moi transform CO renderer - vien ve theo layer cua tung cai
+    private int[] _hlLayers;           // layer GOC cua tung cai, de con duong lui
+    private bool _highlighted;
+
+    /// <summary>Dang co vien sang khong. SimpleSuction doc de khoi goi lai thua.</summary>
+    public bool Highlighted { get { return _highlighted; } }
+
+    /// <summary>
+    /// BAT/TAT VIEN SANG (item nay dang trong tam va NGUOI CHOI an duoc).
+    ///
+    /// Cach lam: DOI LAYER sang 'highlightLayer'. Mot Renderer Feature (RenderObjects) chi ve
+    /// nhung gi nam tren layer do, bang mot material vo phinh mau trang - xem S_ItemOutline.
+    ///
+    /// VI SAO KHONG DOI MATERIAL: OccluderFade cung ghi sharedMaterials cua chinh may item nay
+    /// (lam mo vat che player) va nho mang goc de tra lai. Hai he cung ghi mot cho thi de nhau,
+    /// ma "item vua che player vua an duoc" la chuyen xay ra lien tuc. Doi layer thi hai he khong
+    /// he biet nhau.
+    ///
+    /// PHAI doi layer cua TUNG RENDERER chu khong chi root: item la model long nhau, RenderObjects
+    /// loc theo layer cua chinh object mang renderer. Danh sach duoc chup MOT LAN roi dung lai -
+    /// bat/tat sau do chi la vong lap gan so nguyen, khong GetComponentsInChildren nua.
+    /// </summary>
+    public void SetHighlight(bool on, int highlightLayer)
+    {
+        if (_highlighted == on) return;
+        if (on && (_consumed || highlightLayer < 0)) return;   // da bi nuot thi thoi, khoi sang
+
+        // KHONG tin mot cache RONG. Chup nham vao luc model con chua kip dung (item vua
+        // Instantiate, prefab dang duoc reimport) se ra mang 0 phan tu, va vi "da khac null" nen
+        // no dinh vinh vien - item do khong bao gio sang duoc nua ma khong mot dong loi nao.
+        // Da dinh dung bay nay mot lan khi test: layer khong doi, anh ON va OFF giong het nhau.
+        if (_hlNodes == null || _hlNodes.Length == 0) CacheHighlightNodes();
+
+        _highlighted = on;
+        for (int i = 0; i < _hlNodes.Length; i++)
+        {
+            Transform t = _hlNodes[i];
+            if (t == null) continue;
+            t.gameObject.layer = on ? highlightLayer : _hlLayers[i];
+        }
+    }
+
+    private void CacheHighlightNodes()
+    {
+        Renderer[] rends = GetComponentsInChildren<Renderer>(true);
+        int n = 0;
+        for (int i = 0; i < rends.Length; i++)
+            if (rends[i] != null && !(rends[i] is ParticleSystemRenderer)) n++;
+
+        _hlNodes = new Transform[n];
+        _hlLayers = new int[n];
+        int k = 0;
+        for (int i = 0; i < rends.Length; i++)
+        {
+            if (rends[i] == null || rends[i] is ParticleSystemRenderer) continue;   // he hat khong co vo de phinh
+            _hlNodes[k] = rends[i].transform;
+            _hlLayers[k] = rends[i].gameObject.layer;
+            k++;
+        }
+    }
+
+    void OnDisable()
+    {
+        // LUOI AN TOAN: chu hut co the bi tat/huy giua chung (player chet, doi scene) va khong kip
+        // goi tat vien. Tra layer o day thi khong bao gio con item nao ket vien trang giua map.
+        SetHighlight(false, -1);
+    }
+
     void OnDestroy()
     {
         // Tween con song ma target da chet thi DOTween nem loi
@@ -614,6 +682,7 @@ public class PhysicsDevourable : MonoBehaviour
         if (_consumed) return;
         _consumed = true;
         _owner = null;                 // da bi nuot, khong con gi de gianh
+        SetHighlight(false, -1);       // dang bay vao mom thi khong con la "mon co the an" nua
         if (onDevoured != null) onDevoured.Invoke();
 
         if (swallowDuration > 0f && isActiveAndEnabled)
