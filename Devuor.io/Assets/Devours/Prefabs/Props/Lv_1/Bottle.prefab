@@ -11,7 +11,7 @@ PrefabInstance:
     - target: {fileID: 340440436358996269, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: -202076412295422296, guid: daef69b3344b240b8b717467a5c7c817, type: 3}
+      objectReference: {fileID: 6121590469811200223, guid: 30fd5eff7be794074a3dcca8aaf397e4, type: 3}
     - target: {fileID: 1274617937326852088, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
       propertyPath: m_Name
       value: Trash
@@ -99,10 +99,10 @@ PrefabInstance:
     - target: {fileID: 5344000519411442367, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 85e5f6f54170e4f45a04ba8103f5580b, type: 2}
+      objectReference: {fileID: 2100000, guid: 03baae67e4e4c664c94b7f59ca3e3f4e, type: 2}
     - target: {fileID: 7446414900543964115, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
       propertyPath: m_Name
-      value: Trash_02
+      value: Trash_02 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
