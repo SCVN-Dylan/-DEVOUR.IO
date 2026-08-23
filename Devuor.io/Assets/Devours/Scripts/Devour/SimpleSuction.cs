@@ -1115,7 +1115,7 @@ public class SimpleSuction : MonoBehaviour
         if (evolved && IsPlayerOwned)
         {
             if (evolveVfx != null) evolveVfx.Play(true);   // true = keo theo ca he hat con
-            if (SoundManager.HasInstance) SoundManager.Instance.PlaySfx(SoundManager.Sfx.Evolve);
+            // if (SoundManager.HasInstance) SoundManager.Instance.PlaySfx(SoundManager.Sfx.Evolve);
         }
 
         // TIENG UPGRADE: vua vuot mot moc trong LevelSteps. Dung 'steppedUp' co san chu khong tu do

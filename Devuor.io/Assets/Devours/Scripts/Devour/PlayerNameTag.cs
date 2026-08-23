@@ -19,8 +19,10 @@ public class PlayerNameTag : MonoBehaviour
     [Tooltip("TMP hien chu. De trong = tu tim TMP_Text trong con")]
     public TMP_Text label;
 
-    [Tooltip("Dinh dang: {0}=ten, {1}=cap")]
-    public string format = "{0}\n<size=65%>Lv {1}</size>";
+    [Tooltip("Dinh dang: {0}=ten, {1}=cap.\n" +
+             "Mac dinh: CAP o tren va co chu day du, TEN o duoi va nho lai 65% - cap la thu nguoi\n" +
+             "choi phai doc trong tich tac de biet co nen lao vao hay chay, con ten chi de nhan dien")]
+    public string format = "Lv {1}\n<size=65%>{0}</size>";
 
     [Header("Billboard")]
     [Tooltip("Camera de quay mat vao. De trong = Camera.main")]

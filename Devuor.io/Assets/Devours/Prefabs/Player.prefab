@@ -1366,9 +1366,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Player
+  m_text: 'Lv 1
 
-    <size=65%>Lv 1</size>'
+    <size=65%>Player</size>'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 0161d805a3764c089bef00bfe00793f5, type: 2}
   m_sharedMaterial: {fileID: 2147374, guid: 0161d805a3764c089bef00bfe00793f5, type: 2}
@@ -1731,6 +1731,8 @@ MonoBehaviour:
   drainIntervalDecay: 0.8
   drainIntervalFloor: 0.05
   drainIntervalRecover: 0.5
+  drainStepPerLevels: 10
+  drainStepMax: 0
   creatureFarDrainFactor: 0.35
   _config: {fileID: 11400000, guid: f7786e5ba959846b891488a2cb6e675b, type: 2}
   gulpPunch: 0.18
@@ -1753,7 +1755,7 @@ MonoBehaviour:
   shrinkTweenEase: 6
   cameraZoom: {fileID: 0}
   playerVisual: {fileID: 463955257305386523}
-  evolveVfx: {fileID: 0}
+  evolveVfx: {fileID: 2105436078808142617}
   _movement: {fileID: 7715685529842263537}
   _creature: {fileID: 3995865763585234974}
   onDevour:
@@ -2693,6 +2695,7 @@ MonoBehaviour:
   _body: {fileID: 4944762698666343497}
   flyPrefab: {fileID: 6433210789715605893, guid: 19d2ac563852d4bfe80e31858d032785, type: 3}
   victimSizeFactor: 0.4
+  mergeDrainFlyer: 1
   flyDuration: 0.35
   flyAccel: 2
   scatter: 0.6
@@ -2960,9 +2963,9 @@ MonoBehaviour:
   playerName: Player
   suction: {fileID: 2824990503888106062}
   label: {fileID: 4971381581295975268}
-  format: '{0}
+  format: 'Lv {1}
 
-    <size=65%>Lv {1}</size>'
+    <size=65%>{0}</size>'
   cam: {fileID: 0}
   billboard: 1
   keepConstantSize: 0
@@ -3557,15 +3560,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3628,6 +3631,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+--- !u!198 &2105436078808142617 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 931352995315593577, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}
+  m_PrefabInstance: {fileID: 1284887536827540080}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2105436078823402825 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 931352995334049593, guid: 7894e9ff3a821ea42a692a6a0cda4e5c, type: 3}

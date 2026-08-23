@@ -98,7 +98,7 @@ public class CreatureAnimator : MonoBehaviour
         {
             _animator.SetBool(SuckingHash, sucking);
             _lastSucking = sucking;
-            UpdateSuckLoop(sucking);   // tieng hut di CUNG NHIP voi anim, khong co dong ho rieng
+            // UpdateSuckLoop(sucking);   // tieng hut di CUNG NHIP voi anim, khong co dong ho rieng
         }
         if (_first || run != _lastRun)
         {

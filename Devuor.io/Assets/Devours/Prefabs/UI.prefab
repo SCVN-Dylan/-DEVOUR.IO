@@ -129,11 +129,11 @@ RectTransform:
   - {fileID: 1574038622475360636}
   m_Father: {fileID: 6443781415702020281}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 280, y: 330}
+  m_AnchorMin: {x: 0.5, y: 0}
+  m_AnchorMax: {x: 0.5, y: 0}
+  m_AnchoredPosition: {x: 0, y: 170}
   m_SizeDelta: {x: 320, y: 320}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &7814643328471892949
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -568,6 +568,7 @@ MonoBehaviour:
   winPanel: {fileID: 9197751957917685108}
   winScoreText: {fileID: 1508023678898051612}
   winButton: {fileID: 5471253997879645760}
+  freezeOnEnd: 0
   matchDuration: 120
   targetFrameRate: 60
 --- !u!1 &9077167103343288816
