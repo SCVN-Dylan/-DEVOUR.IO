@@ -5,8 +5,12 @@ using UnityEngine;
 /// HIEU UNG HUT: sinh mot OBJECT bay tu than nan nhan vao mom con dang hut. Toi mom thi ke hut
 /// moi thuc su AN duoc so XP mang theo.
 ///
-/// MOI OBJECT = MOT LEVEL. Khong con quan he "1 level ra N hat" nhu ban ParticleSystem cu -
-/// nhin dong object bay la dem duoc dung so level dang chuyen chu.
+/// MOI OBJECT = MOT NHIP RUT (mac dinh), mang theo dung so level cua nhip do - khong con quan he
+/// "1 level ra N hat" nhu ban ParticleSystem cu. Dau tran moi nhip mot level nen object = level,
+/// cuoi tran bac rut len cao thi mot object mang ca cum (mergeDrainFlyer).
+///
+/// MOI OBJECT MOT CO NHU NHAU, du no mang 1 hay 60 level. Co chi doi theo THAN con nho hon trong
+/// hai con (CurrentSize) - dung mot luat duy nhat tu truoc toi gio.
 ///
 /// VI SAO LA OBJECT CHU KHONG PHAI PARTICLE: de art thay VFX ma khong dong toi code. Prefab keo
 /// vao 'flyPrefab' chi can la mot object RONG, ben trong nhet gi tuy y (ParticleSystem, mesh,
@@ -52,6 +56,13 @@ public class DevourVfx : MonoBehaviour
              "lan chinh no, nhin nhu vien bi nuot nguoc. Lay con nho hon thi A(than 10) hut B(than\n" +
              "20) ra hat 4, ma B hut A cung ra 4 - cung mot cap dau thi cung mot co hat.")]
     public float victimSizeFactor = 0.4f;
+
+    [Tooltip("BAT (mac dinh): mot NHIP RUT chi ra DUNG MOT object, du nhip do rut 1 hay 8 level -\n" +
+             "vien to len theo so level no mang. Cuoi pha hut bac len cao thi day la khac biet lon:\n" +
+             "1 object thay vi 8 cai bung ra cung frame.\n\n" +
+             "TAT: quay ve luat cu 1 object = 1 level (dem object bay la ra so level dang chuyen,\n" +
+             "doi lai late-game moi nhip bung ra ca nam.")]
+    public bool mergeDrainFlyer = true;
 
     [Header("Duong bay")]
     [Tooltip("THOI LUONG bay: object luon mat dung bay nhieu GIAY de toi mom, xa hay gan cung the.\n\n" +
@@ -160,6 +171,20 @@ public class DevourVfx : MonoBehaviour
     public void EmitDrain(Vector3 fromWorld, int levels, Color victimColor, float victimScale)
     {
         if (levels <= 0) return;
+
+        // GOP: mot nhip rut = MOT vien, mang ca cum level cua nhip do (xem mergeDrainFlyer).
+        //
+        // CO VIEN KHONG DOI theo so level no mang - moi vien luon bang nhau, du la 1 hay 60 level.
+        // Da thu cho vien gop to len theo the tich va BO DI: cuoi tran dai bac rut leo len vai
+        // chuc level/nhip, vien phinh ra thanh mot cuc to lan ngang man hinh, che mat ca hai con.
+        // Co vien gio chi con phu thuoc DUNG MOT thu nhu bao lau nay: than con nho hon trong hai
+        // con (xem CurrentSize).
+        if (mergeDrainFlyer)
+        {
+            SpawnOne(fromWorld, victimColor, victimScale, levels);
+            return;
+        }
+
         for (int i = 0; i < levels; i++) SpawnOne(fromWorld, victimColor, victimScale, 1);
     }
 

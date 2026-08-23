@@ -104,6 +104,22 @@ public class SimpleSuction : MonoBehaviour
              "sach do ghi, tran danh khong bao gio tich duoc ap luc.")]
     public float drainIntervalRecover = 0.5f;
 
+    [Tooltip("BAC RUT: cu BI RUT du bao nhieu LEVEL trong PHA hut nay thi moi nhip lai rut them\n" +
+             "mot level. 10 = 10 level dau di tung level mot, level 11-20 rut 2/nhip, 21-30 rut\n" +
+             "3/nhip... cang bi ghi lau cang tan nhanh.\n\n" +
+             "Dem theo SO LEVEL DA BI RUT trong pha, KHONG theo level cua ai ca: hai con Lv5 an\n" +
+             "nhau va hai con Lv500 an nhau deu bat dau tu 1 level/nhip, chi tran nao KEO DAI moi\n" +
+             "duoc tang bac. Nho vay dau van khong bi doi luat, ma tran late-game (rut 70-80 level)\n" +
+             "khong con keo toi 20 giay.\n\n" +
+             "Dem RIENG voi nhip rut (drainIntervalDecay): nhip lo cang ngan, bac lo cang to - hai\n" +
+             "duong nay nhan nhau nen cuoi pha hut tut rat nhanh, dung y do.\n" +
+             "0 = tat han, luon 1 level/nhip nhu ban cu.")]
+    public int drainStepPerLevels = 10;
+
+    [Tooltip("TRAN so level rut duoc trong MOT nhip. 0 = khong tran, bac cu the tang mai.\n" +
+             "Dat lai (vd 5) neu thay cuoi pha hut thanh ghi tut nhanh qua, nguoi choi khong kip doc.")]
+    public int drainStepMax = 0;
+
     [Range(0.05f, 1f)]
     [Tooltip("Ti le toc do rut o RIA XA nhat cua non so voi sat mom. Dung chung duong cong voi\n" +
              "farSpeedFactor cua item: dung ria thi bi gam nhe, bi dua vao sat mom thi tan rat nhanh")]
@@ -337,6 +353,7 @@ public class SimpleSuction : MonoBehaviour
     private float _gainRemainder;      // phan XP le khi he so nhan khac 1
     private float _drainClock;         // quy thoi gian da tich cho nhip rut hien tai
     private float _drainInterval;      // nhip rut hien tai (giay/level) - siet dan khi bi ghi lau
+    private int _drainStreak;          // so level da BI RUT trong pha hut nay - de len bac rut
     private float _scanTimer;
     private readonly HashSet<PhysicsDevourable> _active = new HashSet<PhysicsDevourable>();
     private readonly HashSet<PhysicsDevourable> _found = new HashSet<PhysicsDevourable>();
@@ -896,13 +913,16 @@ public class SimpleSuction : MonoBehaviour
     /// RUT THEO NHIP - goi moi FixedUpdate khi dang bi hut. 'amount' la QUY THOI GIAN
     /// (deltaTime da nhan he so gan/xa), KHONG phai luong XP.
     ///
-    /// Du mot nhip thi mat DUNG 1 LEVEL va sinh DUNG 1 object VFX - dem object bay la biet chinh
-    /// xac bao nhieu level dang chuyen chu.
+    /// HAI DUONG CUNG SIET, doc lap nhau:
+    ///   NHIP  ngan dan  (drainIntervalDecay) - bao lau moi rut mot phat
+    ///   BAC   to dan    (drainStepPerLevels) - moi phat rut may level
+    /// Nhan nhau nen dau pha hut nhe nhang (1 level moi giay), cuoi pha thi tan rat nhanh - ma
+    /// KHONG phai vi level cao hay thap, chi vi tran nay da keo dai.
     ///
-    /// NHIP SIET DAN: moi lan rut xong, nhip nhan voi drainIntervalDecay -> nam trong vung cang
-    /// lau, level tut cang nhanh. Ep xuong san drainIntervalFloor de nhip khong ve 0.
+    /// Moi nhip sinh DUNG MOT object VFX du rut may level (object mang ca cum - xem
+    /// DevourVfx.EmitDrain), nen so object bay khong phinh theo bac.
     ///
-    /// Tra ve so level thuc su mat trong lan goi nay (0 hoac 1).
+    /// Tra ve so level thuc su mat trong lan goi nay (0 neu chua toi nhip / da cham san Lv1).
     /// </summary>
     public int DrainXp(float amount)
     {
@@ -913,13 +933,32 @@ public class SimpleSuction : MonoBehaviour
 
         _drainClock = 0f;                          // moi nhip bat dau dem lai tu 0
 
-        int lost = LoseXp(1);                      // DUNG 1 LEVEL mot nhip - 1 level = 1 object bay
+        int lost = LoseXp(CurrentDrainStep);       // bac hien tai - xem CurrentDrainStep
         if (lost <= 0) return 0;                   // cham san Lv1: khong rut, khong siet nhip
+
+        _drainStreak += lost;                      // rut cang nhieu trong pha nay -> bac sau cang to
 
         // SIET NHIP: o trong vung cang lau, moi nhip lai ngan di, level tut nhanh dan.
         // Ep xuong san de nhip khong ve 0 (ve 0 la rut vo han moi frame).
         _drainInterval = Mathf.Max(FloorInterval, _drainInterval * drainIntervalDecay);
         return lost;
+    }
+
+    /// <summary>
+    /// BAC RUT cho nhip toi = 1 + (so level DA bi rut trong pha nay / drainStepPerLevels).
+    ///
+    /// Dem theo QUANG DUONG DA DI trong pha chu khong theo level cua ai: nho vay hai con Lv5 an
+    /// nhau va hai con Lv500 an nhau deu vao pha o cung mot toc do, va con nao dinh mot phat roi
+    /// lach ra duoc thi khong he bi tang bac.
+    /// </summary>
+    private int CurrentDrainStep
+    {
+        get
+        {
+            if (drainStepPerLevels <= 0) return 1;
+            int step = 1 + _drainStreak / drainStepPerLevels;
+            return drainStepMax > 0 ? Mathf.Min(step, drainStepMax) : step;
+        }
     }
 
     /// <summary>
@@ -936,6 +975,7 @@ public class SimpleSuction : MonoBehaviour
     public void PrimeDrain()
     {
         _drainClock = CurrentDrainInterval;
+        _drainStreak = 0;   // PHA MOI -> bac rut ve 1 level/nhip, dem lai tu dau
     }
 
     /// <summary>Nhip rut hien tai (giay/level). Khoi tao bang drainInterval, siet dan khi bi ghi.</summary>
