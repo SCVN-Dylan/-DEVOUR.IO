@@ -176,9 +176,13 @@ public class PhysicsDevourable : MonoBehaviour
     private float _ownerDist;          // khoang cach chu -> item, chu tu cap nhat moi lan quet
     private bool _ownerCanEat;         // chu du cap NUOT hay chi lam item giay tai cho
 
-    private Transform[] _hlNodes;      // moi transform CO renderer - vien ve theo layer cua tung cai
+    private Transform[] _hlNodes;      // moi transform CO renderer - lop phu ve theo layer cua tung cai
     private int[] _hlLayers;           // layer GOC cua tung cai, de con duong lui
     private bool _highlighted;
+    private int _hlWant = -1;          // yeu cau VIEN TRANG (an duoc). -1 = khong yeu cau
+    private int _blockWant = -1;       // yeu cau CHOP DO (hut ma khong nuot duoc). -1 = khong
+    private int _appliedLayer = -1;    // layer dang thuc su ap. -1 = dang o layer goc
+    private static int _blockedLayer = -2;   // -2 = chua tra ten; -1 = khong co layer nay
 
     /// <summary>Dang co vien sang khong. SimpleSuction doc de khoi goi lai thua.</summary>
     public bool Highlighted { get { return _highlighted; } }
@@ -200,21 +204,53 @@ public class PhysicsDevourable : MonoBehaviour
     /// </summary>
     public void SetHighlight(bool on, int highlightLayer)
     {
-        if (_highlighted == on) return;
-        if (on && (_consumed || highlightLayer < 0)) return;   // da bi nuot thi thoi, khoi sang
+        _hlWant = (on && !_consumed && highlightLayer >= 0) ? highlightLayer : -1;
+        ApplyOverlay();
+    }
 
-        // KHONG tin mot cache RONG. Chup nham vao luc model con chua kip dung (item vua
-        // Instantiate, prefab dang duoc reimport) se ra mang 0 phan tu, va vi "da khac null" nen
-        // no dinh vinh vien - item do khong bao gio sang duoc nua ma khong mot dong loi nao.
-        // Da dinh dung bay nay mot lan khi test: layer khong doi, anh ON va OFF giong het nhau.
+    /// <summary>
+    /// CHOP DO: item nay dang bi hut ma NGUOI HUT KHONG DU CAP de nuot - no chi rung tai cho.
+    ///
+    /// Nhin cai rung khong thi rat de tuong game lag hay item bi ket; lop do nhap nhay tra loi
+    /// ngay "chua an duoc dau". Bat/tat cung mot duong voi vien trang: doi layer, khong dung toi
+    /// material - xem ghi chu o SetHighlight.
+    /// </summary>
+    public void SetBlocked(bool on)
+    {
+        if (_blockedLayer == -2)
+        {
+            _blockedLayer = LayerMask.NameToLayer("ItemBlocked");
+            if (_blockedLayer < 0)
+                Debug.LogWarning("[PhysicsDevourable] Khong co layer 'ItemBlocked' - tat chop do. " +
+                                 "Khai bao no trong Project Settings > Tags and Layers.");
+        }
+
+        _blockWant = (on && !_consumed && _blockedLayer >= 0) ? _blockedLayer : -1;
+        ApplyOverlay();
+    }
+
+    /// <summary>
+    /// Chon lop phu nao duoc ap: CHOP DO thang VIEN TRANG.
+    ///
+    /// Hai cai nay ve ly thuyet loai tru nhau (an duoc thi khong the "khong nuot duoc"), nhung
+    /// level nguoi choi CO THE TUT khi dang bi hut - luc do mot item vua an duoc bong thanh cam.
+    /// Khong co thu tu uu tien thi hai ben ghi de nhau moi frame va item nhap nhay giua trang/do.
+    /// Do quan trong hon: no la loi canh bao.
+    /// </summary>
+    private void ApplyOverlay()
+    {
+        int want = _blockWant >= 0 ? _blockWant : _hlWant;
+        if (want == _appliedLayer) return;
+
         if (_hlNodes == null || _hlNodes.Length == 0) CacheHighlightNodes();
 
-        _highlighted = on;
+        _appliedLayer = want;
+        _highlighted = want >= 0;
         for (int i = 0; i < _hlNodes.Length; i++)
         {
             Transform t = _hlNodes[i];
             if (t == null) continue;
-            t.gameObject.layer = on ? highlightLayer : _hlLayers[i];
+            t.gameObject.layer = want >= 0 ? want : _hlLayers[i];
         }
     }
 
@@ -242,6 +278,7 @@ public class PhysicsDevourable : MonoBehaviour
         // LUOI AN TOAN: chu hut co the bi tat/huy giua chung (player chet, doi scene) va khong kip
         // goi tat vien. Tra layer o day thi khong bao gio con item nao ket vien trang giua map.
         SetHighlight(false, -1);
+        SetBlocked(false);
     }
 
     void OnDestroy()
@@ -653,6 +690,8 @@ public class PhysicsDevourable : MonoBehaviour
     {
         if (by != null && _owner != null && _owner != by) return;
 
+        SetBlocked(false);   // ra khoi tam hut / doi chu -> thoi chop
+
         _owner = null;
         _grabDist = -1f;
         RestoreDrag();
@@ -683,6 +722,7 @@ public class PhysicsDevourable : MonoBehaviour
         _consumed = true;
         _owner = null;                 // da bi nuot, khong con gi de gianh
         SetHighlight(false, -1);       // dang bay vao mom thi khong con la "mon co the an" nua
+        SetBlocked(false);
         if (onDevoured != null) onDevoured.Invoke();
 
         if (swallowDuration > 0f && isActiveAndEnabled)
@@ -873,6 +913,7 @@ public class PhysicsDevourable : MonoBehaviour
 
     private void EnterStruggle()
     {
+        SetBlocked(true);   // bi hut ma khong nuot duoc -> chop do bao cho nguoi choi biet
         RestoreDrag();
         SetPushLock(false);   // di duong RUNG TAI CHO: he hut lo phan dung yen, khong phai cai khoa
         _state = State.Struggling;
@@ -883,6 +924,7 @@ public class PhysicsDevourable : MonoBehaviour
 
     private void EnterSleep()
     {
+        SetBlocked(false);
         RestoreDrag();
         _state = State.Asleep;
         _owner = null;             // nam yen tren dat roi thi ai gianh cung duoc
