@@ -327,29 +327,63 @@ public class SimpleSuction : MonoBehaviour
     /// <summary>
     /// Chieu dai non hut hien tai.
     ///
-    ///   = range x (1 + RangePerLevel x (level-1))   <- phan tang deu, GIU NGUYEN cach cu
-    ///   + tong rangeAdd cua moi moc da qua          <- phan giat o moc, cong THEM len tren
+    ///   = range x (1 + RangePerLevel x so level duoc tinh)   <- phan tang deu
+    ///   + tong rangeAdd cua moi moc da qua                   <- phan giat o moc, cong THEM len tren
     ///
-    /// Hien tai moi rangeAdd deu = 0 nen ket qua y het truoc khi co cot nay.
-    /// Khac voi scale: level trung moc o day VAN duoc cong RangePerLevel (khong tru di), de
-    /// phan tang deu dung y nguyen cong thuc cu.
+    /// PHAN TANG DEU DUNG LAI KHI THAN DUNG TO. Than bi MaxScale chan lai o mot level nao do
+    /// (voi bang hien tai la khoang Lv411); tu do tro di co than khong doi nua, nen non hut cung
+    /// khong co ly do gi de dai them. Khong chan thi cuoi van non hut cu phinh mai trong khi nguoi
+    /// choi van y nguyen mot co - hut sach man hinh ma khong phai di toi gan cai gi.
+    ///
+    /// PHAN GIAT O MOC THI VAN CHAY, ke ca sau khi than da cham tran: dat duoc moc la duoc thuong,
+    /// day la phan thuong duy nhat con lai o late game.
+    ///
+    /// Khac voi scale: level trung moc o day VAN duoc tinh vao phan tang deu (khong tru di), de
+    /// phan tang deu giu nguyen cong thuc cu.
     /// </summary>
     public float CurrentRange
     {
         get
         {
-            float r = range * (1f + RangePerLevel * (level - 1));
+            float stepAdd = 0f, rangeAdd = 0f;
+            int stepHits = 0;
             if (LevelSteps != null)
             {
                 for (int i = 0; i < LevelSteps.Count; i++)
                 {
                     LevelStep s = LevelSteps[i];
                     if (s == null || s.level < 2 || s.level > level) continue;
-                    r += s.rangeAdd;
+                    stepAdd += s.add;       // phan lam TO THAN - de biet than da cham tran chua
+                    rangeAdd += s.rangeAdd; // phan lam DAI NON
+                    stepHits++;
                 }
             }
-            return r;
+
+            return range * (1f + RangePerLevel * RangeCreepLevels(stepAdd, stepHits)) + rangeAdd;
         }
+    }
+
+    /// <summary>
+    /// SO LEVEL duoc tinh vao phan non hut tang deu - dung lai dung luc than cham MaxScale.
+    ///
+    /// Tinh THANG bang cong thuc chu khong nho trang thai: SetLevel co the nhay thang tu 1 len
+    /// 1000 (cheat/test), luc do mot bien "nho moc da dung" se khong bao gio duoc cap nhat va
+    /// non hut se ket o gia tri sai.
+    ///
+    /// Than: raw = 1 + ScalePerLevel x (level-1 - stepHits) + stepAdd, cham tran khi raw >= MaxScale
+    ///   => (level-1) toi da con duoc tinh = (MaxScale - 1 - stepAdd) / ScalePerLevel + stepHits
+    /// </summary>
+    private float RangeCreepLevels(float stepAdd, int stepHits)
+    {
+        float levels = Mathf.Max(0, level - 1);
+        if (MaxScale <= 0f) return levels;                 // khong co tran than -> khong chan non hut
+
+        // Than khong tang deu (ScalePerLevel = 0) thi phan tang deu cua non hut cung khong co ly do
+        // ton tai - chi con cac moc lam no dai ra.
+        if (ScalePerLevel <= 0.00001f) return 0f;
+
+        float capLevels = (MaxScale - 1f - stepAdd) / ScalePerLevel + stepHits;
+        return Mathf.Clamp(levels, 0f, Mathf.Max(0f, capLevels));
     }
 
     /// <summary>Dang co it nhat 1 item nam trong vung/non hut hay khong.</summary>
