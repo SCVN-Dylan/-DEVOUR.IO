@@ -179,6 +179,7 @@ public class SimpleSuction : MonoBehaviour
     public List<LevelStep> LevelSteps { get { return Config.levelSteps; } }
     public float MaxScale { get { return Config.maxScale; } }
     public float SpeedFollowScale { get { return Config.speedFollowScale; } }
+    public float MaxSpeedMultiplier { get { return Config.maxSpeedMultiplier; } }
     public float RangePerLevel { get { return Config.rangePerLevel; } }
 
     // LEVEL = 1 + TONG XP da an. An 1 XP la len 1 level, KHONG CO TRAN, reset moi van.
@@ -366,7 +367,8 @@ public class SimpleSuction : MonoBehaviour
     }
 
     private Vector3 _baseScale;
-    private float _scaleFactor = 1f;   // cache, chi tinh lai khi level doi
+    private float _scaleFactor = 1f;
+    private float _scaleRaw = 1f;      // he so scale CHUA bi MaxScale cat - rieng ApplySpeed dung
     private int _stage = 1;            // cache, tinh lai cung luc voi _scaleFactor
     private int _evolutionCount;       // so moc isEvolution da qua
     private int _scaleStepHits;        // so moc CO 'add' (thuc su lam to than) da qua
@@ -1188,13 +1190,28 @@ public class SimpleSuction : MonoBehaviour
     private void DebugLevelDown() { SetLevel(level - 10); }
 
     /// <summary>
-    /// Toc do di chuyen bam theo he so scale (da bi MaxScale chan) - than dung to thi toc
-    /// cung dung tang. Khong co bang moc rieng: scale da chua san creep + cu nhay o moc.
+    /// Toc do di chuyen bam theo he so scale, dung SO CHUA BI MaxScale CAT.
+    ///
+    /// Truoc day dung _scaleFactor (da bi cat): tu Lv500 tro di scale that vuot 20 nen bi ghim lai,
+    /// KEO THEO ca toc do dung im o 25.8 u/s - trong khi camera van tiep tuc noi ra toi maxSize 100.
+    /// Do thuc te: Lv1 mat 3.3 giay de bang qua man hinh, Lv1000 mat 7.0 giay. Cang len cap cang
+    /// i ach, va cang ve cuoi cang te.
+    ///
+    /// MaxScale sinh ra de chan CO THAN cho khoi che het man hinh - no khong co ly do gi de chan
+    /// ca toc do. Tach ra thi Lv1000 con 3.8 giay, gan bang Lv1.
+    ///
+    /// Khong co bang moc rieng: scale da chua san creep + cu nhay o moc.
     /// </summary>
     private void ApplySpeed()
     {
         if (_movement == null) return;
-        _movement.SetSpeedMultiplier(1f + (_scaleFactor - 1f) * SpeedFollowScale);
+        float mult = 1f + (_scaleRaw - 1f) * SpeedFollowScale;
+
+        // TRAN: khong tran thi cuoi game chay bang ngang ca map trong 2.5 giay - map chi rong 120u.
+        // Chan bang HE SO nen bot cung duoc tran tuong ung, ti le player/bot khong doi.
+        if (MaxSpeedMultiplier > 0f) mult = Mathf.Min(mult, MaxSpeedMultiplier);
+
+        _movement.SetSpeedMultiplier(mult);
     }
 
     /// <summary>
@@ -1322,7 +1339,9 @@ public class SimpleSuction : MonoBehaviour
         int normalLevels = Mathf.Max(0, levelsGained - stepHits);
         float raw = 1f + ScalePerLevel * normalLevels + stepAdd;
 
-        // MaxScale chi con chan CO THAN, khong con dong bang zoom camera nua (xem ghi chu o ZoomLevel)
+        // MaxScale chi con chan CO THAN: khong dong bang zoom camera (xem ghi chu o ZoomLevel), va
+        // tu nay khong dong bang ca TOC DO nua - giu rieng so chua bi cat de ApplySpeed dung.
+        _scaleRaw = raw;
         _scaleFactor = (MaxScale > 0f && raw >= MaxScale) ? MaxScale : raw;
     }
 

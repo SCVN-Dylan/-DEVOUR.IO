@@ -97,6 +97,15 @@ public class SuctionConfig : ScriptableObject
              "  1    = toc tang dung bang co -> to ma khong i ti nao, nhung map thanh be")]
     public float speedFollowScale = 0.25f;
 
+    [Tooltip("TRAN he so toc do so voi toc do goc. 8.3 = nhanh nhat cung chi bang 8.3 lan luc Lv1.\n" +
+             "0 = KHONG co tran (nhu ban cu).\n\n" +
+             "Vi sao la HE SO chu khong phai so u/s: player va bot co toc do goc khac nhau (3 va\n" +
+             "2.125). Chan bang he so thi bot tu duoc tran tuong ung va ti le giua hai ben giu\n" +
+             "nguyen; chan bang so u/s cung thi bot se bi ghim ngang player, tu nhien chay bang nhau.\n\n" +
+             "Con so 8.3 den tu do map: map rong 120u, khong tran thi Lv1000 chay 47.8 u/s tuc bang\n" +
+             "ngang ca ban do trong 2.5 giay. Tran 8.3 dua no ve ~25 u/s = 4.8 giay.")]
+    public float maxSpeedMultiplier = 8.3f;
+
     [Range(0f, 100f)]
     [Tooltip("Moi cap non hut dai ra bao nhieu (0.15 = +15%/cap)")]
     public float rangePerLevel = 0.15f;

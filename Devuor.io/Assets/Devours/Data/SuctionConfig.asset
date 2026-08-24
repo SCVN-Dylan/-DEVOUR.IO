@@ -42,5 +42,6 @@ MonoBehaviour:
     rangeAdd: 5
     isEvolution: 1
   maxScale: 20
-  speedFollowScale: 0.4
+  speedFollowScale: 0.6
+  maxSpeedMultiplier: 8.3
   rangePerLevel: 0.01
