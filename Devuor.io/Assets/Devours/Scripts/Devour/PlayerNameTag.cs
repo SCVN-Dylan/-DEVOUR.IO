@@ -1,3 +1,4 @@
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 
@@ -36,6 +37,20 @@ public class PlayerNameTag : MonoBehaviour
     [Tooltip("Scale world giu co dinh khi bat keepConstantSize")]
     public float constantScale = 0.01f;
 
+    [Header("Nhun mot cai khi LEN CAP")]
+    [Range(0f, 1f)]
+    [Tooltip("Do manh cu nhun khi level TANG (0.25 = phinh them 25% roi co ve). 0 = tat.\n\n" +
+             "Chi nhun khi len cap, KHONG nhun khi tut cap: tut cap la luc dang bi hut, man hinh\n" +
+             "da du thu dang dong day roi, them mot cai nhay nua chi lam roi them.")]
+    public float levelPunch = 0.25f;
+
+    [Tooltip("Mot cai nhun keo dai bao lau (giay)")]
+    public float levelPunchDuration = 0.25f;
+
+    [Range(0, 10)]
+    [Tooltip("So nhip rung trong mot cai nhun. 2 = phinh-co-phinh nhe roi dung")]
+    public int levelPunchVibrato = 2;
+
     void OnEnable() { Resolve(); Refresh(); }
     void LateUpdate() { Resolve(); Refresh(); }
 
@@ -44,6 +59,9 @@ public class PlayerNameTag : MonoBehaviour
         if (suction == null) suction = GetComponentInParent<SimpleSuction>();
         if (cam == null) cam = Camera.main;
         if (label == null) label = GetComponentInChildren<TMP_Text>();
+
+        // Chup scale goc MOT LAN: cu nhun tra ve dung day nay, khong bao gio troi di sau nhieu lan
+        if (label != null && !_baseCaptured) { _baseScale = label.transform.localScale; _baseCaptured = true; }
     }
 
     private void Refresh()
@@ -80,12 +98,52 @@ public class PlayerNameTag : MonoBehaviour
             if (lvl != _lastLevel || playerName != _lastName)
             {
                 label.text = string.Format(format, playerName, lvl);
+
+                // _lastLevel = -1 la lan ve DAU TIEN (vua bat len), khong phai len cap -> khong nhun
+                bool leveledUp = _lastLevel > 0 && lvl > _lastLevel;
+
                 _lastLevel = lvl;
                 _lastName = playerName;
+
+                if (leveledUp) PlayLevelPunch();
             }
+        }
+    }
+
+    /// <summary>
+    /// NHUN MOT CAI: phinh nhanh roi co ve dung scale goc.
+    ///
+    /// Nhun tren LABEL chu khong tren ca NameTag: NameTag con cong them thanh ghi (StruggleBar),
+    /// nhun ca cum thi thanh ghi cung giat theo - ma no dang la thu nguoi choi phai doc chinh xac
+    /// trong luc bi hut.
+    ///
+    /// GIET CU CU TRUOC KHI BAN CU MOI va tra scale ve day: an lien tuc thi level nhay may lan
+    /// trong mot giay, hai tween chong nhau se cong don scale va chu cu the phinh to mai.
+    /// </summary>
+    private void PlayLevelPunch()
+    {
+        if (!Application.isPlaying) return;   // [ExecuteAlways]: dung ban tween trong Edit mode
+        if (label == null || levelPunch <= 0.001f || levelPunchDuration <= 0.001f) return;
+
+        Transform t = label.transform;
+        t.DOKill();
+        t.localScale = _baseScale;
+        t.DOPunchScale(Vector3.one * levelPunch, levelPunchDuration, levelPunchVibrato, 0.6f)
+            .SetTarget(t);
+    }
+
+    void OnDisable()
+    {
+        // Tween con song ma object da tat/huy thi DOTween nem loi - va scale se ket lai o giua cu nhun
+        if (label != null)
+        {
+            label.transform.DOKill();
+            if (_baseCaptured) label.transform.localScale = _baseScale;
         }
     }
 
     private int _lastLevel = -1;
     private string _lastName;
+    private Vector3 _baseScale = Vector3.one;
+    private bool _baseCaptured;
 }

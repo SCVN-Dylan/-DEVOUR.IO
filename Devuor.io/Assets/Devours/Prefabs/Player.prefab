@@ -199,7 +199,7 @@ Transform:
   m_GameObject: {fileID: 571729810812342199}
   serializedVersion: 2
   m_LocalRotation: {x: -0.14409713, y: 0, z: 0, w: 0.9895636}
-  m_LocalPosition: {x: 0, y: 0.51, z: 0.039}
+  m_LocalPosition: {x: 0, y: 0.453, z: 0.039}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1728,7 +1728,7 @@ MonoBehaviour:
   highlightEdibleItems: 1
   highlightLayer: ItemHighlight
   highlightRadius: 7
-  maxHighlight: 12
+  maxHighlight: 25
   showHighlightGizmo: 1
   highlightGizmoColor: {r: 1, g: 1, b: 1, a: 0.9}
   itemStealMargin: 0.85
@@ -2976,6 +2976,9 @@ MonoBehaviour:
   billboard: 1
   keepConstantSize: 0
   constantScale: 0.01
+  levelPunch: 0.15
+  levelPunchDuration: 0.3
+  levelPunchVibrato: 2
 --- !u!1 &6226978786326620504
 GameObject:
   m_ObjectHideFlags: 0
