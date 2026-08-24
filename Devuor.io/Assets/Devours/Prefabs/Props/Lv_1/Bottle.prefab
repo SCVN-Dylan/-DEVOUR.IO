@@ -100,9 +100,33 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 03baae67e4e4c664c94b7f59ca3e3f4e, type: 2}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Size.x
+      value: 0.10458565
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Size.y
+      value: 0.32879913
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Size.z
+      value: 0.10458565
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Center.x
+      value: 0.000000078231096
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Center.y
+      value: -0.03758032
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Center.z
+      value: -0.0000001899898
+      objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
       propertyPath: m_Name
-      value: Trash_02 1
+      value: Bottle
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

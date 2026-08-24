@@ -100,9 +100,33 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 03baae67e4e4c664c94b7f59ca3e3f4e, type: 2}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Size.x
+      value: 0.21420097
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Size.y
+      value: 0.119230255
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Size.z
+      value: 0.2783575
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Center.x
+      value: -0.0007304102
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Center.y
+      value: -0.016432961
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
+      propertyPath: m_Center.z
+      value: 0.00024029613
+      objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: 6e83b19374fc841be95cecc34385e365, type: 3}
       propertyPath: m_Name
-      value: Bottle 1
+      value: Hotdog
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
