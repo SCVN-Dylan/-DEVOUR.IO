@@ -55129,33 +55129,13 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 738451159045403192, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.06
-      objectReference: {fileID: 0}
     - target: {fileID: 2093273651860475232, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: maxHighlight
-      value: 25
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: popAffectsCamera
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: highlightMaxRadius
-      value: 28.6
-      objectReference: {fileID: 0}
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
       value: Player
-      objectReference: {fileID: 0}
-    - target: {fileID: 4087071182281879751, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.453
       objectReference: {fileID: 0}
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -55196,12 +55176,6 @@ PrefabInstance:
     - target: {fileID: 4944762698666343497, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4971381581295975268, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
-      propertyPath: m_text
-      value: 'Lv 1
-
-        <size=65%>Player</size>'
       objectReference: {fileID: 0}
     - target: {fileID: 5305163158164827225, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: joystick
@@ -55261,6 +55235,14 @@ PrefabInstance:
     - target: {fileID: 5316567572588318904, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_Name
       value: UI
+      objectReference: {fileID: 0}
+    - target: {fileID: 5579005926583629202, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
+      propertyPath: arrowSize
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 5579005926583629202, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
+      propertyPath: colorFromSkin
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8049311625533389191, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_Pivot.x
