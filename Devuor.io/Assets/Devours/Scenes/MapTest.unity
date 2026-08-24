@@ -55224,25 +55224,9 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 2251249438202425184, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4656733696184856897, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 5316567572588318904, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_Name
       value: UI
-      objectReference: {fileID: 0}
-    - target: {fileID: 5579005926583629202, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
-      propertyPath: showAllAi
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5579005926583629202, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
-      propertyPath: colorFromSkin
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8049311625533389191, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_Pivot.x
@@ -55322,10 +55306,6 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8049311625533389191, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9197751957917685108, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
-      propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
