@@ -41314,6 +41314,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 458819905}
     m_Modifications:
+    - target: {fileID: 1482098869625143662, guid: dc3ce64466ae344f68e2b3f8dc7e54d2, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1482098869625143662, guid: dc3ce64466ae344f68e2b3f8dc7e54d2, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 7d3c1a9b0f5e4a4c8b21d6f3a9c40002, type: 2}
     - target: {fileID: 4174335337350242306, guid: dc3ce64466ae344f68e2b3f8dc7e54d2, type: 3}
       propertyPath: m_Name
       value: Can (13)
@@ -55139,7 +55147,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2824990503888106062, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: highlightMaxRadius
-      value: 25
+      value: 28.6
       objectReference: {fileID: 0}
     - target: {fileID: 3131801423903421872, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Name
