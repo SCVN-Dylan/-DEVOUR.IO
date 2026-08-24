@@ -732,6 +732,9 @@ public class PhysicsDevourable : MonoBehaviour
     void FixedUpdate()
     {
         if (_state != State.Falling) return;
+
+        ApplyHorizontalDrag();
+
         if (Time.time < _sleepAt) return;
 
         // Chi ngu khi da nam tuong doi yen; con dang lao thi khoan, cho them chut
@@ -739,6 +742,38 @@ public class PhysicsDevourable : MonoBehaviour
             EnterSleep();
         else
             _sleepAt = Time.time + 0.5f;
+    }
+
+    /// <summary>
+    /// HAM RIENG PHUONG NGANG, khong dung toi cu roi.
+    ///
+    /// Con so Drag authored tren prefab (0.5 o Lv1 toi 12 o Lv6) sinh ra de item BI DAY thi dung
+    /// lai som - vat cang to cang phai nang ne. Y do dung, nhung linearDamping cua Unity an len
+    /// CA BA TRUC, ke ca truc dung: no chan van toc roi o muc g/drag. Do thuc te: xe (drag 8) roi
+    /// 1.23 u/s, quan ca phe (drag 12) roi 0.82 u/s - mat 6.2 giay de roi 5u, nhin nhu la roi.
+    ///
+    /// Nen o day: tat han linearDamping, roi tu ap dung dung cong thuc do cho RIENG X va Z. Truc Y
+    /// khong ai dong toi -> roi dung nhu roi tu do (5u trong 1.0 giay thay vi 6.2 giay), con hanh
+    /// vi "bi day thi dung som" giu Y NGUYEN nhu cu vi dung lai chinh con so cua prefab.
+    ///
+    /// Day cung la cai bay da cat project mot lan roi: luc hut, drag 12 keo toc do hut tu 50 xuong
+    /// 7.6 u/s, va cho do phai tat drag di (xem EnterSucked). Lan do va tai cho cho phan hut, phan
+    /// roi thi khong ai de y toi.
+    ///
+    /// Khong can bat o moi cua vao trang thai Falling: dat ngay dau FixedUpdate thi duong nao vao
+    /// cung duoc xu ly o nhip ke tiep.
+    /// </summary>
+    private void ApplyHorizontalDrag()
+    {
+        CacheStartDrag();                                   // chup so authored TRUOC khi xoa no di
+        if (_rb.linearDamping != 0f) _rb.linearDamping = 0f;
+        if (_startDrag <= 0f) return;                       // prefab von khong co drag -> khong phai ham gi
+
+        float k = 1f / (1f + _startDrag * Time.fixedDeltaTime);   // dung cong thuc Unity ap cho damping
+        Vector3 v = _rb.linearVelocity;
+        v.x *= k;
+        v.z *= k;
+        _rb.linearVelocity = v;
     }
 
     void OnCollisionEnter(Collision collision) { Contact(collision.collider); }
