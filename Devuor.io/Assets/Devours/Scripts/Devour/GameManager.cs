@@ -523,6 +523,12 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// SO BOT CON SONG - cho UI doc. Dung chung phep dem voi cua thang/thua ben duoi, de khong
+    /// bao gio co canh HUD hien "con 1" trong khi luat da tinh la het.
+    /// </summary>
+    public int AiAlive { get { return CountAiAlive(); } }
+
+    /// <summary>
     /// So bot CON SONG. victim da bi Unregister ngay dau ReportDeath nen no khong con bi dem.
     ///
     /// Loc ca IsDead: con dang bay vao mom ke giet da rut ten khoi danh sach roi, nhung con nao
