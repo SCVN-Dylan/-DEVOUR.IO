@@ -55228,6 +55228,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: UI
       objectReference: {fileID: 0}
+    - target: {fileID: 6692540065945161515, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
+      propertyPath: matchDuration
+      value: 180
+      objectReference: {fileID: 0}
     - target: {fileID: 8049311625533389191, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -55307,6 +55311,10 @@ PrefabInstance:
     - target: {fileID: 8049311625533389191, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8980334972905055772, guid: b4a4c3579cef44d638efa04ab756d06d, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
