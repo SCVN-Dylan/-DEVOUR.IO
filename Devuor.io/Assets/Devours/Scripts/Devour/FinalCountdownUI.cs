@@ -236,14 +236,11 @@ public class FinalCountdownUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Co chu cua cai dich bay toi. Dong ho hien la Text (UI cu) nhung de cho ca TMP phong khi
-    /// sau nay doi - doi mot cai thi khong phai nho quay lai sua cho nay.
+    /// Co chu cua cai dich bay toi, dung TMP de dong bo voi timerText.
     /// </summary>
     private static float TargetFontSize(RectTransform dst)
     {
         if (dst == null) return 0f;
-        UnityEngine.UI.Text legacy = dst.GetComponent<UnityEngine.UI.Text>();
-        if (legacy != null) return legacy.fontSize;
         TMP_Text tmp = dst.GetComponent<TMP_Text>();
         if (tmp != null) return tmp.fontSize;
         return 0f;
