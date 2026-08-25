@@ -84,7 +84,17 @@ public class VirtualJoystick : MonoBehaviour,
             Vector3 world;
             if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
                     _area, eventData.position, GetCamera(eventData), out world))
-                background.position = world;
+            {
+                // DAY CA RECT sao cho TAM no trung ngon tay - khong phai gan thang position = world.
+                //
+                // RectTransform.position la vi tri cua PIVOT. Background dang de pivot (0.5, 0),
+                // tuc MEP DUOI, nen gan position = world se dinh mep duoi vao ngon tay roi dung ca
+                // vong tron 320px LEN TREN: tam joystick cao hon ngon tay dung 160px.
+                //
+                // Tinh tam dang o dau roi day ca rect di mot doan, thay vi tru pivot bang tay: cach
+                // nay dung voi MOI pivot/scale/xoay ma artist dat sau nay, khong phai sua lai code.
+                background.position += world - background.TransformPoint(background.rect.center);
+            }
         }
 
         if (_group != null) _group.alpha = 1f;
@@ -101,11 +111,17 @@ public class VirtualJoystick : MonoBehaviour,
 
         // Tam duoc doc lai moi lan keo (thay vi cache luc nhan xuong) nen van dung
         // ke ca khi Background bi di chuyen boi dynamicOrigin.
+        //
+        // rect.center CHU KHONG PHAI background.position: position la PIVOT, ma pivot dang nam o
+        // mep duoi. Lay pivot lam tam thi luc ngon tay dung yen ngay giua joystick, he van doc ra
+        // mot cu day LEN TREN 160px - nguoi choi khong keo gi ma nhan vat tu chay len.
         Vector2 center = RectTransformUtility.WorldToScreenPoint(
-            GetCamera(eventData), background.position);
+            GetCamera(eventData), background.TransformPoint(background.rect.center));
 
         // Chuan hoa theo ban kinh Background: tam dieu khien dung bang joystick nhin thay.
-        float radius = Mathf.Min(background.sizeDelta.x, background.sizeDelta.y) * 0.5f;
+        // rect chu khong phai sizeDelta: hai cai chi bang nhau khi Background KHONG bi keo gian theo
+        // anchor. Doi anchor sang stretch la sizeDelta thanh so am -> ban kinh am -> joystick chet.
+        float radius = Mathf.Min(background.rect.width, background.rect.height) * 0.5f;
         if (radius < 1f) radius = 1f;
 
         Vector2 clamped = Vector2.ClampMagnitude(
