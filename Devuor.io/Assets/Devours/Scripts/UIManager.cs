@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// Quan ly toan bo UI cua man choi: HOME (nut Play), HUD (diem, dong ho), joystick,
@@ -40,20 +41,20 @@ public class UIManager : MonoBehaviour
     [Tooltip("Object cha cua diem + dong ho. De trong = khong an/hien HUD theo trang thai")]
     public GameObject hudRoot;
 
-    public Text scoreText;
-    public Text timerText;
+    public TMP_Text scoreText;
+    public TMP_Text timerText;
 
     [Header("Ket thuc - THUA")]
     // FormerlySerializedAs: ba truong nay truoc ten la gameOverPanel / finalScoreText /
     // restartButton va DANG duoc keo san trong MapTest. Khong co attribute nay thi doi ten =
     // Unity coi la truong moi, ba o Inspector tu nhien rong ma khong bao loi gi.
     [FormerlySerializedAs("gameOverPanel")] public GameObject losePanel;
-    [FormerlySerializedAs("finalScoreText")] public Text loseScoreText;
+    [FormerlySerializedAs("finalScoreText")] public TMP_Text loseScoreText;
     [FormerlySerializedAs("restartButton")] public Button loseButton;
 
     [Header("Ket thuc - THANG")]
     public GameObject winPanel;
-    public Text winScoreText;
+    public TMP_Text winScoreText;
     public Button winButton;
 
     [Header("Ket thuc van")]
@@ -297,7 +298,7 @@ public class UIManager : MonoBehaviour
         if (SoundManager.HasInstance)
             SoundManager.Instance.PlaySfx(win ? SoundManager.Sfx.Win : SoundManager.Sfx.Lose);
 
-        Text scoreLabel = win ? winScoreText : loseScoreText;
+        TMP_Text scoreLabel = win ? winScoreText : loseScoreText;
         GameObject panel = win ? winPanel : losePanel;
 
         if (scoreLabel != null) scoreLabel.text = "SCORE  " + Score;
