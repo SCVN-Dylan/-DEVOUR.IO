@@ -39,6 +39,18 @@ public class PhysicsDevourable : MonoBehaviour
              "con Lv50, khong can trang thai toan cuc nao ca.")]
     public int pushLockStageDiff = 3;
 
+    [Tooltip("VE DAY song bao lau (giay). 0 = tat han co che truyen day theo day chuyen.\n\n" +
+             "VI SAO CAN: khoa o tren chi xet luc CON VAT huc truc tiep. Con vat huc mot mon nho\n" +
+             "cho no bay vao mon to thi mon to khong he biet co ai day no ca - no bi day thoai mai,\n" +
+             "tuc la ca cai khoa bi di vong qua bang mot cu bi-a.\n\n" +
+             "Nen mon bi day se MANG THEO HANG cua con vat da day no, va truyen tiep cho mon nao no\n" +
+             "tong vao. Mon bi tong so hang cua minh voi cai VE do, dung ngay nguong o tren:\n" +
+             "  con hang 1 day lon  -> lon mang ve 1 -> tong nha (hang 6) -> chenh 5 -> KHOA\n" +
+             "  con hang 6 day lon  -> lon mang ve 6 -> tong nha (hang 6) -> chenh 0 -> day duoc\n\n" +
+             "PHAI CO HAN: khong thi cai lon giu quyen cua con hang 6 den het van. Ve cung bi xoa\n" +
+             "khi item ngu - nam yen roi thi khong con mang luc cua ai.")]
+    public float pushTicketLife = 1.5f;
+
     [Header("Ngu/thuc")]
     [Tooltip("Sau bao lau (giay) khong con bi hut / khong con va cham thi tu ngu lai")]
     public float sleepDelay = 5f;
@@ -159,6 +171,9 @@ public class PhysicsDevourable : MonoBehaviour
     private float _noiseSeed;
     private float _sleepAt;
     private bool _pushLocked;          // dang khoa cung vi ke huc vao qua yeu
+    private int _pushTicket = -1;      // hang cua con vat da day minh, -1 = khong mang quyen cua ai
+    private float _ticketUntil;        // ve het han luc nao
+    private int _myStage = -1;         // hang cua chinh minh, tra bang mot lan roi nho
     private float _startDrag = -1f;    // drag authored tren prefab. -1 = chua chup
     private float _grabDist = -1f;     // khoang cach toi mom luc VUA BI TOM. -1 = chua tom
     private float _swirlAngle;
@@ -686,6 +701,71 @@ public class PhysicsDevourable : MonoBehaviour
     /// <summary>Tha khoa tu ben ngoai - GameManager goi khi co khoa bi tat giua chung.</summary>
     public void ClearPushLock() { SetPushLock(false); }
 
+    // ---------------------------------------------------------------- ve day (truyen theo day chuyen)
+
+    /// <summary>
+    /// Hang cua con vat dang "dung sau" cu day cua minh, -1 la khong mang quyen cua ai.
+    /// Het han la tu het - xem ghi chu o pushTicketLife.
+    /// </summary>
+    public int PushTicket { get { return Time.time <= _ticketUntil ? _pushTicket : -1; } }
+
+    /// <summary>Nhan ve. Ve MANH DE VE YEU: dang mang quyen hang 2 ma bi thu mang hang 5 tong thi len 5.</summary>
+    private void TakeTicket(int stage)
+    {
+        if (pushTicketLife <= 0f) return;
+        if (PushTicket < 0 || stage > _pushTicket) _pushTicket = stage;
+        _ticketUntil = Time.time + pushTicketLife;
+    }
+
+    private void ClearTicket() { _pushTicket = -1; _ticketUntil = 0f; }
+
+    /// <summary>
+    /// Bi mot ITEM khac tong vao (khong phai con vat). Neu mon do dang mang ve thi cu day nay thuc
+    /// ra la cu day cua CON VAT dung sau no - xet khoa bang dung cai ve do, khong phai bang hang
+    /// cua mon vua tong.
+    ///
+    /// Mon khong mang ve (dang roi tu nhien, do nghieng, bi thu khac huc tu doi nao) thi KHONG dung
+    /// toi khoa: cho vat ly tu nhien chay, day moi la hanh vi cu va no dung.
+    /// </summary>
+    private void TakeChainPush(Collider other)
+    {
+        if (pushLockStageDiff <= 0 || pushTicketLife <= 0f) return;
+        if (_state == State.Sucked || _state == State.Struggling) return;   // he hut dang lai, khong xen vao
+        if (GameManager.HasInstance && !GameManager.Instance.PushLockEnabled) return;
+
+        PhysicsDevourable src = other.GetComponentInParent<PhysicsDevourable>();
+        if (src == null || src == this) return;
+
+        int ticket = src.PushTicket;
+        if (ticket < 0) return;
+
+        int mine = MyStage();
+        if (mine < 0) return;   // chua tra duoc bang hang -> giu y hanh vi cu, khong doan bua
+
+        bool lockNow = mine - ticket >= pushLockStageDiff;
+        SetPushLock(lockNow);
+
+        if (lockNow) ClearTicket();
+        else TakeTicket(ticket);   // bi day that -> day chuyen di tiep
+    }
+
+    /// <summary>
+    /// Hang cua chinh minh. Bang tra hang nam trong SuctionConfig ma item khong giu tham chieu toi,
+    /// nen muon mot lan tu player roi nho lai - Contact() von da phu thuoc GameManager san.
+    /// Khong co GameManager (scene test) thi tra -1 va ben goi tu bo qua.
+    /// </summary>
+    private int MyStage()
+    {
+        if (_myStage >= 0) return _myStage;
+        if (!GameManager.HasInstance) return -1;
+
+        Creature p = GameManager.Instance.Player;
+        if (p == null || p.Suction == null) return -1;
+
+        _myStage = p.Suction.StageAtLevel(requiredLevel);
+        return _myStage;
+    }
+
     public void Release(SimpleSuction by)
     {
         if (by != null && _owner != null && _owner != by) return;
@@ -883,11 +963,18 @@ public class PhysicsDevourable : MonoBehaviour
 
             if (pushLockStageDiff > 0 && allowed && _state != State.Sucked && _state != State.Struggling)
             {
-                int diff = suction.StageAtLevel(requiredLevel) - suction.Stage;
-                SetPushLock(diff >= pushLockStageDiff);
+                _myStage = suction.StageAtLevel(requiredLevel);   // tien the nho luon hang cua minh
+                bool lockNow = _myStage - suction.Stage >= pushLockStageDiff;
+                SetPushLock(lockNow);
+
+                // Bi day THAT thi mang theo quyen cua con nay di tiep; bi khoa thi khong day duoc
+                // nen cung khong co gi de truyen.
+                if (lockNow) ClearTicket();
+                else TakeTicket(suction.Stage);
             }
             else if (!allowed) SetPushLock(false);
         }
+        else TakeChainPush(other);
 
         if (_state == State.Sucked || _state == State.Struggling) return;   // suction dang dieu khien, physics khong xen vao
 
@@ -950,6 +1037,7 @@ public class PhysicsDevourable : MonoBehaviour
     {
         SetBlocked(false);
         RestoreDrag();
+        ClearTicket();             // nam yen roi thi khong con mang luc cua ai
         _state = State.Asleep;
         _owner = null;             // nam yen tren dat roi thi ai gianh cung duoc
         if (_rb.isKinematic) _rb.isKinematic = false;
