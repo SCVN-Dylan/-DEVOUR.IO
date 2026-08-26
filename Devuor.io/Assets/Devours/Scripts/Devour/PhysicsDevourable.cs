@@ -771,9 +771,32 @@ public class PhysicsDevourable : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (_state != State.Falling) return;
+        // HAM NGANG PHAI CHAY CHO MOI ITEM DANG CHIU VAT LY, khong rieng Falling.
+        //
+        // Canh bang '_state == Falling' la cho de lot ra bug "cong long", va no lot ra rat de: item
+        // chi vao Falling khi co mot va cham MOI ban ra. An mat mon dang do ben duoi thi mon nam
+        // tren mat diem tua ma KHONG co va cham nao ca - _state van la Asleep, ma EnterSleep() da
+        // tra linearDamping ve so authored (0.5 den 12), va linearDamping cua Unity an len CA BA
+        // TRUC ke ca truc dung.
+        //
+        // Do that o trang thai do: nha (drag 12) roi deu 0.62 u/s suot 8.49 giay, duoc dung 5.28u -
+        // roi tu do cung thoi gian do la 354u. Dung cong thuc van toc toi han g/drag = 9.81/12.
+        // Mon cang to drag cang cao nen cang lo lung: nha cao 29u mat 47 giay de roi het chinh no.
+        //
+        // Nen dieu kien la "dang thuc va dang chiu vat ly" chu khong phai mot trang thai cu the.
+        // TRU Sucked/Struggling: he hut so huu hai trang thai do, va EnterSucked da co ghi chu
+        // rieng ve viec PHAI tat drag trong pha hut (de nguyen thi toc do hut tu 50 tut con 7.6).
+        // Ham ngang thu cong o day cung se bop dung cho do, nen khong duoc dong vao.
+        // THU TU DIEU KIEN LA CO Y: IsSleeping() dung TRUOC. Gan nhu ca bai do an luon dang ngu
+        // (do that: 2462 item co rigidbody, chi 90 con thuc), nen dat no dau thi hau het item cat
+        // mach ngay sau MOT lenh goi native thay vi hai.
+        // Do tren may nay cho 2462 item x 50 buoc: 4.35 ms/giay neu hoi isKinematic truoc, con
+        // 2.65 ms/giay neu hoi IsSleeping truoc - re di 39%. Mobile cham hon 3-5x nen cho nay dang
+        // gia mot dong ghi chu.
+        if (!_rb.IsSleeping() && !_rb.isKinematic && _state != State.Sucked && _state != State.Struggling)
+            ApplyHorizontalDrag();
 
-        ApplyHorizontalDrag();
+        if (_state != State.Falling) return;
 
         if (Time.time < _sleepAt) return;
 
@@ -800,8 +823,9 @@ public class PhysicsDevourable : MonoBehaviour
     /// 7.6 u/s, va cho do phai tat drag di (xem EnterSucked). Lan do va tai cho cho phan hut, phan
     /// roi thi khong ai de y toi.
     ///
-    /// Khong can bat o moi cua vao trang thai Falling: dat ngay dau FixedUpdate thi duong nao vao
-    /// cung duoc xu ly o nhip ke tiep.
+    /// Khong can bat o moi cua vao trang thai nao het: dat ngay dau FixedUpdate va canh theo "dang
+    /// thuc va dang chiu vat ly" thi duong nao vao cung duoc xu ly o nhip ke tiep. Xem ghi chu o
+    /// FixedUpdate ve ly do KHONG duoc canh bang _state.
     /// </summary>
     private void ApplyHorizontalDrag()
     {
