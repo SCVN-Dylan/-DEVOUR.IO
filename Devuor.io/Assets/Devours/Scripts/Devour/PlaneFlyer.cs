@@ -141,19 +141,29 @@ public class PlaneFlyer : MonoBehaviour
     private const string MouthLayerName = "Mouth";
 
     [Header("Ne vat can")]
-    [Tooltip("BAT: thay vat can phia truoc thi doi diem den.\n\n" +
-             "VI SAO CAN: rigidbody KINEMATIC va cham voi collider TINH (toa nha) thi Unity KHONG\n" +
-             "sinh su kien va cham nao - vat bay se XUYEN THANG qua toa nha chu khong dung lai.\n" +
+    [Tooltip("BAT: thay vat can phia truoc thi lai gat sang ben trong cho toi khi qua duoc.\n\n" +
+             "VI SAO CAN: vat bay khong con va cham vat ly (xem 'TAI SAO PHAI CAT VA CHAM' o dau\n" +
+             "file) nen no XUYEN THANG qua toa nha chu khong dung lai. Ne la viec cua rieng cho nay.\n" +
              "Bay du cao khoi moi mai nha thi tat co nay di cho re.")]
     [SerializeField] private bool _avoidObstacles = true;
 
     [Tooltip("Layer duoc tinh la vat can. Bo layer cua chinh vat bay ra cho re.")]
     [SerializeField] private LayerMask _obstacleLayers = ~0;
 
-    [Tooltip("Nhin xa bao nhieu (world). Nen >= ban kinh vong cua, khong thi thay vat can thi da muon.")]
+    [Tooltip("BAT (nen bat): Start() TU DO be ngang / chieu dai than tu collider that, roi ep\n" +
+             "probeRadius va probeDistance khong duoc nho hon so do.\n\n" +
+             "VI SAO CAN: hai so duoi day phai khop voi TUNG con, ma dat tay thi sai la chac. So\n" +
+             "authored dang la probeRadius = 1.5 cho ca 5 prefab, trong khi airship rong 33.7 va\n" +
+             "khinh khi cau rong 18.7 - chum do phu chua toi 9% be ngang, nen hai canh quet qua\n" +
+             "toa nha ma chum khong he thay gi.\n\n" +
+             "probeDistance cung vay: phai du xa de CUA XONG truoc khi dam, tuc >= ban kinh vong\n" +
+             "cua (speed / turnRate) cong nua chieu dai than. Airship can 18.3u, authored cho 8.")]
+    [SerializeField] private bool _autoProbeSize = true;
+
+    [Tooltip("Nhin xa bao nhieu (world). Bat autoProbeSize thi day chi con la muc SAN.")]
     [SerializeField] private float _probeDistance = 8f;
 
-    [Tooltip("Be ngang chum do. Nen xap xi nua be ngang than vat bay.")]
+    [Tooltip("Be ngang chum do - nen bang nua be ngang than. Bat autoProbeSize thi day chi la muc SAN.")]
     [SerializeField] private float _probeRadius = 1.5f;
 
     [Tooltip("Giay giua 2 lan do vat can. KHONG do moi frame - mot toa nha khong tu moc len giua\n" +
@@ -173,6 +183,28 @@ public class PlaneFlyer : MonoBehaviour
     private float _probeTimer;
     private float _noiseSeed;
     private float _bank;
+
+    /// <summary>
+    /// Huong dang lai de NE, hoac zero neu truoc mat trong. Con giu huong nay thi diem den bi gac
+    /// lai - phai qua duoc cai da roi hang di dau thi di.
+    /// </summary>
+    private Vector3 _avoidDir;
+
+    /// <summary>
+    /// Day than so voi pivot (world y). Dung de biet vat can nao la "cao": dinh no thap hon day
+    /// than thi bay qua duoc, khong viec gi phai ne - khong co no thi vat bay ne ca cai bui va ne
+    /// ca mat dat.
+    /// </summary>
+    private float _bodyBottom;
+
+    /// <summary>Chum do ban ra hai ben lech bao nhieu do. Hep qua thi ne khong du, rong qua thi cua gat.</summary>
+    private const float SideProbeAngle = 45f;
+
+    /// <summary>Chieu cao than - be day hanh lang do theo truc dung.</summary>
+    private float _bodyHeight = 1f;
+
+    /// <summary>Dung chung cho moi lan do, khong cap phat giua game.</summary>
+    private readonly Collider[] _probeBuf = new Collider[24];
 
     /// <summary>
     /// Con dang tu lai khong. Mot khi bi giành (Owner != null) la tat VINH VIEN - roi la roi han,
@@ -228,6 +260,7 @@ public class PlaneFlyer : MonoBehaviour
         if (_heading.sqrMagnitude < 0.0001f) _heading = Vector3.forward;
         _heading.Normalize();
 
+        MeasureBody();
         PickTarget();
     }
 
@@ -270,12 +303,14 @@ public class PlaneFlyer : MonoBehaviour
             if (_probeTimer <= 0f)
             {
                 _probeTimer = _probeInterval;
-                if (Blocked()) PickTarget();
+                UpdateAvoid();
             }
         }
+        else _avoidDir = Vector3.zero;
 
-        // --- lai: quay dan ve huong diem den, KHONG duoc quay qua turnRate do moi giay
-        Vector3 dir = _target - transform.position;
+        // --- lai: dang ne thi NE TRUOC, diem den de do. Qua duoc roi (_avoidDir ve zero) thi tu
+        //     dong quay lai bam diem den o nhip do ke tiep.
+        Vector3 dir = _avoidDir.sqrMagnitude > 0.0001f ? _avoidDir : (_target - transform.position);
         dir.y = 0f;
         if (dir.sqrMagnitude > 0.0001f)
         {
@@ -347,20 +382,150 @@ public class PlaneFlyer : MonoBehaviour
     }
 
     /// <summary>
-    /// Phia truoc co vat can khong. Ban tu MOT chum ban kinh probeRadius DAT LUI VE TRUOC mot doan
-    /// bang chinh ban kinh do - ban tu tam than thi chum bat dau nam TRONG collider cua chinh minh,
-    /// Unity tra ve mot cu cham khoang cach 0 va vat bay se doi huong lien tuc tai cho.
+    /// Do be ngang / chieu dai than that, roi ep hai so probe khong duoc nho hon no.
+    ///
+    /// Cach cu de designer tu dien probeRadius va ca 5 prefab deu de nguyen 1.5, trong khi airship
+    /// rong 33.7 - chum do phu 9% be ngang nen hai canh quet qua toa nha ma no khong thay gi. Do
+    /// tu collider thi khong con cho nao de dien sai.
+    ///
+    /// probeDistance phai du de CUA XONG truoc khi dam: ban kinh vong cua = speed / turnRate(rad),
+    /// cong them nua chieu dai than vi cai duoi con phai qua duoc cho do nua.
     /// </summary>
-    private bool Blocked()
+    private void MeasureBody()
     {
-        Vector3 from = transform.position + _heading * _probeRadius;
-        RaycastHit hit;
-        if (!Physics.SphereCast(from, _probeRadius, _heading, out hit, _probeDistance,
-                                _obstacleLayers, QueryTriggerInteraction.Ignore)) return false;
+        // PHAI SYNC TRUOC. Unity 6 de autoSyncTransforms = false, ma Start() vua doi transform len
+        // flyHeight - collider.bounds luc nay van la vi tri CU ben PhysX. Doc thang thi bodyBottom
+        // ra -10.50 thay vi 0, tuc chenh dung bang doan vua dich, va bo loc "cao hon than" se sai
+        // ca met ma khong bao gi.
+        Physics.SyncTransforms();
 
-        // Luoi an toan cho truong hop obstacleLayers van con chua layer cua chinh minh.
-        Transform t = hit.collider.transform;
-        return t != transform && !t.IsChildOf(transform);
+        Bounds b = new Bounds(transform.position, Vector3.zero);
+        bool has = false;
+
+        Collider[] cols = GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            if (cols[i] == null || cols[i].isTrigger) continue;
+            if (!has) { b = cols[i].bounds; has = true; }
+            else b.Encapsulate(cols[i].bounds);
+        }
+        if (!has) return;
+
+        _bodyBottom = b.min.y - transform.position.y;
+        _bodyHeight = Mathf.Max(1f, b.size.y);
+        if (!_autoProbeSize) return;
+
+        // Lay nua chieu NGANG LON NHAT chu khong phai be ngang theo huong bay: huong bay doi lien
+        // tuc, chon so lon la chum do khong bao gio hep hon than o bat ky goc nao.
+        float halfSpan = Mathf.Max(b.extents.x, b.extents.z);
+        float turnRadius = _speed / Mathf.Max(0.0001f, _turnRate * Mathf.Deg2Rad);
+
+        _probeRadius = Mathf.Max(_probeRadius, halfSpan);
+        _probeDistance = Mathf.Max(_probeDistance, turnRadius + halfSpan);
+    }
+
+    /// <summary>
+    /// Truoc mat trong thi thoi ne. Bi chan thi chon BEN THOANG HON va giu huong do cho toi khi qua
+    /// duoc - khong bốc diem den ngau nhien nhu truoc.
+    ///
+    /// VI SAO KHONG BOC NGAU NHIEN: diem moi hoan toan co the nam dung sau cai toa nha vua chan,
+    /// hoac sau mot cai khac cung chan. Vat bay do dung vao roi lai bốc, do lai dung vao, thanh ra
+    /// no rung rinh truoc mat toa nha chu khong bao gio vong qua. Chon ben theo do THOANG thi moi
+    /// lan do la mot lan tien them, va het chan la tu dong ve lai diem den.
+    /// </summary>
+    private void UpdateAvoid()
+    {
+        Vector3 toTarget = _target - transform.position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude < 0.0001f) toTarget = _heading;
+        else toTarget.Normalize();
+
+        // THOI NE khi CA duong toi diem den LAN truoc mat deu trong.
+        //
+        // Chi hoi moi "truoc mat" thoi la khong du, va day la cai bay da do duoc bang so: vua gat
+        // sang huong trong thi lan do ke tiep do theo huong MOI, thay trong, tat ne - va vat bay
+        // lai nham thang vao dung toa nha cu. Do that o ban do: xuyen nha 47.2% so frame ma co ne
+        // duoc 2.6%. Phai hoi them "duong toi dich da thong chua" thi moi biet la da vong qua that.
+        if (Clearance(toTarget) >= _probeDistance && Clearance(_heading) >= _probeDistance)
+        {
+            _avoidDir = Vector3.zero;
+            return;
+        }
+
+        Vector3 left = Quaternion.Euler(0f, -SideProbeAngle, 0f) * _heading;
+        Vector3 right = Quaternion.Euler(0f, SideProbeAngle, 0f) * _heading;
+
+        float dl = Clearance(left);
+        float dr = Clearance(right);
+
+        // DANG NE BEN NAO THI BAM BEN DO neu no con thoang. Doi ben lien tuc thi vat bay dung do
+        // lac qua lac lai giua hai toa nha chu khong vong duoc qua cai nao.
+        if (_avoidDir.sqrMagnitude > 0.0001f)
+        {
+            bool goingLeft = Vector3.Dot(_avoidDir, left) > Vector3.Dot(_avoidDir, right);
+            if ((goingLeft ? dl : dr) >= _probeDistance)
+            {
+                _avoidDir = goingLeft ? left : right;
+                return;
+            }
+        }
+
+        // Hai ben thoang ngang nhau thi theo ben nao gan diem den hon - ne xong khong bi lech han
+        // ra khoi huong dang muon di.
+        if (Mathf.Abs(dl - dr) < _probeRadius)
+        {
+            _avoidDir = Vector3.Dot(toTarget, left) >= Vector3.Dot(toTarget, right) ? left : right;
+            return;
+        }
+
+        _avoidDir = dl > dr ? left : right;
+    }
+
+    /// <summary>
+    /// Con bao xa moi cham vat can theo huong nay - probeDistance nghia la trong.
+    ///
+    /// DUNG OverlapBox CHU KHONG DUNG SphereCast. SphereCast co mot cai bay da lam hong ban dau
+    /// tien cua ham nay: no KHONG bao cao collider da chong len qua cau NGAY TAI CHO XUAT PHAT.
+    /// Ban tu tam than thi qua cau nam trong collider cua chinh minh, nen phai day diem xuat phat
+    /// ve truoc - ma probeRadius gio la 16.85 (nua be ngang airship) chu khong con la 1.5, nen day
+    /// ve truoc 16.85u la dung ngay cai toa nha sap dam vao NAM TRON trong qua cau xuat phat va
+    /// khong bao gio duoc bao. Do that: xuyen nha 50.8% so frame ma _avoidDir chua bat len mot lan.
+    ///
+    /// OverlapBox khong co khai niem "diem xuat phat" nen khong dinh bay do: quet dung mot hanh
+    /// lang hop tu than ra truoc probeDistance, rong probeRadius moi ben, cao bang than.
+    ///
+    /// BO QUA vat THAP hon day than: bay qua duoc thi ne lam gi. Khong co bo loc nay thi voi hanh
+    /// lang to bang nua than, vat bay se ne ca bui co lan mat dat.
+    /// </summary>
+    private float Clearance(Vector3 dir)
+    {
+        float half = _probeDistance * 0.5f;
+        Vector3 center = transform.position + dir * half;
+        Vector3 halfExtents = new Vector3(_probeRadius, _bodyHeight * 0.5f, half);
+        Quaternion rot = Quaternion.LookRotation(dir, Vector3.up);
+        float bodyBottomWorld = transform.position.y + _bodyBottom;
+
+        int n = Physics.OverlapBoxNonAlloc(center, halfExtents, _probeBuf, rot,
+                                           _obstacleLayers, QueryTriggerInteraction.Ignore);
+        float best = _probeDistance;
+
+        for (int i = 0; i < n; i++)
+        {
+            Collider c = _probeBuf[i];
+            if (c == null) continue;
+
+            // Luoi an toan cho truong hop obstacleLayers van con chua layer cua chinh minh.
+            Transform t = c.transform;
+            if (t == transform || t.IsChildOf(transform)) continue;
+
+            if (c.bounds.max.y < bodyBottomWorld) continue;   // thap hon than -> bay qua duoc
+
+            // Con bao xa: chieu khoang cach len DUNG HUONG BAY, khong lay khoang cach thang - vat
+            // nam lech han sang ben thi khong phai la thu chan duong.
+            float d = Mathf.Max(0f, Vector3.Dot(c.bounds.center - transform.position, dir));
+            if (d < best) best = d;
+        }
+        return best;
     }
 
     /// <summary>Do tam + ban kinh map tu Ground_Circle, y het cach MapBoundsBuilder lam.</summary>
@@ -396,13 +561,33 @@ public class PlaneFlyer : MonoBehaviour
         Gizmos.DrawLine(transform.position, t);
         Gizmos.DrawWireSphere(t, _arriveDistance);
 
-        // chum do vat can
+        // ba chum do: giua + hai ben
         if (_avoidObstacles)
         {
-            Gizmos.color = Color.yellow;
-            Vector3 from = transform.position + _heading * _probeRadius;
-            Gizmos.DrawWireSphere(from + _heading * _probeDistance, _probeRadius);
+            DrawProbe(_heading, Color.yellow);
+            DrawProbe(Quaternion.Euler(0f, -SideProbeAngle, 0f) * _heading, new Color(1f, 0.8f, 0.2f, 0.5f));
+            DrawProbe(Quaternion.Euler(0f, SideProbeAngle, 0f) * _heading, new Color(1f, 0.8f, 0.2f, 0.5f));
+
+            // huong dang ne (do = dang gac diem den lai de vong qua vat can)
+            if (_avoidDir.sqrMagnitude > 0.0001f)
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawLine(transform.position, transform.position + _avoidDir.normalized * _probeDistance);
+            }
         }
+    }
+
+    /// <summary>Ve dung cai hanh lang ma Clearance() quet, khong ve xap xi.</summary>
+    private void DrawProbe(Vector3 dir, Color color)
+    {
+        Gizmos.color = color;
+        float half = _probeDistance * 0.5f;
+
+        Matrix4x4 old = Gizmos.matrix;
+        Gizmos.matrix = Matrix4x4.TRS(transform.position + dir * half,
+                                      Quaternion.LookRotation(dir, Vector3.up), Vector3.one);
+        Gizmos.DrawWireCube(Vector3.zero, new Vector3(_probeRadius * 2f, _bodyHeight, _probeDistance));
+        Gizmos.matrix = old;
     }
 
     private static void DrawCircle(Vector3 center, float radius)
