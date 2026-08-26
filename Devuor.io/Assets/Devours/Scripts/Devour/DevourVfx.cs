@@ -80,6 +80,15 @@ public class DevourVfx : MonoBehaviour
     [Tooltip("Do TAN ngau nhien quanh diem xuat phat (world). 0 = moi object ra tu dung mot diem")]
     public float scatter = 0.6f;
 
+    [Tooltip("LUI diem sinh RA SAU LUNG nan nhan bao nhieu, tinh theo BE NGANG THAN nan nhan\n" +
+             "(0.5 = lui nua than). 0 = sinh dung tam than nhu cu.\n\n" +
+             "Do theo be ngang than chu khong phai so world co dinh: con da len cap thi than to gap\n" +
+             "hang chuc lan, mot so co dinh se khong nhuc nhich gi so voi cai than do.\n\n" +
+             "CHI DOI CHO TOE RA, khong dinh gi toi gameplay. Muon lui thi dung o day chu DUNG sua\n" +
+             "Creature.centerOffset - cai do dang duoc non hut, AI ngam moi, OccluderFade va mui ten\n" +
+             "chi huong dung chung, lui no la lech ca luat ai hut duoc ai.")]
+    public float spawnBackOffset = 0f;
+
     [Range(0f, 1f)]
     [Tooltip("DO PHINH cua duong bay, tinh theo PHAN TRAM QUANG DUONG BAY. 0 = bay thang.\n" +
              "0.25 = moi hat lech toi da 25% quang duong sang mot huong ngau nhien vuong goc voi\n" +
@@ -168,7 +177,8 @@ public class DevourVfx : MonoBehaviour
     /// RUT: nan nhan vua tut 'levels' cap -> ban ra bay nhieu object, moi cai mang 1 level.
     /// Goi tren VFX cua KE HUT, truyen tam than + mau skin + co than cua NAN NHAN.
     /// </summary>
-    public void EmitDrain(Vector3 fromWorld, int levels, Color victimColor, float victimScale)
+    public void EmitDrain(Vector3 fromWorld, int levels, Color victimColor, float victimScale,
+                          Vector3 victimForward = default(Vector3))
     {
         if (levels <= 0) return;
 
@@ -181,26 +191,32 @@ public class DevourVfx : MonoBehaviour
         // con (xem CurrentSize).
         if (mergeDrainFlyer)
         {
-            SpawnOne(fromWorld, victimColor, victimScale, levels);
+            SpawnOne(fromWorld, victimColor, victimScale, levels, victimForward);
             return;
         }
 
-        for (int i = 0; i < levels; i++) SpawnOne(fromWorld, victimColor, victimScale, 1);
+        for (int i = 0; i < levels; i++) SpawnOne(fromWorld, victimColor, victimScale, 1, victimForward);
     }
 
     /// <summary>CHET: mot phat that da, tat ca XP con lai bay ve ke giet trong MOT object.</summary>
-    public void EmitDeath(Vector3 fromWorld, Color victimColor, float victimScale, int xp)
+    public void EmitDeath(Vector3 fromWorld, Color victimColor, float victimScale, int xp,
+                          Vector3 victimForward = default(Vector3))
     {
-        SpawnOne(fromWorld, victimColor, victimScale, Mathf.Max(0, xp));
+        SpawnOne(fromWorld, victimColor, victimScale, Mathf.Max(0, xp), victimForward);
     }
 
     /// <summary>
     /// Sinh mot object mang 'xp' level. Thieu flyPrefab thi TRA XP NGAY - khong co hinh nhung so
     /// lieu van khop, khong bao gio boc hoi.
     /// </summary>
-    private void SpawnOne(Vector3 center, Color color, float victimScale, int xp)
+    private void SpawnOne(Vector3 center, Color color, float victimScale, int xp, Vector3 victimForward)
     {
         if (!IsReady || flyPrefab == null) { Deliver(xp); return; }
+
+        // LUI RA SAU LUNG NAN NHAN. Nhan victimScale de o cap nao cung lui dung ti le than;
+        // khong co huong (goi kieu cu, victimForward = 0) thi bo qua, sinh dung tam nhu truoc.
+        if (spawnBackOffset != 0f && victimForward.sqrMagnitude > 0.0001f)
+            center -= victimForward.normalized * (spawnBackOffset * Mathf.Max(0.01f, victimScale));
 
         if (_alive.Count >= Mathf.Max(1, maxAlive)) RetireOldest();
 

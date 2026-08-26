@@ -2220,6 +2220,7 @@ MonoBehaviour:
   _aiPrefab: {fileID: 2384491501142814017, guid: 6fb0dab7a6d80429c8d6af5c51eb2f52, type: 3}
   _aiCount: 8
   _aiSkins: {fileID: 11400000, guid: 70df53b9a64374348a88a6ddb05752b4, type: 2}
+  _playerSkinIndex: 0
   _spawnRadius: 35
   _spawnMinDistance: 12
   _spawnCenter: {fileID: 0}

@@ -2705,6 +2705,7 @@ MonoBehaviour:
   flyDuration: 0.35
   flyAccel: 2
   scatter: 0.6
+  spawnBackOffset: 0.1
   arcSpread: 0.25
   prewarm: 8
   maxAlive: 100

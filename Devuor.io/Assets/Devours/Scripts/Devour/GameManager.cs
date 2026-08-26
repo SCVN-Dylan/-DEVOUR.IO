@@ -67,6 +67,13 @@ public class GameManager : MonoBehaviour
              "Skin duoc boc kieu 'tui xao' nen so bot <= so skin thi chac chan khong con nao trung")]
     [SerializeField] private SkinSet _aiSkins;
 
+    [Tooltip("SKIN NGUOI CHOI = INDEX trong danh sach 'skins' cua kho skin ngay tren.\n\n" +
+             "-1 = khong dat gi, giu nguyen material co san tren Player.prefab (mac dinh).\n\n" +
+             "Dung chung kho voi bot, nen index nay VAN nam trong tui xao cua bot: mot con bot hoan\n" +
+             "toan co the boc trung skin nguoi choi. Muon loai tru thi bao - sua mot dong trong\n" +
+             "SkinSet.Draw la duoc.")]
+    [SerializeField] private int _playerSkinIndex = -1;
+
     [Tooltip("Bot sinh ra trong vanh khan quanh tam: tu spawnMinDistance den spawnRadius.\n" +
              "Co vanh trong de bot khong de ngay tren dau nguoi choi luc bat dau van")]
     [SerializeField] private float _spawnRadius = 35f;
@@ -156,6 +163,19 @@ public class GameManager : MonoBehaviour
 
     /// <summary>Con nguoi choi dieu khien. null = chua vao van hoac da bi nuot.</summary>
     public Creature Player { get { return _player; } }
+
+    /// <summary>Index skin nguoi choi dang dung. -1 = giu nguyen material tren prefab.</summary>
+    public int PlayerSkinIndex { get { return _playerSkinIndex; } }
+
+    /// <summary>
+    /// Doi skin nguoi choi luc dang chay (man chon skin goi vao day). Ap dung ngay neu player da co
+    /// mat; chua co thi so duoc nho lai va Register ap khi player dang ky.
+    /// </summary>
+    public void SetPlayerSkin(int index)
+    {
+        _playerSkinIndex = index;
+        ApplyPlayerSkin();
+    }
 
     /// <summary>Moi sinh vat dang song. CHI DOC - them/bot phai qua Register/Unregister.</summary>
     public IReadOnlyList<Creature> Creatures { get { return _creatures; } }
@@ -364,9 +384,55 @@ public class GameManager : MonoBehaviour
     private void ApplyRandomSkin(GameObject go, Creature c)
     {
         if (_aiSkins == null) return;
+        ApplySkin(go, c, _aiSkins.Draw());
+    }
 
-        SkinSet.Skin skin = _aiSkins.Draw();
-        if (skin == null) return;
+    /// <summary>
+    /// Dat skin cho NGUOI CHOI theo _playerSkinIndex. Goi luc player dang ky, va moi lan doi skin
+    /// qua SetPlayerSkin.
+    ///
+    /// Index sai thi BAO WARNING roi bo qua, khong tu kep ve dau/cuoi danh sach: kep im lang thi
+    /// nguoi choi chon skin so 9 lai nhan skin so 3 ma khong ai hieu tai sao.
+    /// </summary>
+    private void ApplyPlayerSkin()
+    {
+        if (_player == null) return;
+
+        // -1 = co y TAT, khong phai loi -> im lang.
+        if (_playerSkinIndex < 0) return;
+
+        // Nhung da chon skin ma kho skin de trong thi CHAC CHAN la quen gan, khong phai y do.
+        // Im lang o day nghia la nguoi dung set skin, khong thay gi doi, va khong co manh moi nao
+        // de lan - dung canh da xay ra that o scene Main (_aiSkins bo trong).
+        if (_aiSkins == null)
+        {
+            Debug.LogWarning("[GameManager] Da chon playerSkinIndex = " + _playerSkinIndex +
+                             " nhung o 'Ai Skins' dang TRONG - khong co kho skin de lay. " +
+                             "Keo SkinSet.asset vao o do. (Bot cung dang khong co skin vi ly do nay.)", this);
+            return;
+        }
+
+        if (_playerSkinIndex >= _aiSkins.Count)
+        {
+            Debug.LogWarning("[GameManager] playerSkinIndex = " + _playerSkinIndex +
+                             " nhung kho skin chi co " + _aiSkins.Count +
+                             " skin (index hop le 0.." + (_aiSkins.Count - 1) + "). Giu nguyen material tren prefab.", this);
+            return;
+        }
+
+        ApplySkin(_player.gameObject, _player, _aiSkins.skins[_playerSkinIndex]);
+    }
+
+    /// <summary>
+    /// Gan mot skin cu the: material cho than + mau cho hat VFX.
+    ///
+    /// PlayerVisual.SetSkin dung sharedMaterial chu khong phai material, nen cac con trung skin
+    /// van dung CHUNG mot material - khong sinh material instance, khong pha batch/GPU instancing.
+    /// Do la ly do o day khong dung MaterialPropertyBlock hay to mau tung con.
+    /// </summary>
+    private void ApplySkin(GameObject go, Creature c, SkinSet.Skin skin)
+    {
+        if (skin == null || go == null) return;
 
         if (skin.material != null)
         {
@@ -489,7 +555,17 @@ public class GameManager : MonoBehaviour
         if (c == null || _creatures.Contains(c)) return;
         _creatures.Add(c);
 
-        if (c.isPlayer && _player == null) _player = c;
+        if (c.isPlayer)
+        {
+            if (_player == null) _player = c;
+
+            // AP SKIN O NGOAI nhanh "_player == null".
+            //
+            // Truoc day lenh nay nam trong nhanh do, nen chi chay khi GameManager phai TU DI TIM
+            // player. Scene nao keo san player vao o Inspector (MapTest dang vay) thi _player da
+            // khac null tu dau -> khong bao gio ap skin, dat playerSkinIndex bao nhieu cung vo ich.
+            if (_player == c) ApplyPlayerSkin();
+        }
     }
 
     /// <summary>

@@ -279,7 +279,7 @@ public class Creature : MonoBehaviour
             // skinColor VA co than deu la cua MINH - tuc cua nan nhan, dung y do: nhin luong hat
             // la biet dang an con nao va con do co bao nhieu
             if (attacker.Vfx != null)
-                attacker.Vfx.EmitDrain(Center, lost, skinColor, transform.lossyScale.x);
+                attacker.Vfx.EmitDrain(Center, lost, skinColor, transform.lossyScale.x, transform.forward);
 
             // TIENG POP: mot te bao vua bi rut ra khoi minh. Hut cang lien tuc thi cang to va cang
             // cao - chuoi tu tut ve 0 o khoi reset phia tren khi thoat duoc mot luc.
@@ -350,7 +350,7 @@ public class Creature : MonoBehaviour
             // XP con lai BAY THEO OBJECT ve mom ke giet, khong cong ngay. Khong co VFX thi
             // EmitDeath tu tra ngay - xem DevourVfx.SpawnOne.
             if (killer.Vfx != null)
-                killer.Vfx.EmitDeath(Center, skinColor, transform.lossyScale.x, remain);
+                killer.Vfx.EmitDeath(Center, skinColor, transform.lossyScale.x, remain, transform.forward);
             else if (remain > 0 && killer.Suction != null)
                 killer.Suction.GainXp(remain);
         }

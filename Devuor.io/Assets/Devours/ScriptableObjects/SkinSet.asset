@@ -15,7 +15,7 @@ MonoBehaviour:
   skins:
   - name: 
     material: {fileID: 2100000, guid: 9276635d97d1c46e0948ad8a63fce246, type: 2}
-    particleColor: {r: 0, g: 0.73285055, b: 1, a: 1}
+    particleColor: {r: 0.03137255, g: 0.32941177, b: 0.61960787, a: 1}
   - name: 
     material: {fileID: 2100000, guid: ba2500e585d5541f9b4ce8c220d1cd75, type: 2}
     particleColor: {r: 0, g: 0, b: 0, a: 1}
