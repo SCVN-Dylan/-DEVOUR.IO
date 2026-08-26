@@ -9,7 +9,7 @@ using UnityEditor.SceneManagement;
 [System.Serializable]
 public class AreaItemEntry
 {
-    [Tooltip("Prefab item. Chon bang dropdown tren Inspector - thu vien quet tu Props/Lv_* va Prefabs/Items.")]
+    [Tooltip("Prefab item. Keo prefab tu Project window vao day.")]
     public GameObject prefab;
 
     [Min(0)]

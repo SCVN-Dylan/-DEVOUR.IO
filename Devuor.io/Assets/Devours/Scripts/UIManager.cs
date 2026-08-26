@@ -336,6 +336,6 @@ public class UIManager : MonoBehaviour
         }
 
         int total = Mathf.CeilToInt(TimeLeft);
-        timerText.text = (total / 60).ToString("00") + ":" + (total % 60).ToString("00");
+        timerText.text = (total / 60).ToString() + ":" + (total % 60).ToString("00");
     }
 }

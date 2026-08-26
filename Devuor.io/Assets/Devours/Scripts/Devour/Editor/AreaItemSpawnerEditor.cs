@@ -3,40 +3,23 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Inspector cho AreaItemSpawner: cho chon item bang DROPDOWN thay vi keo tha prefab.
+/// Inspector cho AreaItemSpawner: KEO PREFAB TRUC TIEP vao tung dong, khong quet thu vien.
 ///
-/// Thu vien duoc QUET tu thu muc chu khong khai bao cung trong code - tha prefab moi vao
-/// Props/Lv_3 la no tu hien trong dropdown, khong phai sua gi.
-///
-/// LEVEL DOC TU DU LIEU, KHONG DOAN THEO TEN: item la Prefab Variant nen requiredLevel la thua ke -
-/// doc bang GetComponent tren asset da load ra so that. Doan theo ten thu muc/ten file thi mot cai
-/// dat nham cho la ca bang sai ma khong ai biet.
-///
-/// Nhan dropdown hinh 'Lv1/Bottle' - dau / lam Unity tu bo thanh menu con, nen chon level truoc
-/// roi chon item, dung nhu cach nghi khi rai do.
+/// Truoc day dong nay la mot dropdown quet tu Props/Lv_* + Prefabs/Items, ep item phai nam dung
+/// thu muc va co PhysicsDevourable moi hien ra. Gio ObjectField nhan bat ky prefab nao, keo tha
+/// thang tu Project window - linh hoat hon nhung khong con canh bao "sai thu muc/thieu component".
 /// </summary>
 [CustomEditor(typeof(AreaItemSpawner))]
 public class AreaItemSpawnerEditor : Editor
 {
-    private static readonly string[] ScanFolders =
-    {
-        "Assets/Devours/Prefabs/Props",
-        "Assets/Devours/Prefabs/Items",
-    };
-
-    private GameObject[] _libPrefabs;
-    private string[] _libLabels;
-
     /// <summary>
     /// Cache ban kinh, SONG QUA nhieu lan repaint.
     ///
     /// FootprintRadius phai dung thu prefab ra do roi huy. OnInspectorGUI chay lai moi lan re chuot,
     /// nen cache tao moi trong ham ve dong nghia voi dung/huy prefab hang chuc lan MOI GIAY - Editor
-    /// giat va scene bi danh dau ban lien tuc. Giu o day va chi xoa khi quet lai thu vien.
+    /// giat va scene bi danh dau ban lien tuc.
     /// </summary>
     private readonly Dictionary<GameObject, float> _radiusCache = new Dictionary<GameObject, float>();
-
-    private void OnEnable() { ScanLibrary(); }
 
     public override void OnInspectorGUI()
     {
@@ -81,13 +64,6 @@ public class AreaItemSpawnerEditor : Editor
     {
         EditorGUILayout.LabelField("Bang rai", EditorStyles.boldLabel);
 
-        if (_libPrefabs == null || _libPrefabs.Length == 0)
-        {
-            EditorGUILayout.HelpBox(
-                "Khong quet duoc item nao. Item phai la prefab CO PhysicsDevourable, nam trong:\n  " +
-                string.Join("\n  ", ScanFolders), MessageType.Warning);
-        }
-
         int removeAt = -1;
         for (int i = 0; i < me.entries.Count; i++)
         {
@@ -96,12 +72,12 @@ public class AreaItemSpawnerEditor : Editor
 
             EditorGUILayout.BeginHorizontal();
 
-            int cur = IndexOf(entry.prefab);
-            int next = EditorGUILayout.Popup(cur, Labels());
-            if (next != cur && next >= 0 && next < _libPrefabs.Length)
+            GameObject next = (GameObject)EditorGUILayout.ObjectField(
+                entry.prefab, typeof(GameObject), false);
+            if (next != entry.prefab)
             {
                 Undo.RecordObject(me, "Doi item");
-                entry.prefab = _libPrefabs[next];
+                entry.prefab = next;
                 EditorUtility.SetDirty(me);
             }
 
@@ -116,10 +92,6 @@ public class AreaItemSpawnerEditor : Editor
             if (GUILayout.Button("X", GUILayout.Width(22))) removeAt = i;
 
             EditorGUILayout.EndHorizontal();
-
-            if (entry.prefab != null && cur < 0)
-                EditorGUILayout.HelpBox("'" + entry.prefab.name + "' khong con trong thu vien.",
-                                        MessageType.Warning);
         }
 
         if (removeAt >= 0)
@@ -129,15 +101,12 @@ public class AreaItemSpawnerEditor : Editor
             EditorUtility.SetDirty(me);
         }
 
-        EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("+ Them dong"))
         {
             Undo.RecordObject(me, "Them dong");
             me.entries.Add(new AreaItemEntry());
             EditorUtility.SetDirty(me);
         }
-        if (GUILayout.Button("Quet lai thu vien")) ScanLibrary();
-        EditorGUILayout.EndHorizontal();
 
         DrawCapacity(me);
     }
@@ -186,100 +155,5 @@ public class AreaItemSpawnerEditor : Editor
         Transform c = me.transform.Find(AreaItemSpawner.ContainerName);
         EditorGUILayout.LabelField("Dang co tren scene",
             c == null ? "0 item" : c.childCount + " item");
-    }
-
-    // ---------------------------------------------------------------- thu vien
-
-    /// <summary>
-    /// HANG (1..6) suy ra tu requiredLevel qua dung bang moc trong SuctionConfig - khong doc ten
-    /// thu muc, khong doc ten file. Doi moc trong config la ca tool tu theo.
-    ///
-    /// Vi sao phai hien hang chu khong chi hien requiredLevel: nguoi dung nghi theo "level 1..6",
-    /// con so that trong data la 1/10/25/50/110/250. Chi hien "Lv10" thi ai cung tuong do la hang 10.
-    /// </summary>
-    private static int TierOf(int requiredLevel, List<LevelStep> steps)
-    {
-        if (steps == null) return 0;
-        int tier = 1;
-        for (int i = 0; i < steps.Count; i++)
-        {
-            LevelStep st = steps[i];
-            if (st == null || st.level < 2 || requiredLevel < st.level) continue;
-            tier++;
-        }
-        return tier;
-    }
-
-    private static List<LevelStep> LoadLevelSteps()
-    {
-        string[] guids = AssetDatabase.FindAssets("t:SuctionConfig");
-        if (guids.Length == 0) return null;
-
-        var cfg = AssetDatabase.LoadAssetAtPath<SuctionConfig>(AssetDatabase.GUIDToAssetPath(guids[0]));
-        return cfg != null ? cfg.levelSteps : null;
-    }
-
-    private void ScanLibrary()
-    {
-        _radiusCache.Clear();
-
-        var prefabs = new List<GameObject>();
-        var levels = new List<int>();
-        List<LevelStep> steps = LoadLevelSteps();
-
-        string[] guids = AssetDatabase.FindAssets("t:Prefab", ScanFolders);
-        for (int i = 0; i < guids.Length; i++)
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-            string file = System.IO.Path.GetFileNameWithoutExtension(path);
-
-            // Base la khuon de lam variant, Fly la vat bay tu quan ly vi tri - ca hai khong phai
-            // do de rai tren dat.
-            if (file.StartsWith("Item_Base") || file.StartsWith("Item_Fly")) continue;
-
-            GameObject go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (go == null) continue;
-
-            PhysicsDevourable pd = go.GetComponent<PhysicsDevourable>();
-            if (pd == null) continue;             // khong an duoc thi khong phai item
-
-            prefabs.Add(go);
-            levels.Add(pd.requiredLevel);
-        }
-
-        // Sap theo hang roi theo ten, de menu con 'Lv1 / Lv10 / Lv25...' co thu tu on dinh.
-        int[] order = new int[prefabs.Count];
-        for (int i = 0; i < order.Length; i++) order[i] = i;
-        System.Array.Sort(order, (a, b) =>
-        {
-            int d = levels[a].CompareTo(levels[b]);
-            return d != 0 ? d : string.Compare(prefabs[a].name, prefabs[b].name, System.StringComparison.Ordinal);
-        });
-
-        _libPrefabs = new GameObject[order.Length];
-        _libLabels = new string[order.Length];
-        for (int i = 0; i < order.Length; i++)
-        {
-            int k = order[i];
-            _libPrefabs[i] = prefabs[k];
-            int tier = TierOf(levels[k], steps);
-            _libLabels[i] = (tier > 0 ? "Hang " + tier + " - Lv" + levels[k] : "Lv" + levels[k])
-                            + "/" + prefabs[k].name;
-        }
-
-        Repaint();
-    }
-
-    private string[] Labels()
-    {
-        return _libLabels != null ? _libLabels : new string[0];
-    }
-
-    private int IndexOf(GameObject prefab)
-    {
-        if (prefab == null || _libPrefabs == null) return -1;
-        for (int i = 0; i < _libPrefabs.Length; i++)
-            if (_libPrefabs[i] == prefab) return i;
-        return -1;
     }
 }
