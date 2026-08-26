@@ -38,7 +38,7 @@ MonoBehaviour:
     isEvolution: 1
   - level: 250
     add: 16
-    zoomAdd: 40
+    zoomAdd: 80
     rangeAdd: 8
     isEvolution: 1
   maxScale: 60
