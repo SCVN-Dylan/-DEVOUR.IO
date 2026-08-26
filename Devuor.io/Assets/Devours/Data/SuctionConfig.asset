@@ -20,22 +20,22 @@ MonoBehaviour:
     add: 0.5
     zoomAdd: 1
     rangeAdd: 0.5
-    isEvolution: 1
+    isEvolution: 0
   - level: 25
     add: 0.6
     zoomAdd: 2
     rangeAdd: 0.5
-    isEvolution: 0
+    isEvolution: 1
   - level: 50
     add: 0.85
     zoomAdd: 2
     rangeAdd: 1.5
-    isEvolution: 1
+    isEvolution: 0
   - level: 100
     add: 5
     zoomAdd: 10
     rangeAdd: 3
-    isEvolution: 0
+    isEvolution: 1
   - level: 250
     add: 8
     zoomAdd: 20
