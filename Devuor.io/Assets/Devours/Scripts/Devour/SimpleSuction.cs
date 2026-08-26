@@ -82,13 +82,27 @@ public class SimpleSuction : MonoBehaviour
              "Khong tim thay ten nay = tu tat tinh nang, kem mot dong canh bao - khong am tham hong.")]
     public string highlightLayer = "ItemHighlight";
 
-    [Tooltip("BAN KINH lam sang (world unit) - MOT VONG TRON quanh nguoi choi, DOC LAP voi tam hut.\n\n" +
-             "Khong bam theo tam hut vi hai thu tra loi hai cau khac nhau: tam hut la 'voi toi duoc\n" +
-             "khong', con vong nay la 'quanh day co gi an duoc'. Tam hut o Lv1 chi 1.5u - bam theo no\n" +
-             "thi phai di dam vao mon do moi thay vien, chi dan den qua muon.\n\n" +
-             "Vong quet se tu no rong bang MAX(tam hut, so nay), nen dat cao hon tam hut la co them\n" +
-             "chi phi quet - xem showHighlightGizmo de nhin ro no to co nao.")]
+    [Tooltip("MUC SAN cho ban kinh lam sang (world unit) - vong tron quanh nguoi choi khong bao gio\n" +
+             "nho hon so nay, du level co thap den may.\n\n" +
+             "VI SAO CO CAI SAN: tam hut va vong sang tra loi hai cau khac nhau - tam hut la 'voi toi\n" +
+             "duoc khong', con vong nay la 'quanh day co gi an duoc'. Tam hut o Lv1 chi 1.5u, bam theo\n" +
+             "no thi phai di dam vao mon do moi thay vien, qua muon.\n\n" +
+             "Len level thi highlightRangeMul lo phan no ra - xem tooltip cua no. Ban kinh THAT dang\n" +
+             "dung nam o property HighlightRange, va gizmo ve dung so do.\n\n" +
+             "Vong quet rong bang MAX(tam hut, vong sang), nen vong sang vuot tam hut la co them chi\n" +
+             "phi quet - xem showHighlightGizmo de nhin ro no to co nao.")]
     public float highlightRadius = 3f;
+
+    [Tooltip("Vong sang = MAX(highlightRadius, tam hut x so nay). 0 = tat, ve lai vong co dinh nhu cu.\n\n" +
+             "VI SAO CAN: highlightRadius mot minh la mot so CO DINH o moi level, ma than nguoi choi\n" +
+             "thi phinh theo scale. Do that: Lv1 than scale 1.0, toi Lv250 than scale 26.4 - ban kinh\n" +
+             "than luc do khoang 10u, tuc vong sang 7u NAM GON TRONG NGUOI, outline coi nhu het tac dung.\n\n" +
+             "Bam theo tam hut chu khong bam theo scale than: nhan thang theo scale thi Lv250 ra\n" +
+             "7 x 26.4 = 184u, quet trung 2570 collider moi lan scan - to hon ca ban kinh map.\n" +
+             "Con bam tam hut x1.3 thi Lv250 ra 24.4u (153 collider), van thoat ra ngoai than.\n\n" +
+             "highlightRadius van la MUC SAN nen level thap khong doi gi: Lv1 tam hut 1.5u, bam theo\n" +
+             "no thi phai di dam vao mon do moi thay vien - do la ly do cai san ton tai.")]
+    public float highlightRangeMul = 1.3f;
 
     [Tooltip("TRAN so item sang cung luc - giu nhung cai GAN nhat. 0 = khong gioi han (khong nen).\n" +
              "Day la luoi chan cuoi cung cho truong hop dung giua mot dong item day dac.")]
@@ -342,6 +356,22 @@ public class SimpleSuction : MonoBehaviour
     /// Khac voi scale: level trung moc o day VAN duoc tinh vao phan tang deu (khong tru di), de
     /// phan tang deu giu nguyen cong thuc cu.
     /// </summary>
+    /// <summary>
+    /// Ban kinh vong SANG that su dang dung. MOT nguon duy nhat cho ca Scan lan gizmo - chep lai
+    /// cong thuc o hai cho la kieu sai im lang: Scene view ve mot vong, game chay mot vong khac.
+    ///
+    /// Xem tooltip cua highlightRangeMul ve ly do bam tam hut chu khong bam scale than.
+    /// </summary>
+    public float HighlightRange
+    {
+        get
+        {
+            float floor = Mathf.Max(0f, highlightRadius);
+            if (highlightRangeMul <= 0f) return floor;
+            return Mathf.Max(floor, CurrentRange * highlightRangeMul);
+        }
+    }
+
     public float CurrentRange
     {
         get
@@ -792,7 +822,7 @@ public class SimpleSuction : MonoBehaviour
         // Level thap: vong sang thuong to hon tam hut -> quet rong ra mot chut (day la cho ton them).
         // Level cao: tam hut vuot xa vong sang -> quet giu nguyen nhu cu, khong ton them gi.
         bool doHighlight = highlightEdibleItems && _hlLayer >= 0 && _creature != null && _creature.isPlayer;
-        float hlRange = doHighlight ? Mathf.Max(0f, highlightRadius) : 0f;
+        float hlRange = doHighlight ? HighlightRange : 0f;
         float scanRange = Mathf.Max(eff, hlRange);
         _hlFound.Clear();
         _hlCandidates.Clear();
@@ -1422,7 +1452,7 @@ public class SimpleSuction : MonoBehaviour
         if (!showHighlightGizmo || !highlightEdibleItems) return;
 
         Vector3 c = transform.position;
-        DrawGroundCircle(c, Mathf.Max(0f, highlightRadius), highlightGizmoColor);
+        DrawGroundCircle(c, HighlightRange, highlightGizmoColor);   // dung chung nguon voi Scan
 
         // Tam hut ve cung mot kieu, mau nhat hon - de so sanh hai vong
         Color faint = new Color(1f, 0.45f, 0.1f, 0.35f);
