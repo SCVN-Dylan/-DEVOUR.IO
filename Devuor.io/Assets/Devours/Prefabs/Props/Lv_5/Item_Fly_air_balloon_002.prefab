@@ -124,7 +124,7 @@ MonoBehaviour:
   _avoidObstacles: 1
   _obstacleLayers:
     serializedVersion: 2
-    m_Bits: 4294966271
+    m_Bits: 1015
   _probeDistance: 8
   _probeRadius: 1.5
   _probeInterval: 0.35
