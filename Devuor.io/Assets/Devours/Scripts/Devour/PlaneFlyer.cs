@@ -14,7 +14,35 @@ using UnityEngine;
 /// khong bao gio tim ra vi no phu thuoc thu tu goi trong mot frame.
 ///
 /// Nen luat o day gon trong mot dong: CHI LAI KHI _item.Owner == null. Co chu roi thi dung yen,
-/// nhuong het. Va file nay GHI hai co physics dung MOT lan trong Start() roi thoi.
+/// nhuong het.
+///
+/// ------------------------------------------------------------------------------------------
+/// TAI SAO PHAI CAT VA CHAM VAT LY KHI DANG BAY - bug "giat len giat xuong"
+/// ------------------------------------------------------------------------------------------
+/// Ghi chu "Ne vat can" ben duoi noi rang kinematic cham collider TINH thi Unity khong sinh su
+/// kien. Dung, nhung TOA NHA TRONG GAME KHONG TINH: moi item deu la PhysicsDevourable voi rigidbody
+/// DONG dang ngu. Kinematic dam vao dong-dang-ngu thi OnCollisionEnter CO ban.
+///
+/// Va do la ca mot day domino:
+///   1. bay o y = 7.5, nha Lv_6 cao 10.3 - 13.4  -> bay xuyen qua nha
+///   2. OnCollisionEnter -> PhysicsDevourable.Contact() -> _state: Asleep sang Falling
+///   3. FixedUpdate cua no bat dau chay, sau sleepDelay (5s) va van toc ~ 0 thi goi EnterSleep()
+///   4. EnterSleep() dat isKinematic = false, useGravity = true
+///   5. tu giay do: trong luc keo XUONG, MovePosition o day keo LEN, moi buoc vat ly mot lan
+///      -> GIAT LEN GIAT XUONG, vinh vien, vi Start() da chay xong tu doi nao
+/// Kem theo: vat bay con XO DO NHA, vi kinematic day duoc vat dong.
+///
+/// Chua lieu duy nhat dung cho la KHONG DE CU VA CHAM DO XAY RA. Dung Rigidbody.excludeLayers:
+/// collider VAN duoc OverlapSphere cua SimpleSuction quet thay (da do: excludeLayers khong dinh
+/// gi toi scene query - Overlap/Raycast/SphereCast deu van trung), nhung khong con sinh tiep xuc
+/// vat ly voi ai. Giu rieng layer Mouth de cham mom van an duoc nhu thuong.
+///
+/// Het bay (bi gianh) thi TRA LAI excludeLayers = 0 - luc do no la item thuong, phai nam duoc
+/// tren dat chu khong roi xuyen qua.
+///
+/// Con mot luoi an toan nua: dang bay ma isKinematic bi ai do tat thi gianh lai ngay. Cai nay
+/// KHONG pha luat o tren - no chi chay khi _flying, ma _flying doi hoi Owner == null, tuc la he
+/// hut chua vao cuoc. Khong co canh nao hai ben cung ghi.
 ///
 /// HUT HUT THI SAO: Release() cua PhysicsDevourable tu chuyen sang Falling (bat lai trong luc) nen
 /// vat bay roi xuong dat, nam lai thanh item thuong, ai toi truoc an. KHONG co dong code nao o day
@@ -100,6 +128,18 @@ public class PlaneFlyer : MonoBehaviour
     [Tooltip("Toc do vao/ra khoi the nghieng (do/giay). Thap = nghieng mem, cao = giat.")]
     [SerializeField] private float _bankSpeed = 60f;
 
+    [Header("Va cham khi bay")]
+    [Tooltip("Nhung layer CON duoc cham vao vat bay trong luc no dang bay. Moi layer khac bi cat\n" +
+             "bang Rigidbody.excludeLayers - xem 'TAI SAO PHAI CAT VA CHAM VAT LY' o dau file.\n\n" +
+             "De TRONG (Nothing) = tu dung layer ten '" + MouthLayerName + "': cham mom van an duoc\n" +
+             "nhu thuong, con lai khong ai cham noi nen khong con cai domino\n" +
+             "Contact -> Falling -> EnterSleep -> bat lai trong luc.\n\n" +
+             "Prefab cu chua co o nay se roi vao dung truong hop de trong o tren.")]
+    [SerializeField] private LayerMask _touchWhileFlying = 0;
+
+    /// <summary>Layer cua mom player. De trong o Inspector thi Start() tu tra ten nay ra chi so.</summary>
+    private const string MouthLayerName = "Mouth";
+
     [Header("Ne vat can")]
     [Tooltip("BAT: thay vat can phia truoc thi doi diem den.\n\n" +
              "VI SAO CAN: rigidbody KINEMATIC va cham voi collider TINH (toa nha) thi Unity KHONG\n" +
@@ -166,6 +206,7 @@ public class PlaneFlyer : MonoBehaviour
         {
             _rb.isKinematic = true;
             _rb.useGravity = false;
+            _rb.excludeLayers = ~TouchMask();   // cat va cham vat ly - xem ghi chu dau file
         }
 
         _center = Vector3.zero;
@@ -198,11 +239,23 @@ public class PlaneFlyer : MonoBehaviour
     private void FixedUpdate()
     {
         // MOT DONG LUAT: co chu roi thi PhysicsDevourable dang lai - khong tranh, va nghi huu luon.
-        if (_item != null && _item.Owner != null) _flying = false;
+        if (_flying && _item != null && _item.Owner != null) Retire();
         if (!_flying) return;
 
         float dt = Time.fixedDeltaTime;
         if (dt <= 0f) return;
+
+        // LUOI AN TOAN: con bay ma co ai do tat kinematic (EnterSleep/Release cua PhysicsDevourable)
+        // thi gianh lai NGAY - de nguyen mot buoc thoi la trong luc da kip cong van toc, va cai
+        // van toc do se con o lai sau khi doi ve kinematic. Chi chay khi _flying (Owner == null)
+        // nen khong bao gio danh nhau voi he hut.
+        if (!_rb.isKinematic)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+            _rb.isKinematic = true;
+            _rb.useGravity = false;
+        }
 
         // --- doi diem den khi toi noi hoac het gio
         _repickTimer -= dt;
@@ -265,6 +318,25 @@ public class PlaneFlyer : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ phan viec nho
+
+    /// <summary>
+    /// Nghi huu: het bay han. TRA LAI va cham that - tu day no la item thuong, phai nam duoc tren
+    /// dat va bi huc duoc nhu moi mon khac, chu khong roi xuyen qua moi thu.
+    /// </summary>
+    private void Retire()
+    {
+        _flying = false;
+        if (_rb != null) _rb.excludeLayers = 0;
+    }
+
+    /// <summary>Layer con duoc cham. De trong o Inspector thi lay layer mom.</summary>
+    private int TouchMask()
+    {
+        if (_touchWhileFlying.value != 0) return _touchWhileFlying.value;
+
+        int mouth = LayerMask.NameToLayer(MouthLayerName);
+        return mouth >= 0 ? (1 << mouth) : 0;
+    }
 
     /// <summary>Bốc mot diem den moi trong dia map - dung cong thuc cua AIController.PickWanderPoint.</summary>
     private void PickTarget()
