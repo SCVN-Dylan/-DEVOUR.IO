@@ -72,9 +72,33 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 85e5f6f54170e4f45a04ba8103f5580b, type: 2}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Size.x
+      value: 6.089542
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Size.y
+      value: 17.246317
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Size.z
+      value: 19.193378
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Center.x
+      value: -0.00012207031
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Center.y
+      value: 6.6613727
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Center.z
+      value: -0.22898483
+      objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
       propertyPath: m_Name
-      value: Item_Base Lv5 Variant
+      value: Boat 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

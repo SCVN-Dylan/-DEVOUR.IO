@@ -60,6 +60,26 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 03baae67e4e4c664c94b7f59ca3e3f4e, type: 2}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Size.x
+      value: 1.1398292
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Size.y
+      value: 1.2098587
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Size.z
+      value: 1.1398292
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Center.x
+      value: -0.00022667646
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Center.y
+      value: 0.6049292
+      objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
       propertyPath: m_Name
       value: TrashCan_02

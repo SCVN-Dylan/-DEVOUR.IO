@@ -72,6 +72,26 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 85e5f6f54170e4f45a04ba8103f5580b, type: 2}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Size.x
+      value: 7.6853123
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Size.y
+      value: 26.709717
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Size.z
+      value: 25.27817
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Center.y
+      value: 9.781809
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
+      propertyPath: m_Center.z
+      value: 1.778018
+      objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: 535c55e38d6ea482788fb2c576ffbc30, type: 3}
       propertyPath: m_Name
       value: Boat 2

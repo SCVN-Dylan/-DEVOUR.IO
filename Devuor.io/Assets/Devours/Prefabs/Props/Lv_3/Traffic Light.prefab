@@ -111,8 +111,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.1217725, y: 5.1118107, z: 2.1217694}
-  m_Center: {x: 0.00000053644175, y: 2.5558906, z: -0.000015377997}
+  m_Size: {x: 3.991873, y: 5.8756914, z: 0.55131096}
+  m_Center: {x: 1.8983248, y: 2.9378457, z: -0.006030023}
 --- !u!1001 &3801796878173841676
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -163,7 +163,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: f030ad887269b40709a1f57e0255eab1, type: 3}
       propertyPath: m_Name
-      value: Lamp Post 1
+      value: Traffic Light
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:

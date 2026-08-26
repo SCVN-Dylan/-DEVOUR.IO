@@ -72,6 +72,30 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 03baae67e4e4c664c94b7f59ca3e3f4e, type: 2}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Size.x
+      value: 0.58192205
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Size.y
+      value: 0.87721294
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Size.z
+      value: 0.56238925
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Center.x
+      value: -0.0020038486
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Center.y
+      value: 0.43860677
+      objectReference: {fileID: 0}
+    - target: {fileID: 5770723895354129384, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
+      propertyPath: m_Center.z
+      value: 0.000016450882
+      objectReference: {fileID: 0}
     - target: {fileID: 7446414900543964115, guid: e6c7ae0e697754e78930bc930f2ed816, type: 3}
       propertyPath: m_Name
       value: Chair

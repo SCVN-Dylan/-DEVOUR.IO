@@ -11,28 +11,36 @@ using UnityEngine;
 /// khong phai chuyen tham my.
 ///
 /// ------------------------------------------------------------------------------------------
-/// COLLIDER NAM O DAU
+/// DAU LA CUBE THUOC DO, DAU LA MODEL
 /// ------------------------------------------------------------------------------------------
-/// Item la Prefab Variant cua 'Item_Base LvN'. Collider cua base nam tren object 'Cube' - chinh la
-/// CUBE THUOC DO cua hang do (localScale = 0.3 / 0.5 / 1 / 2 / 4 / 10 theo hang).
+/// Item la Prefab Variant cua 'Item_Base LvN'. Base co mot object 'Cube' mang CUBE THUOC DO cua
+/// hang do (localScale = 0.3 / 0.5 / 1 / 2 / 4 / 10 theo hang).
 ///
-/// Nen co collider trong world = m_Size x scale cua Cube. Doc so m_Size tho trong file .prefab ma
-/// khong nhan scale la doc sai - day la ly do tool nay phai chay trong Unity chu khong doc file.
+/// CAI BAY: khi lam item that, mesh model duoc thay VAO CHINH object do - object van giu ten 'Cube'
+/// nhung mesh ben trong da la chair_001 / boat_001 / car_001... Nhan dang thuoc do bang TEN object
+/// la sai, va sai kieu im lang: 11 item bi bao "khong co renderer" roi khong bao gio duoc sua, con
+/// 17 con xe thi bi cham nham vao hop cua BANH XE.
 ///
-/// ------------------------------------------------------------------------------------------
-/// DO CAI GI
-/// ------------------------------------------------------------------------------------------
-/// Bounds cua MOI renderer dang thuc su hien, TRU:
-///   - ParticleSystemRenderer (khong co vo)
-///   - renderer tat, hoac nam tren GameObject dang tat
-///   - CHINH CUBE THUOC DO: no la thuoc do, khong phai than item. Do ca no thi hop se om lay cai
-///     cube chu khong om model - sai hoan toan, va sai mot cach rat kho nhin ra.
+/// Nen o day thuoc do duoc nhan bang MESH: mesh primitive dung san cua Unity (nam trong
+/// 'Library/unity default resources'). Prefab ma MOI renderer deu la mesh primitive thi do la KHUON
+/// (Item_Base...), khong phai item - bo qua.
 ///
 /// ------------------------------------------------------------------------------------------
-/// SUA THE NAO
+/// ITEM CON (BANH XE)
 /// ------------------------------------------------------------------------------------------
-/// Ghi de m_Size/m_Center cua DUNG collider co san (kieu Lv_1 dang lam), va go moi collider THUA
-/// tren cac object con. Moi item chi con DUNG MOT hop - khong bao giờ co hai hop chong nhau.
+/// Xe co 4 'Wheel' con, moi banh co Rigidbody + PhysicsDevourable + collider RIENG - an duoc rieng.
+/// Collider cua banh KHONG phai collider thua. Moi renderer/collider deu duoc quy ve PhysicsDevourable
+/// gan nhat tinh nguoc len; chi nhung cai thuoc ve CHINH root moi duoc do va duoc don.
+///
+/// ------------------------------------------------------------------------------------------
+/// DO TRONG LOCAL SPACE CUA HOP
+/// ------------------------------------------------------------------------------------------
+/// BoxCollider.center/size nam trong local space cua object mang no. Nhieu item co mesh xoay 270
+/// (Bottle, Can, Trash_01/02, barbershop_001), nen so 'size x lossyScale' voi AABB thegioi la so hai
+/// dai luong khac he - bao lech gia, va neu ghi de thi collider thanh sai THAT.
+///
+/// Vi vay bounds duoc gom bang 8 goc mesh.bounds -> world -> LOCAL SPACE CUA HOP. Ket qua gan thang
+/// vao center/size, khong can chia lossyScale.
 ///
 /// Dung PrefabUtility.LoadPrefabContents nen KHONG dung toi scene dang mo.
 ///
@@ -49,16 +57,13 @@ public static class ItemColliderFitter
         "Assets/Devours/Prefabs/Items",
     };
 
-    /// <summary>Ten object mang cube thuoc do - do khong phai than item, khong duoc tinh vao bounds.</summary>
-    private const string RulerName = "Cube";
-
     /// <summary>Lech duoi nguong nay (ti le) thi coi nhu da khop, khong bao.</summary>
     private const float Tolerance = 0.05f;
 
     // ---------------------------------------------------------------- lenh
 
     [MenuItem(MenuRoot + "Kiem tra collider item", false, 150)]
-    private static void CheckMenu() { Run(false); }
+    private static void CheckMenu() { Debug.Log(Run(false)); }
 
     [MenuItem(MenuRoot + "Sua collider item cho khop", false, 151)]
     private static void FixMenu()
@@ -66,30 +71,26 @@ public static class ItemColliderFitter
         if (!EditorUtility.DisplayDialog("Sua collider item",
                 "Se GHI DE m_Size/m_Center collider cua moi item trong:\n  " +
                 string.Join("\n  ", Folders) +
-                "\n\nVa go cac collider THUA tren object con (moi item chi con 1 hop).\n\n" +
+                "\n\nVa go cac collider THUA cua chinh item do (collider cua item con nhu banh xe\n" +
+                "duoc giu nguyen).\n\n" +
                 "Chay 'Kiem tra collider item' truoc de xem truoc se doi nhung gi.",
                 "Sua", "Thoi")) return;
-        Run(true);
+        Debug.Log(Run(true));
     }
 
     // ---------------------------------------------------------------- chay
 
-    private static void Run(bool apply)
+    /// <summary>Chay va TRA VE bao cao. Tach khoi Debug.Log de goi duoc tu script khac.</summary>
+    public static string Run(bool apply)
     {
         List<string> paths = CollectItemPaths();
-        if (paths.Count == 0)
-        {
-            Debug.LogWarning("[ItemCollider] Khong tim thay item nao (prefab co PhysicsDevourable) trong:\n  " +
-                             string.Join("\n  ", Folders));
-            return;
-        }
 
         var sb = new StringBuilder();
         sb.AppendLine(apply ? "[ItemCollider] DA SUA" : "[ItemCollider] KIEM TRA (khong sua gi)");
         sb.AppendLine("prefab | hop hien tai (world) | hop dung (world) | ket qua");
         sb.AppendLine(new string('-', 100));
 
-        int ok = 0, changed = 0, noRenderer = 0, noCollider = 0, extraRemoved = 0;
+        int ok = 0, changed = 0, khuon = 0, noCollider = 0, extraRemoved = 0;
 
         for (int i = 0; i < paths.Count; i++)
         {
@@ -101,6 +102,8 @@ public static class ItemColliderFitter
             GameObject root = PrefabUtility.LoadPrefabContents(path);
             try
             {
+                if (!HasBodyModel(root)) { khuon++; continue; }
+
                 BoxCollider box = FindTargetBox(root);
                 if (box == null)
                 {
@@ -110,36 +113,38 @@ public static class ItemColliderFitter
                 }
 
                 Bounds want;
-                if (!MeasureBody(root, out want))
+                if (!MeasureBody(root, box.transform, out want))
                 {
-                    sb.AppendLine(shortName + " | - | - | KHONG CO RENDERER NAO (ngoai cube thuoc do)");
-                    noRenderer++;
+                    sb.AppendLine(shortName + " | - | - | KHONG DO DUOC BOUNDS");
+                    noCollider++;
                     continue;
                 }
 
-                Vector3 curSizeWorld = WorldSize(box);
-                Vector3 wantSizeWorld = want.size;
+                Transform t = box.transform;
+                Vector3 scale = Abs(t.lossyScale);
 
-                bool fits = SizeClose(curSizeWorld, wantSizeWorld)
-                         && CenterClose(BoxWorldCenter(box), want.center,
-                                        Mathf.Max(0.01f, wantSizeWorld.magnitude * Tolerance));
+                Vector3 curWorld = Mul(box.size, scale);
+                Vector3 wantWorld = Mul(want.size, scale);
+                float dCenter = (t.TransformPoint(box.center) - t.TransformPoint(want.center)).magnitude;
+                float allowed = Mathf.Max(0.01f, wantWorld.magnitude * Tolerance);
 
+                bool fits = SizeClose(curWorld, wantWorld) && dCenter <= allowed;
                 int extras = CountExtraColliders(root, box);
 
                 if (fits && extras == 0) { ok++; continue; }
 
                 sb.AppendLine(shortName +
-                              " | " + Fmt(curSizeWorld) +
-                              " | " + Fmt(wantSizeWorld) +
-                              " | " + (fits ? "hop dung" : "LECH " + Ratio(curSizeWorld, wantSizeWorld)) +
+                              " | " + Fmt(curWorld) +
+                              " | " + Fmt(wantWorld) +
+                              " | " + (fits ? "hop dung" : "LECH " + Ratio(curWorld, wantWorld)) +
+                              (dCenter > allowed ? "  tam lech " + dCenter.ToString("F2") : "") +
                               (extras > 0 ? "  (+" + extras + " collider thua)" : ""));
 
                 if (!apply) { changed++; continue; }
 
-                // --- ghi
-                Transform t = box.transform;
-                box.center = t.InverseTransformPoint(want.center);
-                box.size = DivideScale(want.size, t.lossyScale);
+                // --- ghi: want da o dung local space cua hop
+                box.center = want.center;
+                box.size = want.size;
 
                 extraRemoved += RemoveExtraColliders(root, box);
 
@@ -155,61 +160,142 @@ public static class ItemColliderFitter
         EditorUtility.ClearProgressBar();
 
         sb.AppendLine(new string('-', 100));
-        sb.AppendLine("Tong " + paths.Count + " item:  da khop " + ok +
+        sb.AppendLine("Tong " + paths.Count + " prefab:  khuon (bo qua) " + khuon +
+                      "  |  da khop " + ok +
                       (apply ? "  |  vua sua " : "  |  can sua ") + changed +
-                      "  |  khong co renderer " + noRenderer +
                       "  |  khong co collider " + noCollider +
                       (apply && extraRemoved > 0 ? "  |  go " + extraRemoved + " collider thua" : ""));
 
         if (apply) { AssetDatabase.SaveAssets(); AssetDatabase.Refresh(); }
 
-        Debug.Log(sb.ToString());
+        return sb.ToString();
     }
 
     // ---------------------------------------------------------------- do dac
 
     /// <summary>
-    /// Bounds THAN item trong world. BO cube thuoc do, he hat, va moi thu dang tat - xem ghi chu
-    /// "DO CAI GI" o dau file.
+    /// Bounds THAN item, tra ve trong LOCAL SPACE cua <paramref name="space"/>. Bo he hat, thu dang
+    /// tat, cube thuoc do, va moi thu thuoc ve item con - xem ghi chu dau file.
     /// </summary>
-    private static bool MeasureBody(GameObject root, out Bounds bounds)
+    private static bool MeasureBody(GameObject root, Transform space, out Bounds local)
     {
-        bounds = new Bounds(root.transform.position, Vector3.zero);
+        local = new Bounds();
         bool has = false;
 
+        Matrix4x4 w2l = space.worldToLocalMatrix;
         Renderer[] rends = root.GetComponentsInChildren<Renderer>(true);
+
         for (int i = 0; i < rends.Length; i++)
         {
             Renderer r = rends[i];
-            if (r == null || r is ParticleSystemRenderer) continue;
-            if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
-            if (IsRuler(r.transform)) continue;
+            if (!IsBodyRenderer(root, r)) continue;
 
-            if (!has) { bounds = r.bounds; has = true; }
-            else bounds.Encapsulate(r.bounds);
+            // Uu tien mesh.bounds x ma tran cua chinh no: chat hon renderer.bounds (von la AABB
+            // the gioi, da noi ra roi) - quan trong voi model xoay.
+            Mesh mesh = MeshOf(r);
+            Bounds src = mesh != null ? mesh.bounds : r.bounds;
+            Matrix4x4 l2w = mesh != null ? r.transform.localToWorldMatrix : Matrix4x4.identity;
+            Matrix4x4 m = w2l * l2w;
+
+            Vector3 c = src.center, e = src.extents;
+            for (int k = 0; k < 8; k++)
+            {
+                Vector3 corner = c + new Vector3(
+                    (k & 1) == 0 ? -e.x : e.x,
+                    (k & 2) == 0 ? -e.y : e.y,
+                    (k & 4) == 0 ? -e.z : e.z);
+
+                Vector3 p = m.MultiplyPoint3x4(corner);
+                if (!has) { local = new Bounds(p, Vector3.zero); has = true; }
+                else local.Encapsulate(p);
+            }
         }
         return has;
     }
 
-    /// <summary>Object nay (hoac cha no) co phai cube thuoc do khong.</summary>
-    private static bool IsRuler(Transform t)
+    /// <summary>Renderer nay co phai than cua CHINH item nay khong.</summary>
+    private static bool IsBodyRenderer(GameObject root, Renderer r)
     {
-        for (Transform p = t; p != null; p = p.parent)
-            if (p.name == RulerName) return true;
+        if (r == null || r is ParticleSystemRenderer) return false;
+        if (!r.enabled || !r.gameObject.activeInHierarchy) return false;
+        if (IsRuler(r)) return false;
+        return OwnerItem(r.transform) == root.transform;
+    }
+
+    /// <summary>Prefab nay co model that khong, hay chi la khuon toan cube thuoc do.</summary>
+    private static bool HasBodyModel(GameObject root)
+    {
+        Renderer[] rends = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < rends.Length; i++)
+            if (IsBodyRenderer(root, rends[i])) return true;
         return false;
     }
 
     /// <summary>
-    /// Collider se duoc chinh: uu tien cai nam tren cube thuoc do (cai thua ke tu Item_Base - dung
-    /// kieu ma Lv_1 dang lam). Khong co thi lay BoxCollider dau tien tim duoc.
+    /// Cube thuoc do nhan bang MESH chu khong bang ten object - object mang model that van co the
+    /// ten 'Cube'. Mesh primitive cua Unity nam trong 'Library/unity default resources'.
+    /// </summary>
+    private static bool IsRuler(Renderer r)
+    {
+        Mesh mesh = MeshOf(r);
+        if (mesh == null) return false;
+
+        string path = AssetDatabase.GetAssetPath(mesh);
+        return string.IsNullOrEmpty(path) || path.StartsWith("Library/");
+    }
+
+    private static Mesh MeshOf(Renderer r)
+    {
+        var smr = r as SkinnedMeshRenderer;
+        if (smr != null) return smr.sharedMesh;
+
+        var mf = r.GetComponent<MeshFilter>();
+        return mf != null ? mf.sharedMesh : null;
+    }
+
+    /// <summary>Item nao dang so huu transform nay - PhysicsDevourable gan nhat tinh nguoc len.</summary>
+    private static Transform OwnerItem(Transform t)
+    {
+        for (Transform p = t; p != null; p = p.parent)
+            if (p.GetComponent<PhysicsDevourable>() != null) return p;
+        return null;
+    }
+
+    /// <summary>Collider nay co thuoc ve CHINH item nay khong (khong phai cua banh xe con).</summary>
+    private static bool IsBodyCollider(GameObject root, Collider c)
+    {
+        return c != null && OwnerItem(c.transform) == root.transform;
+    }
+
+    /// <summary>
+    /// Collider se duoc chinh: uu tien hop nam ngay tren object mang mesh model TO NHAT - do la than
+    /// item. Khong co thi lay hop dau tien thuoc ve chinh item.
     /// </summary>
     private static BoxCollider FindTargetBox(GameObject root)
     {
+        Renderer main = null;
+        float best = -1f;
+
+        Renderer[] rends = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < rends.Length; i++)
+        {
+            if (!IsBodyRenderer(root, rends[i])) continue;
+
+            float v = rends[i].bounds.size.sqrMagnitude;
+            if (v > best) { best = v; main = rends[i]; }
+        }
+
+        if (main != null)
+        {
+            var onMain = main.GetComponent<BoxCollider>();
+            if (onMain != null) return onMain;
+        }
+
         BoxCollider[] all = root.GetComponentsInChildren<BoxCollider>(true);
         for (int i = 0; i < all.Length; i++)
-            if (IsRuler(all[i].transform)) return all[i];
+            if (IsBodyCollider(root, all[i])) return all[i];
 
-        return all.Length > 0 ? all[0] : null;
+        return null;
     }
 
     private static int CountExtraColliders(GameObject root, BoxCollider keep)
@@ -217,7 +303,7 @@ public static class ItemColliderFitter
         Collider[] all = root.GetComponentsInChildren<Collider>(true);
         int n = 0;
         for (int i = 0; i < all.Length; i++)
-            if (all[i] != null && all[i] != keep) n++;
+            if (all[i] != keep && IsBodyCollider(root, all[i])) n++;
         return n;
     }
 
@@ -227,7 +313,7 @@ public static class ItemColliderFitter
         int n = 0;
         for (int i = 0; i < all.Length; i++)
         {
-            if (all[i] == null || all[i] == keep) continue;
+            if (all[i] == keep || !IsBodyCollider(root, all[i])) continue;
             Object.DestroyImmediate(all[i], true);
             n++;
         }
@@ -236,35 +322,20 @@ public static class ItemColliderFitter
 
     // ---------------------------------------------------------------- so hoc
 
-    private static Vector3 WorldSize(BoxCollider b)
+    private static Vector3 Abs(Vector3 v)
     {
-        Vector3 s = b.transform.lossyScale;
-        return new Vector3(b.size.x * Mathf.Abs(s.x), b.size.y * Mathf.Abs(s.y), b.size.z * Mathf.Abs(s.z));
+        return new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
     }
 
-    private static Vector3 BoxWorldCenter(BoxCollider b)
+    private static Vector3 Mul(Vector3 a, Vector3 b)
     {
-        return b.transform.TransformPoint(b.center);
-    }
-
-    private static Vector3 DivideScale(Vector3 v, Vector3 scale)
-    {
-        return new Vector3(
-            v.x / Mathf.Max(0.0001f, Mathf.Abs(scale.x)),
-            v.y / Mathf.Max(0.0001f, Mathf.Abs(scale.y)),
-            v.z / Mathf.Max(0.0001f, Mathf.Abs(scale.z)));
+        return new Vector3(a.x * b.x, a.y * b.y, a.z * b.z);
     }
 
     /// <summary>Hai co bang nhau chua - so theo TI LE tung truc, vi item to nho lech nhau hang tram lan.</summary>
     private static bool SizeClose(Vector3 a, Vector3 b)
     {
         return Near(a.x, b.x) && Near(a.y, b.y) && Near(a.z, b.z);
-    }
-
-    /// <summary>Hai tam co trung nhau chua - so theo KHOANG CACH tuyet doi.</summary>
-    private static bool CenterClose(Vector3 a, Vector3 b, float allowed)
-    {
-        return (a - b).sqrMagnitude <= allowed * allowed;
     }
 
     private static bool Near(float a, float b)
@@ -284,12 +355,17 @@ public static class ItemColliderFitter
         float c = Mathf.Max(cur.x, Mathf.Max(cur.y, cur.z));
         float w = Mathf.Max(want.x, Mathf.Max(want.y, want.z));
         if (w < 0.0001f) return "?";
+
         float k = c / w;
         return k >= 1f ? "TO gap " + k.ToString("F1") + "x" : "NHO con " + (k * 100f).ToString("F0") + "%";
     }
 
     // ---------------------------------------------------------------- gom item
 
+    /// <summary>
+    /// Moi prefab co PhysicsDevourable o root. KHONG loc theo ten: 'Item_Base Lv6 Variant*' la item
+    /// that (skyscraper) chu khong phai khuon. Khuon duoc loai o HasBodyModel - toan cube thuoc do.
+    /// </summary>
     private static List<string> CollectItemPaths()
     {
         var list = new List<string>();
@@ -298,10 +374,6 @@ public static class ItemColliderFitter
         for (int i = 0; i < guids.Length; i++)
         {
             string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-            string file = System.IO.Path.GetFileNameWithoutExtension(path);
-
-            // Base la khuon (cube thuoc do la than cua no - dung sua). Fly tu quan ly collider rieng.
-            if (file.StartsWith("Item_Base") || file.StartsWith("Item_Fly")) continue;
 
             GameObject go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (go == null || go.GetComponent<PhysicsDevourable>() == null) continue;

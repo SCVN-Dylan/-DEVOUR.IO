@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 7904564993817358438}
   - component: {fileID: 6493483050003316675}
   - component: {fileID: 9077439527796558601}
-  - component: {fileID: 6615463750047825928}
   - component: {fileID: 231206879314340710}
   m_Layer: 0
   m_Name: Bush
@@ -92,23 +91,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &6615463750047825928
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7420093080017627868}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c3b700ee42284ba093054d39994a960, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
-  target: {fileID: 0}
-  height: 18
-  distance: 14
-  pitch: 52
-  smoothTime: 0.18
 --- !u!65 &231206879314340710
 BoxCollider:
   m_ObjectHideFlags: 0
