@@ -16,29 +16,29 @@ MonoBehaviour:
   useLevelGate: 1
   scalePerLevel: 0.01
   levelSteps:
-  - level: 25
+  - level: 15
     add: 0.5
     zoomAdd: 1
     rangeAdd: 0.5
     isEvolution: 0
-  - level: 74
+  - level: 30
     add: 0.6
-    zoomAdd: 2
+    zoomAdd: 1.5
     rangeAdd: 0.5
     isEvolution: 1
-  - level: 247
-    add: 0.85
-    zoomAdd: 2
+  - level: 150
+    add: 1
+    zoomAdd: 3
     rangeAdd: 1.5
     isEvolution: 0
-  - level: 589
+  - level: 350
     add: 5
     zoomAdd: 10
     rangeAdd: 3
     isEvolution: 1
-  - level: 1475
+  - level: 600
     add: 16
-    zoomAdd: 80
+    zoomAdd: 30
     rangeAdd: 8
     isEvolution: 1
   maxScale: 60

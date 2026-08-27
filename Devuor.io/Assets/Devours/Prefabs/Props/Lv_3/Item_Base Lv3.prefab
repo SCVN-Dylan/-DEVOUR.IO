@@ -217,7 +217,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43474865c737844909a5efc478e89cfd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PhysicsDevourable
-  requiredLevel: 74
+  requiredLevel: 30
   xpValue: 4
   scoreValue: 6
   pushLockStageDiff: 3

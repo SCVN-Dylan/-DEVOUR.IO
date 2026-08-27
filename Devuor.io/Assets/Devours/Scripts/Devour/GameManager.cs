@@ -74,13 +74,35 @@ public class GameManager : MonoBehaviour
              "SkinSet.Draw la duoc.")]
     [SerializeField] private int _playerSkinIndex = -1;
 
-    [Tooltip("Bot sinh ra trong vanh khan quanh tam: tu spawnMinDistance den spawnRadius.\n" +
-             "Co vanh trong de bot khong de ngay tren dau nguoi choi luc bat dau van")]
-    [SerializeField] private float _spawnRadius = 35f;
+    [Tooltip("SO BOSS - moi con nhan tron mot KHU (mot phan tu ban do). 0 = khong co boss, tat ca\n" +
+             "bot sinh nhu nhau.\n\n" +
+             "Map la luoi 4x4 o, va moi PHAN TU chua dung mot o moi loai (A1 bai an -> A2 -> A4 ->\n" +
+             "A3 o cuoi game). Tuc bon khu la bon tuyen tien hoa y het nhau. Moi khu mot boss thi\n" +
+             "bon con manh ngang nhau, moi con mot goc, va chung PHAI tranh an cua nhau de lon.\n\n" +
+             "Boss dat o NUA NGOAI cua khu (0.5..0.9 ban kinh) - do la phia o A3, cho co 24/28 mon\n" +
+             "hang 6 cua ca ban do.")]
+    [SerializeField] private int _bossCount = 4;
 
+    [Tooltip("Do manh cua BOSS - cung nghia levelBias: level nham toi = level nguoi choi x (1 + bias).\n" +
+             "0.5 = boss luon nham cao hon nguoi choi 50%. Bot thuong dang la -0.30 .. 0.20.")]
+    [SerializeField] private float _bossBiasMin = 0.45f;
+
+    [SerializeField] private float _bossBiasMax = 0.65f;
+
+    [Tooltip("Ban kinh vung sinh, tinh tu spawnCenter. NEN BANG NUA BE NGANG vung co item\n" +
+             "(map hien tai: cac o trai tu -65 den +65, nen de 65).\n\n" +
+             "De nho thi bot don cuc mot cho: ban cu de 35 va lay vi tri NGUOI CHOI lam tam, ket qua\n" +
+             "la ca 16 con nam gon trong 20% ban do quanh mot goc, 9/16 o khong co con nao - ke ca\n" +
+             "bon o A3 giu do hang 6.")]
+    [SerializeField] private float _spawnRadius = 65f;
+
+    [Tooltip("Khong sinh bot gan nguoi choi hon khoang nay (world). Do bang khoang cach TOI NGUOI\n" +
+             "CHOI, khong phai toi tam vong sinh - hai cho do gio khac nhau.")]
     [SerializeField] private float _spawnMinDistance = 12f;
 
-    [Tooltip("Tam vong sinh. De trong = lay vi tri nguoi choi")]
+    [Tooltip("Tam vung sinh. De TRONG = tam ban do (goc toa do).\n\n" +
+             "KHONG con lay vi tri nguoi choi nua: nguoi choi xuat phat o mot goc, lay no lam tam\n" +
+             "thi toan bo bot do vao goc do.")]
     [SerializeField] private Transform _spawnCenter;
 
     [Tooltip("Layer tinh la MAT DAT khi ban tia xuong tim cho dat chan")]
@@ -335,28 +357,65 @@ public class GameManager : MonoBehaviour
     {
         if (_aiPrefab == null || _aiCount <= 0) return;
 
-        Vector3 center = _spawnCenter != null
-            ? _spawnCenter.position
-            : (_player != null ? _player.transform.position : transform.position);
+        // TAM BAN DO, khong phai vi tri nguoi choi - xem tooltip cua _spawnCenter.
+        Vector3 center = _spawnCenter != null ? _spawnCenter.position : Vector3.zero;
 
         // Tui skin song xuyen cac lan Play trong Editor (ScriptableObject khong bi huy) - do lai
         // de van nao cung bat dau bang mot luot day du, khong dau vao khuc thua cua van truoc
         if (_aiSkins != null) _aiSkins.ResetBag();
 
+        // ---------------------------------------------------------------- chia o
+        //
+        // RAI THEO LUOI VUONG, KHONG THEO VONG TRON. Vung co item la mot hinh VUONG (luoi 4x4 o
+        // 28x28, trai tu -65 den +65), ma vong tron ban kinh 65 thi KHONG voi toi bon goc: tam o
+        // goc cach goc toa do 72u. Do that o ban dung vong tron: bon o goc khong bao gio co bot,
+        // 6/16 o trong.
+        //
+        // Moi o dung MOT bot: het canh 3.7 con chen nhau mot cho, va khong con o nao de player
+        // vao farm mot minh.
+        int gridN = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(_aiCount)));
+        int cells = gridN * gridN;
+        float cellSize = _spawnRadius * 2f / gridN;
+
+        // GIA TRI tung o = tong xpValue cua item dang nam trong do. Do TAI CHO chu khong doc ten
+        // 'Area N': doi bo cuc map thi cho nay tu theo, khong phai sua gi.
+        float[] value = new float[cells];
+        foreach (PhysicsDevourable d in Object.FindObjectsByType<PhysicsDevourable>(FindObjectsSortMode.None))
+        {
+            int ci = CellIndex(d.transform.position, center, gridN, cellSize);
+            if (ci >= 0) value[ci] += Mathf.Max(0, d.xpValue);
+        }
+
+        int bosses = Mathf.Clamp(_bossCount, 0, _aiCount);
+        int playerCell = _player != null ? CellIndex(_player.transform.position, center, gridN, cellSize) : -1;
+        var bossCells = PickBossCells(value, gridN, bosses, playerCell);
+
+        // Thu tu o cho bot thuong: o GIAU di truoc, de neu thieu bot thi phan trong roi vao o ngheo.
+        var order = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < cells; i++) if (!bossCells.Contains(i)) order.Add(i);
+        order.Sort((a, b) => value[b].CompareTo(value[a]));
+
         for (int i = 0; i < _aiCount; i++)
         {
+            bool isBoss = i < bosses;
+            int cellIdx = isBoss
+                ? bossCells[i]
+                : (order.Count > 0 ? order[(i - bosses) % order.Count] : 0);
+
             Vector3 pos;
-            if (!FindSpawnPoint(center, out pos)) continue;
+            if (!FindSpawnPointInCell(center, cellIdx, gridN, cellSize, out pos)) continue;
 
             GameObject go = Object.Instantiate(_aiPrefab, pos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
-            go.name = "Bot " + (i + 1);
+            go.name = isBoss ? "Boss " + (i + 1) : "Bot " + (i + 1 - bosses);
 
             Creature c = go.GetComponent<Creature>();
             if (c != null)
             {
                 c.isPlayer = false;
                 c.displayName = go.name;
-                c.levelBias = BiasForIndex(i, _aiCount);
+                c.levelBias = isBoss
+                    ? Random.Range(_bossBiasMin, _bossBiasMax)
+                    : BiasForIndex(i - bosses, Mathf.Max(1, _aiCount - bosses));
             }
 
             // TINH CACH bam theo do lech level cua CHINH con do: con duoc ghim manh hon nguoi choi
@@ -489,43 +548,108 @@ public class GameManager : MonoBehaviour
         return Mathf.Clamp01((bias - _aiBiasMin) / span);
     }
 
-    /// <summary>
-    /// Cham mot diem ngau nhien trong vanh khan roi ban tia tu tren cao xuong tim mat dat.
-    /// Khong tim duoc dat thi bo qua lan do - tha thieu mot bot con hon de no roi mai xuong duoi map.
-    /// </summary>
-    private bool FindSpawnPoint(Vector3 center, out Vector3 pos)
+    /// <summary>O thu may trong luoi chua diem nay. -1 = nam ngoai luoi.</summary>
+    private int CellIndex(Vector3 p, Vector3 center, int gridN, float cellSize)
     {
-        pos = center;
-        float minR = Mathf.Min(_spawnMinDistance, _spawnRadius);
+        int cx = Mathf.FloorToInt((p.x - center.x + _spawnRadius) / cellSize);
+        int cz = Mathf.FloorToInt((p.z - center.z + _spawnRadius) / cellSize);
+        if (cx < 0 || cz < 0 || cx >= gridN || cz >= gridN) return -1;
+        return cz * gridN + cx;
+    }
 
-        for (int attempt = 0; attempt < 12; attempt++)
+    /// <summary>
+    /// Chon o cho boss: o GIAU NHAT, va moi PHAN TU ban do chi mot con.
+    ///
+    /// Rai deu theo phan tu chu khong chi lay top gia tri: bon o giau nhat rat de nam canh nhau
+    /// (map doi xung nen bon o A3 giong het nhau), luc do bon boss se dinh mot cuc va nua ban do
+    /// khong co ai canh.
+    /// </summary>
+    private System.Collections.Generic.List<int> PickBossCells(float[] value, int gridN, int bosses, int avoidCell)
+    {
+        var chosen = new System.Collections.Generic.List<int>();
+        var usedQuad = new System.Collections.Generic.HashSet<int>();
+
+        var byValue = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < value.Length; i++) byValue.Add(i);
+        byValue.Sort((a, b) => value[b].CompareTo(value[a]));
+
+        int half = gridN / 2;
+        // Luot 1: moi phan tu mot con, BO QUA o cua nguoi choi.
+        //
+        // Vi sao bo qua: boss nham cao hon nguoi choi ~50% level. Do that o ban dung o nay: mot con
+        // boss sinh cach nguoi choi 14u, tuc ngay trong o xuat phat - vua vao van la dung canh mot
+        // con gap ruoi minh. _spawnMinDistance (12u) khong cuu duoc vi no chi chan cai kho chiu
+        // "de len dau", khong chan duoc cai chet nguoi "cung o".
+        foreach (int idx in byValue)
         {
-            Vector2 dir = Random.insideUnitCircle.normalized;
-            if (dir.sqrMagnitude < 0.01f) dir = Vector2.right;
-            float r = Random.Range(minR, Mathf.Max(minR, _spawnRadius));
-            Vector3 probe = center + new Vector3(dir.x * r, 0f, dir.y * r);
+            if (chosen.Count >= bosses) break;
+            if (idx == avoidCell) continue;
+            int cx = idx % gridN, cz = idx / gridN;
+            int quad = (cz >= half ? 2 : 0) + (cx >= half ? 1 : 0);
+            if (usedQuad.Contains(quad)) continue;
+            usedQuad.Add(quad);
+            chosen.Add(idx);
+        }
+        // Luot 2: con thieu (boss nhieu hon so phan tu) thi lap day theo gia tri - van tranh o player
+        foreach (int idx in byValue)
+        {
+            if (chosen.Count >= bosses) break;
+            if (idx == avoidCell || chosen.Contains(idx)) continue;
+            chosen.Add(idx);
+        }
+        return chosen;
+    }
 
-            int n = Physics.RaycastNonAlloc(probe + Vector3.up * 50f, Vector3.down, _groundBuf, 200f,
-                _groundLayers, QueryTriggerInteraction.Ignore);
+    /// <summary>Cham mot diem trong DUNG mot o cua luoi, chua 15% le trong de bot khong dinh mep o.</summary>
+    private bool FindSpawnPointInCell(Vector3 center, int cellIdx, int gridN, float cellSize, out Vector3 pos)
+    {
+        int cx = cellIdx % gridN, cz = cellIdx / gridN;
+        float x0 = center.x - _spawnRadius + cx * cellSize;
+        float z0 = center.z - _spawnRadius + cz * cellSize;
+        float pad = cellSize * 0.15f;
 
-            float bestY = float.MinValue;
-            bool found = false;
-            for (int i = 0; i < n; i++)
+        pos = new Vector3(x0 + cellSize * 0.5f, center.y, z0 + cellSize * 0.5f);
+        Vector3 playerPos = _player != null ? _player.transform.position : center;
+        float safe = Mathf.Max(0f, _spawnMinDistance);
+
+        for (int attempt = 0; attempt < 24; attempt++)
+        {
+            Vector3 probe = new Vector3(Random.Range(x0 + pad, x0 + cellSize - pad), center.y,
+                                        Random.Range(z0 + pad, z0 + cellSize - pad));
+
+            if (_player != null)
             {
-                // Bo qua item/sinh vat (co Rigidbody): de bot len dau cai banh mi thi no roi xuong ngay
-                if (_groundBuf[i].rigidbody != null) continue;
-                if (_groundBuf[i].point.y > bestY) { bestY = _groundBuf[i].point.y; found = true; }
+                Vector2 flat = new Vector2(probe.x - playerPos.x, probe.z - playerPos.z);
+                if (flat.sqrMagnitude < safe * safe) continue;   // qua sat nguoi choi
             }
-            if (!found) continue;
-
-            Vector3 candidate = new Vector3(probe.x, bestY + 0.1f, probe.z);
-            if (IsSpawnBlocked(candidate)) continue;   // cho nay dang co nha/item dung - boc cho khac
-
-            pos = candidate;
-            return true;
+            if (GroundAt(probe, out pos)) return true;
         }
         return false;
     }
+
+    /// <summary>Ban tia tu tren cao xuong tim mat dat o cho nay. Bo qua item/sinh vat (co Rigidbody).</summary>
+    private bool GroundAt(Vector3 probe, out Vector3 pos)
+    {
+        pos = probe;
+        int n = Physics.RaycastNonAlloc(probe + Vector3.up * 50f, Vector3.down, _groundBuf, 200f,
+            _groundLayers, QueryTriggerInteraction.Ignore);
+
+        float bestY = float.MinValue;
+        bool found = false;
+        for (int i = 0; i < n; i++)
+        {
+            if (_groundBuf[i].rigidbody != null) continue;
+            if (_groundBuf[i].point.y > bestY) { bestY = _groundBuf[i].point.y; found = true; }
+        }
+        if (!found) return false;
+
+        Vector3 candidate = new Vector3(probe.x, bestY + 0.1f, probe.z);
+        if (IsSpawnBlocked(candidate)) return false;
+
+        pos = candidate;
+        return true;
+    }
+
 
     /// <summary>
     /// Cho dinh tha bot co bi vat gi CHIEM CHO khong.

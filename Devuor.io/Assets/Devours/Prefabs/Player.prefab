@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 31102183964803502}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.06, z: 0}
+  m_LocalPosition: {x: 0, y: 0.074999996, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1600,8 +1600,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 1, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.8, y: 0.8, z: 0.8}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 7078580474241784758}
   - {fileID: 6238914334231488491}
@@ -1712,7 +1712,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimpleSuction
   mouth: {fileID: 4087071182281879751}
-  range: 1.5
+  range: 1.2
   coneAngle: 60
   pullSpeed: 50
   farSpeedFactor: 0.26
@@ -1728,6 +1728,7 @@ MonoBehaviour:
   highlightEdibleItems: 1
   highlightLayer: ItemHighlight
   highlightRadius: 7
+  highlightRangeMul: 1.3
   maxHighlight: 25
   showHighlightGizmo: 1
   highlightGizmoColor: {r: 1, g: 1, b: 1, a: 0.9}
@@ -1761,7 +1762,7 @@ MonoBehaviour:
   shrinkTweenEase: 6
   cameraZoom: {fileID: 0}
   playerVisual: {fileID: 463955257305386523}
-  evolveVfx: {fileID: 2105436078808142617}
+  upgradeVfx: {fileID: 2105436078808142617}
   _movement: {fileID: 7715685529842263537}
   _creature: {fileID: 3995865763585234974}
   onDevour:
