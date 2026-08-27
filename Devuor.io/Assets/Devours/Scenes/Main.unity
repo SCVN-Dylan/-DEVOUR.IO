@@ -25120,7 +25120,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   _spawnClearance: 0.6
-  _balanceAiLevel: 1
+  _balanceAiLevel: 0
   _aiBiasMin: -0.3
   _aiBiasMax: 0.2
   _balanceInterval: 1

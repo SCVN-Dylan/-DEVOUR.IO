@@ -117,8 +117,14 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float _spawnClearance = 0.6f;
 
     [Header("Can bang level AI theo nguoi choi")]
-    [Tooltip("BAT: level bot luon bam quanh level nguoi choi. TAT: bot choi song phang, muon len\n" +
-             "bao nhieu thi len (luc test bot da len toi Lv1550 trong 40 giay)")]
+    [Tooltip("CO TONG cua ca he ghim cap.\n\n" +
+             "BAT: level bot luon bam quanh level nguoi choi (moc = level player x (1 + levelBias)),\n" +
+             "keo theo ca phan bu level khi bot khuat man hinh o duoi - no nam BEN TRONG co nay.\n\n" +
+             "TAT: bot TU AN TU LON. An duoc bao nhieu len bay nhieu, khong ghim, khong bu.\n" +
+             "Luc test o che do nay bot da len toi Lv1550 trong 40 giay.\n\n" +
+             "DOI DUOC GIUA LUC DANG CHAY: tat la he so an cua moi con duoc tra ve 1 ngay lap tuc\n" +
+             "(xem ReleaseAiGrowth). Khong co buoc tra lai do thi con dang bi ham se ket o he so cu\n" +
+             "- co the la 0 - va dung hinh het van.")]
     [SerializeField] private bool _balanceAiLevel = true;
 
     [Tooltip("Do lech YEU NHAT (-0.30 = co con chiu kem nguoi choi 30%)")]
@@ -175,6 +181,7 @@ public class GameManager : MonoBehaviour
     private static readonly Collider[] _clearBuf = new Collider[8];
     private float _balanceTimer;
     private bool _pushLockLast = true;
+    private bool _balanceLast = true;
     private bool _matchRunning;
 
     /// <summary>Van da bat dau chua (da de bot ra map chua). UIManager bat co nay khi bam Play.</summary>
@@ -182,6 +189,18 @@ public class GameManager : MonoBehaviour
 
     /// <summary>Co KHOA ITEM co dang bat khong. PhysicsDevourable doc moi lan va cham.</summary>
     public bool PushLockEnabled { get { return _pushLock; } }
+
+    /// <summary>
+    /// Bot co dang bi GHIM CAP theo nguoi choi khong. Doi duoc luc dang chay (nut debug, man
+    /// setting): Update bat duoc luc co doi va tra he so an ve 1 cho moi con.
+    ///
+    /// TAT = bot tu an tu lon, khong ghim, khong bu level khi khuat man hinh.
+    /// </summary>
+    public bool BalanceAiLevel
+    {
+        get { return _balanceAiLevel; }
+        set { _balanceAiLevel = value; }
+    }
 
     /// <summary>Con nguoi choi dieu khien. null = chua vao van hoac da bi nuot.</summary>
     public Creature Player { get { return _player; } }
@@ -265,6 +284,18 @@ public class GameManager : MonoBehaviour
             if (!_pushLock) ReleaseAllPushLocks();
         }
 
+        // TAT co GHIM CAP giua luc dang chay -> tra he so an ve 1 cho moi bot NGAY.
+        //
+        // Bat buoc phai co, cung ly do voi khoi _pushLock ngay tren: co nay khong duoc doc luc bot
+        // an, BalanceAiLevels chi GHI mot he so len tung SimpleSuction roi thoi. Con nao dang vuot
+        // moc thi he so da bi ep ve 0 (_stopGrowRatio) - tat co ma khong tra lai thi no ket o 0
+        // VINH VIEN, tuc bot dung hinh chu khong phai "tu an tu lon".
+        if (_balanceAiLevel != _balanceLast)
+        {
+            _balanceLast = _balanceAiLevel;
+            if (!_balanceAiLevel) ReleaseAiGrowth();
+        }
+
         if (!_balanceAiLevel || !_matchRunning) return;
 
         _balanceTimer -= Time.deltaTime;
@@ -285,7 +316,10 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void BalanceAiLevels()
     {
-        if (_player == null) return;
+        // Nguoi choi da chet -> khong con moc nao de bam. THA THAT SU (tra he so ve 1) chu khong
+        // chi ngung cap nhat: ngung khong thi con dang bi ham giu nguyen he so cu - co the la 0 -
+        // va nam do tro het van, dung cai ma comment ben duoi hua la "tha bot chay tu do".
+        if (_player == null) { ReleaseAiGrowth(); return; }
         int playerLevel = Mathf.Max(1, _player.Level);
 
         // Doi "dong X phan khoang cach moi GIAY" sang "moi NHIP": co vay chinh _balanceInterval
@@ -520,6 +554,26 @@ public class GameManager : MonoBehaviour
 
         float slot = (_aiBiasMax - _aiBiasMin) / count;
         return bias + Random.Range(-slot * 0.35f, slot * 0.35f);
+    }
+
+    /// <summary>
+    /// THA BOT TU AN TU LON: tra he so nhan XP ve 1 cho moi con dang song.
+    ///
+    /// Ton tai vi he so ghim la mot gia tri DUOC GHI LEN tung SimpleSuction, khong phai mot phep
+    /// tinh doc co moi lan an. Ngung ghi (tat co / player chet) khong dong nghia voi tha ra: con
+    /// dang bi ham se giu nguyen he so cuoi cung, ma he so do co the bang 0.
+    ///
+    /// Duyet ca danh sach ke ca player: he so cua player luon la 1 san nen ghi lai khong doi gi,
+    /// doi lai khoi phai them mot phep loc trong vong lap.
+    /// </summary>
+    private void ReleaseAiGrowth()
+    {
+        for (int i = 0; i < _creatures.Count; i++)
+        {
+            Creature c = _creatures[i];
+            if (c == null || c.Suction == null) continue;
+            c.Suction.xpGainMultiplier = 1f;
+        }
     }
 
     /// <summary>
