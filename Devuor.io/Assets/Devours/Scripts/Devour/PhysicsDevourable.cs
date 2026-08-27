@@ -32,12 +32,17 @@ public class PhysicsDevourable : MonoBehaviour
 
     [Header("Khoa khi ke huc vao qua yeu")]
     [Tooltip("Hon MAY HANG thi item khoa cung lai, huc vao nhu huc tuong. 0 = tat han.\n\n" +
-             "3 = con hon minh 3 hang tro len thi day khong nhuc nhich. Hon 2 hang van day duoc\n" +
-             "(nang hay nhe la do mass), hon 1 hang thi da di duong RUNG TAI CHO cua he hut roi.\n\n" +
+             "2 = THANG BA NAC, moi nac kho hon nac truoc dung mot bac:\n" +
+             "  hon 0 hang (hoac thap hon) -> HUT DUOC, nuot luon\n" +
+             "  hon 1 hang  -> khong nuot noi: RUNG LAC tai cho nhung VAN DAY DUOC\n" +
+             "  hon 2 hang tro len -> KHOA CUNG, huc vao nhu huc tuong\n\n" +
+             "Ban truoc de 3 nen thang bi NGUOC O GIUA: mon hon 1 hang bi he hut ghim kinematic nen\n" +
+             "dung cung nhu tuong, con mon hon 2 hang khong ai dong toi nen la rigidbody TU DO - tuc\n" +
+             "cang qua cap lai cang de day. Xem EnterStruggle: nac rung gio la vat ly dong.\n\n" +
              "Kiem NGAY LUC VA CHAM, lay dung hang cua con vua huc vao - khong phai doan theo mot\n" +
              "con nao co dinh. Nho vay cung mot toa nha co the bat dong voi con Lv1 va an duoc voi\n" +
              "con Lv50, khong can trang thai toan cuc nao ca.")]
-    public int pushLockStageDiff = 3;
+    public int pushLockStageDiff = 2;
 
     [Tooltip("VE DAY song bao lau (giay). 0 = tat han co che truyen day theo day chuyen.\n\n" +
              "VI SAO CAN: khoa o tren chi xet luc CON VAT huc truc tiep. Con vat huc mot mon nho\n" +
@@ -166,7 +171,6 @@ public class PhysicsDevourable : MonoBehaviour
     private Vector3 _centerLocal;
     private float _radius = 0.5f;
     private Vector3 _startScale = Vector3.one;
-    private Vector3 _anchor;
     private Quaternion _anchorRot;
     private float _noiseSeed;
     private float _sleepAt;
@@ -564,7 +568,13 @@ public class PhysicsDevourable : MonoBehaviour
     {
         if (_state != State.Struggling) EnterStruggle();
 
-        transform.position = _anchor;   // giang co la GHIM TAI CHO, khong nhuc nhich
+        // KHONG con ghim vi tri. Ban truoc ghi 'transform.position = _anchor' moi frame nen mon hon
+        // 1 hang dung cung hon ca mon hon 2 hang (mon do he hut khong dong toi nen la rigidbody tu
+        // do) - thang bi nguoc o giua. Gio VI TRI DE HAN cho physics: huc vao la no truot ra that.
+        //
+        // Chi con phan XOAY do code lai, nen phai giet van toc goc: khong thi physics vua lat vua bi
+        // ghi de moi frame, nhin ra giat.
+        if (_rb != null) _rb.angularVelocity = Vector3.zero;
 
         Vector3 toMouth = mouthPos - transform.position;
         toMouth.y = 0f;
@@ -1026,11 +1036,21 @@ public class PhysicsDevourable : MonoBehaviour
     {
         SetBlocked(true);   // bi hut ma khong nuot duoc -> chop do bao cho nguoi choi biet
         RestoreDrag();
-        SetPushLock(false);   // di duong RUNG TAI CHO: he hut lo phan dung yen, khong phai cai khoa
+        SetPushLock(false);   // NAC NAY KHONG KHOA - khoa la nac ke tiep (xem pushLockStageDiff)
+
         _state = State.Struggling;
-        _rb.isKinematic = true;    // rung tai cho bang transform, khong cho physics keo di
-        _anchor = transform.position;
+
+        // VAT LY DONG, khong kinematic: nac "rung lac" bat buoc phai VAN DAY DUOC.
+        _rb.isKinematic = false;
+
+        // TRA LAI TRONG LUC. Duong vao day co the den TU State.Sucked: dang bi hut ngon lanh thi ke
+        // hut bi con khac rut mat cap, chenh hang nhay tu 0 len 1 va item roi thang sang rung. Luc
+        // do EnterSucked da tat useGravity de item bay ngang vao mom - khong bat lai thi no treo lo
+        // lung giua khong trung ngay khi chuyen nac.
+        _rb.useGravity = true;
+
         _anchorRot = transform.rotation;
+        _rb.WakeUp();   // dang ngu ma bi chia mom vao thi phai tinh de con bi day
     }
 
     private void EnterSleep()

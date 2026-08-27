@@ -145,7 +145,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float _stopGrowRatio = 1.5f;
 
     [Header("Khoa item khi ke huc vao qua yeu")]
-    [Tooltip("BAT (mac dinh): item hon ke huc vao tu 3 hang tro len se KHOA CUNG, huc vao nhu huc\n" +
+    [Tooltip("BAT (mac dinh): item hon ke huc vao tu 2 hang tro len se KHOA CUNG, huc vao nhu huc\n" +
              "tuong. Bao nhieu hang moi khoa thi chinh o tung item (PhysicsDevourable.pushLockStageDiff).\n\n" +
              "TAT: khong con khoa gi ca, dung cai gi cung day duoc nhu vat ly binh thuong.\n\n" +
              "Tat GIUA LUC DANG CHAY thi moi item dang bi khoa duoc tha ra ngay - khong con con nao\n" +

@@ -220,7 +220,7 @@ MonoBehaviour:
   requiredLevel: 15
   xpValue: 2
   scoreValue: 3
-  pushLockStageDiff: 3
+  pushLockStageDiff: 2
   pushTicketLife: 1.5
   sleepDelay: 5
   minShrink: 0.1

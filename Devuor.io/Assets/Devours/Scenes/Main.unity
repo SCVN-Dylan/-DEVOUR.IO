@@ -25107,7 +25107,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   _player: {fileID: 1764023093}
   _aiPrefab: {fileID: 2384491501142814017, guid: 6fb0dab7a6d80429c8d6af5c51eb2f52, type: 3}
-  _aiCount: 16
+  _aiCount: 10
   _aiSkins: {fileID: 11400000, guid: 70df53b9a64374348a88a6ddb05752b4, type: 2}
   _playerSkinIndex: 0
   _bossCount: 4
@@ -25120,7 +25120,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   _spawnClearance: 0.6
-  _balanceAiLevel: 0
+  _balanceAiLevel: 1
   _aiBiasMin: -0.3
   _aiBiasMax: 0.2
   _balanceInterval: 1
