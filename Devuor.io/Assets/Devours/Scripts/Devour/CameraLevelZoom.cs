@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DG.Tweening;
+using Unity.Cinemachine;
 using UnityEngine;
 
 /// <summary>
@@ -42,6 +43,16 @@ public class CameraLevelZoom : MonoBehaviour
 
     [Tooltip("De trong = lay Camera tren chinh object nay")]
     public Camera cam;
+
+    [Tooltip("CAMERA CINEMACHINE dang lai khung hinh. Keo CM_Player vao day.\n\n" +
+             "VI SAO BAT BUOC KHI DUNG CINEMACHINE: CinemachineBrain GHI DE Camera.orthographicSize\n" +
+             "moi LateUpdate tu lens cua vcam dang hoat dong. Ghi thang vao Camera nhu ban cu thi bi\n" +
+             "xoa ngay frame do - zoom theo level CHET IM LANG, khong loi, khong warning, chi la\n" +
+             "camera khong zoom nua.\n\n" +
+             "DE TRONG thi component tu quay ve ghi thang vao Camera nhu cu. Do la duong danh cho\n" +
+             "scene TEST (ItemLevelTestBuilder tu them component nay len mot Camera tran, khong co\n" +
+             "Cinemachine) - de trong o do van chay dung nhu truoc.")]
+    [SerializeField] private CinemachineCamera _vcam;
 
     [Header("Kich thuoc khung (orthographicSize)")]
     [Min(0.01f)]
@@ -101,6 +112,28 @@ public class CameraLevelZoom : MonoBehaviour
 
     private Tween _tween;
 
+    /// <summary>
+    /// CO KHUNG dang hien hanh. Doc tu vcam neu co, khong thi doc thang Camera.
+    ///
+    /// Phai di qua mot cua duy nhat: neu cho noi doc noi ghi khac nhau thi cu 'lay da' se tinh do
+    /// nen tu mot con so ma no khong he dieu khien.
+    /// </summary>
+    private float CurrentSize
+    {
+        get
+        {
+            if (_vcam != null) return _vcam.Lens.OrthographicSize;
+            return cam != null ? cam.orthographicSize : baseSize;
+        }
+    }
+
+    /// <summary>Ghi co khung. Uu tien vcam - xem tooltip cua _vcam ve ly do.</summary>
+    private void WriteSize(float value)
+    {
+        if (_vcam != null) _vcam.Lens.OrthographicSize = value;
+        else if (cam != null) cam.orthographicSize = value;
+    }
+
     void OnEnable()
     {
         if (cam == null) cam = GetComponent<Camera>();
@@ -152,7 +185,7 @@ public class CameraLevelZoom : MonoBehaviour
 
         if (instant || tweenDuration <= 0f || !Application.isPlaying)
         {
-            cam.orthographicSize = target;
+            WriteSize(target);
             return;
         }
 
@@ -164,15 +197,20 @@ public class CameraLevelZoom : MonoBehaviour
 
         if (wantPunch)
         {
-            float dip = Mathf.Max(0.01f, cam.orthographicSize * (1f - stepPunch));
+            float dip = Mathf.Max(0.01f, CurrentSize * (1f - stepPunch));
+
+            // Nhip BUNG bat dau tu DIP chu khong tu CurrentSize: DOVirtual.Float chot moc dau ngay
+            // luc DUNG sequence, con cam.DOOrthoSize cu thi chot luc tween BAT DAU CHAY. Truyen
+            // thang 'dip' vao la khoi phu thuoc vao khac biet do - nhip hai noi lien mach, khong
+            // co cu giat nguoc ve co cu giua chung.
             _tween = DOTween.Sequence()
-                .Append(cam.DOOrthoSize(dip, stepPunchTime).SetEase(Ease.OutQuad))
-                .Append(cam.DOOrthoSize(target, tweenDuration).SetEase(tweenEase))
+                .Append(DOVirtual.Float(CurrentSize, dip, stepPunchTime, WriteSize).SetEase(Ease.OutQuad))
+                .Append(DOVirtual.Float(dip, target, tweenDuration, WriteSize).SetEase(tweenEase))
                 .SetUpdate(true);   // hitstop ha timeScale - cu nay phai chay theo gio that
             return;
         }
 
-        _tween = cam.DOOrthoSize(target, tweenDuration).SetEase(tweenEase);
+        _tween = DOVirtual.Float(CurrentSize, target, tweenDuration, WriteSize).SetEase(tweenEase);
     }
 
     /// <summary>Co khung dang huong toi, theo level hien hanh cua player.</summary>
