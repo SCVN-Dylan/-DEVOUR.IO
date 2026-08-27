@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -65,6 +66,61 @@ public class StageReveal : MonoBehaviour
     /// <summary>Dung chung, khong cap phat moi lan do. CalculateFrustumPlanes co ban non-alloc.</summary>
     private static readonly Plane[] _planes = new Plane[6];
 
+    // ------------------------------------------------------------------ cho INTRO muon toan bo
+
+    /// <summary>
+    /// SO SANG HET trong doan intro. Doan intro quay khung rong ca ban do, ma thu dang gia nhat
+    /// trong khung do la may con khinh khi cau / bong bay - de chung an di chi con cai bong thi
+    /// khung rong chang con gi de khoe.
+    ///
+    /// CameraManager bat/tat co nay. Bat = hien ngay lap tuc; tat = tra ve luat hang binh thuong.
+    /// </summary>
+    private static bool _introReveal;
+
+    /// <summary>
+    /// Danh sach moi instance dang song, de doi co mot phat la ca lu doi theo.
+    ///
+    /// Dung REGISTRY chu khong FindObjectsByType: doi co la viec xay ra dung 2 lan moi van, nhung
+    /// quet ca scene 2543 object de tim 3 con flyer thi phi - va day cung la kieu GameManager dang
+    /// quan danh sach Creature.
+    /// </summary>
+    private static readonly List<StageReveal> _all = new List<StageReveal>();
+
+    /// <summary>
+    /// Xoa static khi vao van moi - bat buoc neu du an tat domain reload. Cung ly do voi
+    /// GameManager.ResetStatics.
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _introReveal = false;
+        _all.Clear();
+    }
+
+    /// <summary>
+    /// BAT/TAT che do intro cho TOAN BO item.
+    ///
+    /// BAT  -> hien NGAY, bo qua buoc doi-khuat. Day la dau mot cu cat canh, khong co gi de "bup
+    ///         ra giua man hinh" ca - cho doi-khuat o day thi flyer se hien sau khi intro da qua.
+    /// TAT  -> di lai duong THUONG (OnLevelChanged), tuc VAN doi vat ra khoi khung roi moi an.
+    ///         Luc do camera da ve cho player nen flyer gan nhu chac chan da khuat - chung tu an
+    ///         trong ~0.25s ma nguoi choi khong thay cu chuyen nao.
+    /// </summary>
+    public static void SetIntroReveal(bool on)
+    {
+        if (_introReveal == on) return;
+        _introReveal = on;
+
+        for (int i = 0; i < _all.Count; i++)
+        {
+            StageReveal s = _all[i];
+            if (s == null) continue;
+
+            if (on) s.ApplyImmediate();
+            else s.OnLevelChanged();
+        }
+    }
+
     // ------------------------------------------------------------------ vong doi
 
     private void Reset()
@@ -87,7 +143,21 @@ public class StageReveal : MonoBehaviour
         StartCoroutine(BindToPlayer());
     }
 
-    private void OnDestroy() { Unbind(); }
+    private void OnEnable() { if (!_all.Contains(this)) _all.Add(this); }
+
+    private void OnDisable() { _all.Remove(this); }
+
+    private void OnDestroy() { Unbind(); _all.Remove(this); }
+
+    /// <summary>
+    /// Ap dung NGAY, khong cho vat ra khoi khung hinh. Chi dung cho khoanh khac BAT intro - luc do
+    /// dang cat canh nen khong ton tai cai "bup ra giua man hinh" ma buoc cho sinh ra de tranh.
+    /// </summary>
+    private void ApplyImmediate()
+    {
+        if (_waiting != null) { StopCoroutine(_waiting); _waiting = null; }
+        Apply(WantVisible(), "intro - hien ngay");
+    }
 
     /// <summary>
     /// Player co the chua ton tai luc Start (GameManager gan _player trong Register, con bot thi
@@ -124,6 +194,7 @@ public class StageReveal : MonoBehaviour
     /// <summary>Du hang de an chua. Hoi thang SimpleSuction chu khong che lai luat hang o day.</summary>
     private bool WantVisible()
     {
+        if (_introReveal) return true;   // doan intro muon: hien het, khong xet hang
         if (_player == null || _item == null) return false;
         return _player.Stage >= _player.StageAtLevel(_item.requiredLevel);
     }

@@ -4350,7 +4350,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -52
+      value: -15.9
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalPosition.y
@@ -4358,23 +4358,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -52
+      value: -65.6
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.7071079
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.70710576
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -4382,7 +4382,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 90
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 66492d1febb1e4e58bff284cd0d96be0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
@@ -7913,7 +7913,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1056411971373073840, guid: 8d1fbc619b97c4f81a627eb7b4b243e9, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 65.6
+      value: 54.4
       objectReference: {fileID: 0}
     - target: {fileID: 1056411971373073840, guid: 8d1fbc619b97c4f81a627eb7b4b243e9, type: 3}
       propertyPath: m_LocalPosition.y
@@ -7921,7 +7921,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1056411971373073840, guid: 8d1fbc619b97c4f81a627eb7b4b243e9, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 48.8
+      value: -6.6
       objectReference: {fileID: 0}
     - target: {fileID: 1056411971373073840, guid: 8d1fbc619b97c4f81a627eb7b4b243e9, type: 3}
       propertyPath: m_LocalRotation.w
@@ -10548,7 +10548,7 @@ GameObject:
   - component: {fileID: 355286554}
   - component: {fileID: 355286553}
   m_Layer: 0
-  m_Name: CM_Player (1)
+  m_Name: CM_Intro
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -10563,7 +10563,7 @@ Transform:
   m_GameObject: {fileID: 355286551}
   serializedVersion: 2
   m_LocalRotation: {x: 0.37592274, y: -0.22379938, z: 0.09407659, w: 0.8942849}
-  m_LocalPosition: {x: 69.7, y: 128, z: -121.3}
+  m_LocalPosition: {x: 69.7, y: 143.5, z: -121.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -10601,8 +10601,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
   Priority:
-    Enabled: 0
-    m_Value: 0
+    Enabled: 1
+    m_Value: 10
   OutputChannel: 1
   StandbyUpdate: 2
   m_StreamingVersion: 20241001
@@ -10613,7 +10613,7 @@ MonoBehaviour:
     CustomLookAtTarget: 0
   Lens:
     FieldOfView: 40
-    OrthographicSize: 106.9
+    OrthographicSize: 110.6
     NearClipPlane: -300
     FarClipPlane: 300
     Dutch: 1
@@ -17860,7 +17860,7 @@ Camera:
   far clip plane: 300
   field of view: 40
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 110.6
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -17985,8 +17985,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 642318132}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
-  m_LocalPosition: {x: 51.3, y: 40.017, z: -86.8}
+  m_LocalRotation: {x: 0.37395546, y: -0.22707137, z: 0.101877026, w: 0.89342993}
+  m_LocalPosition: {x: 69.7, y: 143.5, z: -121.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -20312,7 +20312,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 7765265cca84f4043a4be3f110e0db30, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -53.695206
+      value: 21.3
       objectReference: {fileID: 0}
     - target: {fileID: 6908939085084481714, guid: 7765265cca84f4043a4be3f110e0db30, type: 3}
       propertyPath: m_LocalRotation.w
@@ -40042,6 +40042,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1566414028}
+  - component: {fileID: 1566414029}
   m_Layer: 0
   m_Name: CameraManager
   m_TagString: Untagged
@@ -40067,6 +40068,27 @@ Transform:
   - {fileID: 355286552}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1566414029
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1566414027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 712d241bba86f446680b3e453fe542b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraManager
+  _brain: {fileID: 642318140}
+  _introCam: {fileID: 355286554}
+  _playerCam: {fileID: 2053740913}
+  _holdTime: 2
+  _blendTime: 2
+  _lockPlayerDuringIntro: 1
+  _revealFlyersDuringIntro: 1
+  _log: 0
+  _blendTimeout: 6
 --- !u!1001 &1567291423
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -44295,19 +44317,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3780534912831560876, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.8870109
+      value: 0.89342993
       objectReference: {fileID: 0}
     - target: {fileID: 3780534912831560876, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.46174863
+      value: 0.37395546
       objectReference: {fileID: 0}
     - target: {fileID: 3780534912831560876, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0
+      value: -0.22707137
       objectReference: {fileID: 0}
     - target: {fileID: 3780534912831560876, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0.101877026
       objectReference: {fileID: 0}
     - target: {fileID: 3921458386354594722, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Layer
@@ -51461,7 +51483,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
   Priority:
-    Enabled: 0
+    Enabled: 1
     m_Value: 0
   OutputChannel: 1
   StandbyUpdate: 2

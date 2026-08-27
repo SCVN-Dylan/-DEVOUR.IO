@@ -23,7 +23,11 @@ using TMPro;
 public class UIManager : MonoBehaviour
 {
     /// <summary>Ba trang thai cua mot van. Xem so do o dau file.</summary>
-    public enum MatchState { Home, Playing, Ended }
+    /// <summary>
+    /// Intro nam GIUA Home va Playing: da bam Play, UI da an het, nhung van CHUA bat dau -
+    /// dong ho chua dem, bot chua duoc sinh. Xem StartMatch / BeginPlay.
+    /// </summary>
+    public enum MatchState { Home, Intro, Playing, Ended }
 
     public static UIManager Instance { get; private set; }
 
@@ -236,14 +240,46 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void StartMatch()
     {
+        if (State == MatchState.Intro || State == MatchState.Playing) return;
+
+        State = MatchState.Intro;
+        Time.timeScale = 1f;
+
+        // AN SACH UI. HUD va joystick chi bat len o BeginPlay: trong doan intro khong co gi de doc
+        // (diem 0, dong ho chua chay) va cung khong dieu khien duoc gi.
+        if (homePanel != null) homePanel.SetActive(false);
+        if (winPanel != null) winPanel.SetActive(false);
+        if (losePanel != null) losePanel.SetActive(false);
+        if (hudRoot != null) hudRoot.SetActive(false);
+        if (joystick != null) joystick.gameObject.SetActive(false);
+
+        // VAN CHUA VAO TRAN. Ba thu giu cho van chua chay, khong can dong toi timeScale:
+        //   - State chua phai Playing -> Update() thoat som -> dong ho dung yen
+        //   - GameManager.StartMatch chua duoc goi  -> chua co con bot nao tren map
+        //   - CameraManager khoa di chuyen nguoi choi suot intro
+        //
+        // KHONG dat timeScale = 0: dong bang thi 3 con khinh khi cau treo bat dong giua troi, khung
+        // intro nhin nhu game do. De gio chay thuong thi chi rieng chung bay - vua du song.
+        //
+        // HasInstance chu khong Instance: scene test khong co CameraManager thi vao tran thang,
+        // khong the de ket lai o mot man hinh trong khong loi gi.
+        if (CameraManager.HasInstance) CameraManager.Instance.PlayIntro(BeginPlay);
+        else BeginPlay();
+    }
+
+    /// <summary>
+    /// VAO TRAN THAT SU - CameraManager goi khi camera da ve toi nguoi choi.
+    ///
+    /// Moi thu bat dau dem tu day: dong ho, diem, nhac nen, va bot moi duoc de ra map. Tach khoi
+    /// StartMatch de doan intro khong an mat giay nao cua van dau.
+    /// </summary>
+    public void BeginPlay()
+    {
         if (State == MatchState.Playing) return;
 
         State = MatchState.Playing;
         Time.timeScale = 1f;
 
-        if (homePanel != null) homePanel.SetActive(false);
-        if (winPanel != null) winPanel.SetActive(false);
-        if (losePanel != null) losePanel.SetActive(false);
         if (hudRoot != null) hudRoot.SetActive(true);
         if (joystick != null) joystick.gameObject.SetActive(true);
 
