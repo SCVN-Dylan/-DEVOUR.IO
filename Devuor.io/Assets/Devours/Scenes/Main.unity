@@ -40083,7 +40083,7 @@ MonoBehaviour:
   _brain: {fileID: 642318140}
   _introCam: {fileID: 355286554}
   _playerCam: {fileID: 2053740913}
-  _holdTime: 2
+  _holdTime: 1
   _blendTime: 2
   _lockPlayerDuringIntro: 1
   _revealFlyersDuringIntro: 1
