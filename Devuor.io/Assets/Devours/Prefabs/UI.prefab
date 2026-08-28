@@ -1852,7 +1852,7 @@ MonoBehaviour:
   arrowSize: 30
   colorFromSkin: 1
   fallbackColor: {r: 1, g: 1, b: 1, a: 1}
-  showAllAi: 0
+  showAllAi: 1
   nearbyRadius: 30
   maxArrows: 8
   showDistance: 1

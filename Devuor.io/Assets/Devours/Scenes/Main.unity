@@ -25226,7 +25226,7 @@ MonoBehaviour:
   _bossBiasMax: 0.35
   _spawnRadius: 65
   _spawnMinDistance: 12
-  _spawnCenter: {fileID: 0}
+  _spawnCenter: {fileID: 1945633473}
   _groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -25241,7 +25241,7 @@ MonoBehaviour:
   _offscreenCatchUp: 1
   _offscreenCatchUpFraction: 0.15
   _offscreenMargin: 0.15
-  _viewCamera: {fileID: 0}
+  _viewCamera: {fileID: 642318133}
 --- !u!4 &907005790
 Transform:
   m_ObjectHideFlags: 0

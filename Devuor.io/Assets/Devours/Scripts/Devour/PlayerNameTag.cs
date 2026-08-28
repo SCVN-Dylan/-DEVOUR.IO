@@ -25,6 +25,18 @@ public class PlayerNameTag : MonoBehaviour
              "choi phai doc trong tich tac de biet co nen lao vao hay chay, con ten chi de nhan dien")]
     public string format = "Lv {1}\n<size=65%>{0}</size>";
 
+    [Header("Mau chu theo cap so voi nguoi choi")]
+    [Tooltip("BAT: con nao co cap CAO HON nguoi choi thi ca bang ten doi sang mau canh bao.\n\n" +
+             "Bang ten cua CHINH nguoi choi khong bao gio doi mau - khong ai tu so voi minh.\n" +
+             "Bang cap nhau cung giu mau thuong: chi HON moi la moi de doa.")]
+    public bool colorByPlayerLevel = true;
+
+    [Tooltip("Mau khi cap THAP HON hoac BANG nguoi choi")]
+    public Color weakerColor = Color.white;
+
+    [Tooltip("Mau khi cap CAO HON nguoi choi")]
+    public Color strongerColor = new Color(1f, 0.18f, 0.15f, 1f);
+
     [Header("Billboard")]
     [Tooltip("Camera de quay mat vao. De trong = Camera.main")]
     public Camera cam;
@@ -107,7 +119,52 @@ public class PlayerNameTag : MonoBehaviour
 
                 if (leveledUp) PlayLevelPunch();
             }
+
+            // NGOAI khoi 'if' ben tren: mau phai do moi frame chu khong chi khi cap cua CON NAY
+            // doi. Cap NGUOI CHOI cung doi lien tuc, nen mot con bot dung im van co the tu "an
+            // toan" thanh "nguy hiem" chi vi nguoi choi vua bi rut mat cap.
+            ApplyLevelColor(lvl);
         }
+    }
+
+    /// <summary>
+    /// TO MAU theo cap so voi NGUOI CHOI: cao hon -> mau canh bao, con lai -> mau thuong.
+    ///
+    /// CHI GAN KHI MAU THAT SU DOI. Moi lan ghi label.color la TMP dung lai mesh, ma ham nay chay
+    /// trong LateUpdate cua CA 11 bang ten - gan vo tu la 11 lan dung mesh moi frame, dung kieu
+    /// chi phi am tham dat tren mobile. Phan chu ben tren da dung dung thu thuat nay.
+    ///
+    /// Khong dong toi mau trong Edit mode: component co [ExecuteAlways], ma o Edit mode khong co
+    /// nguoi choi de so - chay vao day chi to de len mau da chinh tay trong prefab.
+    /// </summary>
+    private void ApplyLevelColor(int myLevel)
+    {
+        if (!colorByPlayerLevel || !Application.isPlaying) return;
+
+        Color want = weakerColor;
+
+        SimpleSuction player = PlayerSuction();
+        // player == suction : bang ten cua CHINH nguoi choi -> khong tu so voi minh
+        // player == null    : dang o man Home, hoac nguoi choi da bi nuot -> khong con moc de so
+        if (player != null && suction != null && player != suction && myLevel > player.Level)
+            want = strongerColor;
+
+        if (_colorCaptured && want == _lastColor) return;
+
+        _lastColor = want;
+        _colorCaptured = true;
+        label.color = want;
+    }
+
+    /// <summary>
+    /// SimpleSuction cua nguoi choi, hoi qua GameManager chu khong giu tham chieu: nguoi choi co
+    /// the chet giua tran, va van moi thi la mot object khac han.
+    /// </summary>
+    private SimpleSuction PlayerSuction()
+    {
+        if (!GameManager.HasInstance) return null;
+        Creature p = GameManager.Instance.Player;
+        return p != null ? p.Suction : null;
     }
 
     /// <summary>
@@ -146,4 +203,6 @@ public class PlayerNameTag : MonoBehaviour
     private string _lastName;
     private Vector3 _baseScale = Vector3.one;
     private bool _baseCaptured;
+    private Color _lastColor;
+    private bool _colorCaptured;
 }
