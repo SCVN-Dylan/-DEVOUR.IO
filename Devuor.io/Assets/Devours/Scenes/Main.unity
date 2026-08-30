@@ -25234,7 +25234,7 @@ MonoBehaviour:
   _balanceAiLevel: 1
   _aiBiasMin: -0.3
   _aiBiasMax: 0.2
-  _balanceInterval: 1
+  _balanceInterval: 0.5
   _catchUpMax: 2.5
   _stopGrowRatio: 1.2
   _pushLock: 1

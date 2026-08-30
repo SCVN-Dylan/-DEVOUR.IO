@@ -127,6 +127,29 @@ public class AIController : MonoBehaviour
     [Tooltip("Do dai tia ra do vat can phia truoc (world). Nen dai hon ban kinh than mot chut")]
     public float whiskerLength = 3f;
 
+    [Tooltip("BAT: tam do LON THEO CO THAN va TOC DO, thay vi cu dinh o whiskerLength.\n\n" +
+             "VI SAO CAN: whiskerLength la mot so CUNG, con than bot thi phinh tu 0.61u (Lv1) len\n" +
+             "18.3u (Lv600). Ngay tai MOC Lv350 ban kinh than nhay len 3.52u - DAI HON ca tia rau\n" +
+             "3u, tuc dau tia van con nam trong than bot. Ma Blocked() bo qua collider cua chinh\n" +
+             "minh, nen tia luon bao 'thong': tu do tro di bot lai ma KHONG CO MAT, huc thang vao\n" +
+             "tuong va day mai mot cho.\n\n" +
+             "Tam do = ban kinh than + toc do x lookAheadTime + whiskerLength.\n" +
+             "TAT = quay ve hanh vi cu y nguyen, tien de so sanh.")]
+    public bool scaleWhiskerWithBody = true;
+
+    [Min(0f)]
+    [Tooltip("Nhin truoc bao nhieu GIAY duong di. 0.4 = thay vat can truoc 0.4 giay.\n\n" +
+             "Tinh theo THOI GIAN chu khong theo met: bot chay 2.1 u/s luc Lv1 nhung 17.6 u/s cuoi\n" +
+             "van, mot khoang cach co dinh se thanh vo nghia khi toc do gap 8 lan.")]
+    public float lookAheadTime = 0.4f;
+
+    [Range(0f, 1f)]
+    [Tooltip("Do DAY cua chum do, tinh theo ban kinh than. 0 = ban mot tia manh nhu ban cu.\n\n" +
+             "VI SAO CAN: bot rong toi 18u nhung do duong bang MOT DUONG THANG vo cung manh ke tu\n" +
+             "tam. Goc tuong nam lech khoi dung duong do la khong thay - no di bang ca cai than ma\n" +
+             "do bang mot diem. 0.6 = do bang hinh cau bang 60% ban kinh than.")]
+    public float whiskerRadiusMul = 0.6f;
+
     [Range(10f, 80f)]
     [Tooltip("Goc lech cua 2 tia rau hai ben so voi huong dang di")]
     public float whiskerAngle = 35f;
@@ -234,6 +257,7 @@ public class AIController : MonoBehaviour
     // con lai tuy y. Map nay day item (320 mon Lv1), ma item an duoc thi bi loc ra khong tinh la vat
     // can - 4 cho rat de bi may mon do chiem het truoc khi den luot buc tuong that su.
     private static readonly RaycastHit[] _rayBuf = new RaycastHit[8];
+    private Collider _body;             // collider than - de biet bot dang to co nao
     private static readonly Collider[] _overlapBuf = new Collider[8];
 
     /// <summary>Chay khi VUA GAN component trong Editor: dien san ref de khoi phai keo tay.</summary>
@@ -262,6 +286,7 @@ public class AIController : MonoBehaviour
     {
         if (_movement == null) _movement = GetComponent<RbMovement>();
         if (_suction == null) _suction = GetComponent<SimpleSuction>();
+        if (_body == null) _body = GetComponent<Collider>();
         if (_creature == null) _creature = GetComponent<Creature>();
         if (_rb == null) _rb = GetComponent<Rigidbody>();
     }
@@ -743,8 +768,8 @@ public class AIController : MonoBehaviour
 
         if (desired.sqrMagnitude < 0.0001f) return;
 
-        Vector3 origin = transform.position + Vector3.up * 0.3f;
-        float len = whiskerLength;
+        Vector3 origin = SenseOrigin();
+        float len = SenseLength();
 
         if (!Blocked(origin, desired, len)) return;
 
@@ -819,9 +844,48 @@ public class AIController : MonoBehaviour
         return Vector3.Dot(right, away) >= 0f ? 1 : -1;
     }
 
+    /// <summary>Ban kinh than THUC TE luc nay (world). Doc bounds nen tu dung o moi co than.</summary>
+    private float BodyRadius()
+    {
+        if (_body == null) return 0f;
+        Vector3 e = _body.bounds.extents;
+        return Mathf.Max(e.x, e.z);
+    }
+
+    /// <summary>
+    /// TAM DO thuc te. Xem tooltip cua scaleWhiskerWithBody ve ly do khong dung so cung.
+    ///
+    ///   Lv1   : 0.31 + 2.1x0.4  + 3 =  4.2u  (than 0.61u)
+    ///   Lv350 : 3.52 + 12.2x0.4 + 3 = 11.4u  (than 7.05u)
+    ///   Lv600 : 9.16 + 17.6x0.4 + 3 = 19.2u  (than 18.3u)
+    /// </summary>
+    private float SenseLength()
+    {
+        if (!scaleWhiskerWithBody) return whiskerLength;
+        float spd = _movement != null ? Mathf.Max(0f, _movement.Speed) : 0f;
+        return BodyRadius() + spd * Mathf.Max(0f, lookAheadTime) + whiskerLength;
+    }
+
+    /// <summary>
+    /// Diem xuat phat cua chum do: TAM COLLIDER, khong phai pivot + 0.3u.
+    /// O co than lon, 0.3u nam sat got chan - gan nhu duoi mat dat.
+    /// </summary>
+    private Vector3 SenseOrigin()
+    {
+        return _body != null ? _body.bounds.center : transform.position + Vector3.up * 0.3f;
+    }
+
     private bool Blocked(Vector3 origin, Vector3 dir, float len)
     {
-        int n = Physics.RaycastNonAlloc(origin, dir, _rayBuf, len, obstacleLayers, QueryTriggerInteraction.Ignore);
+        if (dir.sqrMagnitude < 0.0001f) return false;
+        dir = dir.normalized;
+
+        // SphereCast thay vi Raycast khi bot da to: do bang dung cai khoi minh dang lai.
+        // Ban kinh 0 thi tu quay ve Raycast nhu ban cu, khong ton them gi.
+        float r = scaleWhiskerWithBody ? BodyRadius() * whiskerRadiusMul : 0f;
+        int n = r > 0.01f
+            ? Physics.SphereCastNonAlloc(origin, r, dir, _rayBuf, len, obstacleLayers, QueryTriggerInteraction.Ignore)
+            : Physics.RaycastNonAlloc(origin, dir, _rayBuf, len, obstacleLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
         {
             Collider col = _rayBuf[i].collider;
