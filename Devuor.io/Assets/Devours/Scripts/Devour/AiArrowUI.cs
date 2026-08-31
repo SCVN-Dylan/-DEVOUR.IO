@@ -111,6 +111,10 @@ public class AiArrowUI : MonoBehaviour
         float padPx = edgePadding * scale;
         Vector2 limit = new Vector2(Mathf.Max(1f, half.x - padPx), Mathf.Max(1f, half.y - padPx));
 
+        // Chieu MOT LAN cho ca vong lap: cho player dang hien khong doi theo tung con bot. Day la
+        // goc cua moi tia mui ten - xem khoi ghi chu trong vong lap.
+        Vector2 playerPx = Project(cam, player.Center, out _);
+
         int used = 0;
         for (int i = 0; i < all.Count && used < Mathf.Max(0, maxArrows); i++)
         {
@@ -124,25 +128,74 @@ public class AiArrowUI : MonoBehaviour
             float flatDist = d3.magnitude;
             if (!showAllAi && flatDist > nearbyRadius) continue;
 
-            Vector3 sp = cam.WorldToScreenPoint(c.Center);
+            // CO DANG NHIN THAY NO KHONG - do bang vi tri DA EP PHANG, cung mot he quy chieu voi
+            // phep tinh huong o duoi. Doc thang c.Center thi sai lech mot khoang bang do cao cua
+            // than: bot cao bang player, dat sao cho GOC no con tren man hinh, van bi tinh la
+            // NGOAI MAN vi Center da vuot mep tren:
+            //
+            //     Lv1    : goc o y=1906px, Center o y=1961px  (man cao 1920)  -> lech  55px
+            //     Lv2088 : goc o y=1892px, Center o y=2061px                  -> lech 169px
+            //
+            // Hau qua di theo cap: mep TREN moc mui ten cho con dang nhin thay ro, mep DUOI lai
+            // NUOT mui ten cua con da khuat. Do la canh "co mui ten ma nhin quanh khong thay ai".
+            bool behind;
+            Vector2 aiFlat = Project(cam, player.Center + d3, out behind);
 
-            // z < 0 = nam SAU camera: toa do chieu ra bi lat nguoc ca hai truc, khong lat lai thi
-            // mui ten chi dung huong nguoc. Camera game la ortho chuc xuong nen ca nay hiem, nhung
-            // de day cho chac neu sau doi sang perspective.
-            bool behind = sp.z < 0f;
-            if (behind) { sp.x = Screen.width - sp.x; sp.y = Screen.height - sp.y; }
-
-            bool onScreen = !behind && sp.x >= 0f && sp.x <= Screen.width && sp.y >= 0f && sp.y <= Screen.height;
+            bool onScreen = !behind && aiFlat.x >= 0f && aiFlat.x <= Screen.width
+                                    && aiFlat.y >= 0f && aiFlat.y <= Screen.height;
             if (onScreen) continue;   // dang nhin thay no roi, khong can chi tro
 
-            Vector2 dir = new Vector2(sp.x, sp.y) - half;
+            // ------------------------------------------------------------------------------
+            // HUONG: phai chieu HAI DAU MUT O CUNG MOT DO CAO
+            // ------------------------------------------------------------------------------
+            // Camera nghieng 55 do, nen do cao world bien thanh do lech DOC tren man hinh. Ma
+            // Creature.Center = TransformPoint(centerOffset) -> no bi NHAN THEO SCALE cua than:
+            // con Lv2000 co Center cao 25u so voi 0.5u luc Lv1.
+            //
+            // Ban cu lay 'sp cua Center' tru 'TAM MAN HINH'. Hai dau mut do o hai do cao khac
+            // nhau (Center da nhac len cao, tam man hinh la cho camera ngam = goc cua player),
+            // nen sinh ra mot thanh phan doc gia. Do that, sai so goc mui ten:
+            //
+            //     player Lv1    vs AI Lv1    ->  2.8 do
+            //     player Lv2000 vs AI Lv2000 ->  6.7 do
+            //     player Lv30   vs AI Lv600  -> 54.6 do   <-- con nho bi con khong lo san
+            //
+            // Sai so LON DAN theo level vi than to nhanh hon camera zoom: than x50 (maxScale)
+            // trong khi khung chi x16 (5 -> 81.5), nen ti le 'do cao / co khung' cu tang.
+            //
+            // Ha AI ve DUNG do cao cua player roi moi chieu thi thanh phan doc gia bien mat -
+            // do lai duoc 0.00 do o moi cap level da thu. d3 la vector PHANG san (da .y = 0),
+            // nen aiFlat o tren chinh la AI dat o cao do cua player - dung lai luon.
+            Vector2 dir = aiFlat - playerPx;
             if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
 
-            // DAY RA MEP: keo dai vector tam->bot cho toi khi cham canh gan nhat cua khung an toan.
-            // Lay MIN cua hai he so de diem cham nam tren canh dau tien gap, khong loi ra ngoai goc.
-            float sx = limit.x / Mathf.Max(0.0001f, Mathf.Abs(dir.x));
-            float sy = limit.y / Mathf.Max(0.0001f, Mathf.Abs(dir.y));
-            Vector2 edgePx = half + dir * Mathf.Min(sx, sy);
+            // ------------------------------------------------------------------------------
+            // DAY RA MEP: ban mot tia TU CHO PLAYER DANG HIEN, cham canh nao truoc thi dat o do
+            // ------------------------------------------------------------------------------
+            // Ban cu ban tia tu TAM MAN HINH. Tam man hinh KHONG phai cho player dang hien: camera
+            // ngam vao GOC cua player, con than player duoc ve quanh Center - ma Center bi nhac len
+            // theo scale. Do that, player hien CAO HON tam man hinh:
+            //
+            //     Lv1     ->  69 px   (7.2% nua man)
+            //     Lv600   -> 162 px  (16.9%)
+            //     Lv2088  -> 170 px  (17.7%)
+            //
+            // Nen vong mui ten cu om mot cai tam nam THAP HON player toi 170 px. Ke tu player, mui
+            // ten bi tut xuong - keo mot duong tu player qua mui ten thi ra mot huong khac han voi
+            // huong mui ten dang chi. Do la cai "mui ten sai cho".
+            //
+            // Ban tu playerPx thi diem cham chinh la cho duong player -> bot ra khoi man hinh.
+            Vector2 lo = half - limit, hi = half + limit;
+
+            // KEP goc tia vao trong khung: player co the nam ngoai (luc chet, luc intro blend). Goc
+            // o ngoai thi he so cat ra AM va mui ten nhay sang mep DOI DIEN.
+            Vector2 o = new Vector2(Mathf.Clamp(playerPx.x, lo.x, hi.x), Mathf.Clamp(playerPx.y, lo.y, hi.y));
+
+            float sx = dir.x > 0.0001f ? (hi.x - o.x) / dir.x
+                     : dir.x < -0.0001f ? (lo.x - o.x) / dir.x : float.MaxValue;
+            float sy = dir.y > 0.0001f ? (hi.y - o.y) / dir.y
+                     : dir.y < -0.0001f ? (lo.y - o.y) / dir.y : float.MaxValue;
+            Vector2 edgePx = o + dir * Mathf.Min(sx, sy);
 
             AiArrowMarker a = Get(used);
             Vector2 local;
@@ -182,6 +235,21 @@ public class AiArrowUI : MonoBehaviour
         }
 
         HideFrom(used);
+    }
+
+    /// <summary>
+    /// Chieu mot diem world ra toa do man hinh (pixel).
+    ///
+    /// z < 0 = nam SAU camera: toa do chieu ra bi lat nguoc ca hai truc, khong lat lai thi mui ten
+    /// chi dung huong nguoc. Camera game la ortho chuc xuong nen ca nay hiem, nhung de day cho chac
+    /// neu sau doi sang perspective.
+    /// </summary>
+    private static Vector2 Project(Camera cam, Vector3 world, out bool behind)
+    {
+        Vector3 sp = cam.WorldToScreenPoint(world);
+        behind = sp.z < 0f;
+        if (behind) { sp.x = Screen.width - sp.x; sp.y = Screen.height - sp.y; }
+        return new Vector2(sp.x, sp.y);
     }
 
     /// <summary>
