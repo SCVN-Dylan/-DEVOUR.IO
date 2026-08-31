@@ -287,9 +287,13 @@ public class UIManager : MonoBehaviour
         TimeLeft = matchDuration;
         RefreshTimer();
 
-        // Nhac nen chay lai tu dau moi van. SoundManager song xuyen scene nen khong co no thi bam
-        // PLAY AGAIN se nghe tiep doan giua cua bai truoc do.
-        if (SoundManager.HasInstance) SoundManager.Instance.RestartMusic();
+        // KHONG dong toi nhac nen o day. Nhac chay XUYEN SUOT: SoundManager phat _musicOnStart
+        // ngay trong Awake va song qua scene (DontDestroyOnLoad), nen bam PLAY AGAIN thi bai nhac
+        // cu chay tiep lien mach thay vi giat ve dau moi van.
+        //
+        // Ban cu goi RestartMusic() o day. Bo di la co y: cat ngang bai nhac o dung khoanh khac
+        // vao tran nghe nhu game vua bi khuc mot cai, va moi van deu bat dau bang cung mot doan
+        // intro cua bai - nghe lap rat nhanh.
 
         // HasInstance chu khong phai Instance: Instance se TU TAO mot GameManager rong neu scene
         // khong co san, tao ra roi cung khong sinh duoc bot nao (thieu prefab) - rac vo nghia.

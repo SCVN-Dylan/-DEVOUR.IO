@@ -307,7 +307,12 @@ public class SoundManager : MonoBehaviour
     /// Cho bai nhac dang phat chay LAI TU DAU.
     ///
     /// Khac PlayMusic(cung bai): ham do co y KHONG lam gi de nhac chay lien mach, con day la co y
-    /// cat ve dau - dung khi mo mot van moi.
+    /// cat ve dau.
+    ///
+    /// HIEN KHONG AI GOI - co y. Truoc day UIManager.BeginPlay goi moi khi vao tran; da bo de nhac
+    /// chay XUYEN SUOT ca phien choi. Dung gan lai vao dau van neu khong co yeu cau moi: nhac bi
+    /// cat ngang luc vao tran nghe nhu game khuc mot cai, va moi van deu mo dau bang cung mot doan.
+    /// Giu ham lai vi no la mot phan API cua SoundManager (PlayMusic / StopMusic / RestartMusic).
     ///
     /// Chua co bai nao thi khong lam gi.
     /// </summary>
