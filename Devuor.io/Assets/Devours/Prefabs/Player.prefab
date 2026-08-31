@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 31102183964803502}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.074999996, z: 0}
+  m_LocalPosition: {x: 0, y: 0.07499993, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2835,7 +2835,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 7042702965971049074, guid: 53a119e412748424fafbf8fa4d1ce17c, type: 3}
+  - {fileID: 2100000, guid: 9276635d97d1c46e0948ad8a63fce246, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2919,7 +2919,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5648563887185035439}
-  m_LocalRotation: {x: 0.46174863, y: -0, z: -0, w: 0.8870109}
+  m_LocalRotation: {x: 0.37395546, y: -0.22707137, z: 0.101877026, w: 0.89342993}
   m_LocalPosition: {x: 0, y: 0, z: 0.056}
   m_LocalScale: {x: 0.005, y: 0.005, z: 0.005}
   m_ConstrainProportionsScale: 1
@@ -2974,6 +2974,9 @@ MonoBehaviour:
   format: 'Lv {1}
 
     <size=65%>{0}</size>'
+  colorByPlayerLevel: 1
+  weakerColor: {r: 1, g: 1, b: 1, a: 1}
+  strongerColor: {r: 1, g: 0.18, b: 0.15, a: 1}
   cam: {fileID: 0}
   billboard: 1
   keepConstantSize: 0
