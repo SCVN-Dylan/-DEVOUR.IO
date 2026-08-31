@@ -17915,11 +17915,12 @@ MonoBehaviour:
   cam: {fileID: 642318133}
   _vcam: {fileID: 2053740913}
   baseSize: 5
-  maxSize: 100
+  maxSize: 150
   useSteps: 1
-  zoomEveryLevel: 0
-  addPerLevel: 0.05
+  zoomEveryLevel: 1
+  addPerLevel: 4
   skipAddPerLevelOnStep: 1
+  zoomOnlyAfterLastStep: 1
   punchOnlyOnEvolution: 0
   stepPunch: 0.12
   stepPunchTime: 0.1

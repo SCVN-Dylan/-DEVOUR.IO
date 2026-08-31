@@ -25,6 +25,8 @@ using UnityEngine;
 /// 1. zoomEveryLevel: Cong 'addPerLevel' cho moi level.
 /// 2. useSteps: Cong 'zoomAdd' khi dat cac moc trong SuctionConfig.levelSteps.
 /// 3. skipAddPerLevelOnStep: Bat ca 2 thi level trung moc chi an 'zoomAdd', khong cong addPerLevel.
+/// 4. zoomOnlyAfterLastStep: Chi cong 'addPerLevel' cho level VUOT MOC CUOI - vung ma than van to
+///    deu ma khong con moc nao de day camera ra.
 ///
 /// CHI CON MOT diem dung: maxSize - tran do chinh minh dat.
 ///
@@ -82,6 +84,16 @@ public class CameraLevelZoom : MonoBehaviour
     [Tooltip("BAT: level co trong Steps thi lay 'zoomAdd' cua Step va KHONG cong addPerLevel cho\n" +
              "level do.\nTAT: cong ca hai tai level co Step")]
     public bool skipAddPerLevelOnStep = true;
+
+    [Tooltip("BAT: CHI cong addPerLevel cho nhung level VUOT QUA MOC CUOI CUNG trong levelSteps.\n" +
+             "Giua cac moc thi camera van dung im theo bac thang nhu cu.\n\n" +
+             "VI SAO CAN: qua moc cuoi la het moc, camera dong bang - nhung THAN VAN TO DEU theo\n" +
+             "scalePerLevel. Do that voi bang hien tai: tu Lv2000 (than 42.1u, khung 91.5) den luc\n" +
+             "than cham maxScale o Lv4598 (than 58.0u), khung KHONG doi mot don vi nao - nhan vat\n" +
+             "phinh tu 23% len 31.7% chieu cao man hinh.\n\n" +
+             "BAT RIENG CAI NAY LA DU, khong can bat 'Zoom Every Level'. Bat ca hai thi cai nay\n" +
+             "thang: van chi cong sau moc cuoi.")]
+    public bool zoomOnlyAfterLastStep = false;
 
     [Header("Nay nguoc chieu khi vuot moc")]
     // Cong tac BAT/TAT nam ben SimpleSuction.popAffectsCamera, khong dat o day: de ca hai noi
@@ -237,6 +249,7 @@ public class CameraLevelZoom : MonoBehaviour
 
         float stepAdd = 0f;
         int distinctStepLevels = 0;
+        int lastStepLevel = 0;      // moc CAO NHAT trong bang, ke ca chua toi
 
         List<LevelStep> steps = (useSteps && player != null) ? player.LevelSteps : null;
         if (steps != null)
@@ -244,7 +257,13 @@ public class CameraLevelZoom : MonoBehaviour
             for (int i = 0; i < steps.Count; i++)
             {
                 LevelStep s = steps[i];
-                if (s == null || s.level < 2 || s.level > level) continue;
+                if (s == null || s.level < 2) continue;
+
+                // Ghi nhan moc cao nhat TRUOC khi loc theo level hien tai: zoomOnlyAfterLastStep
+                // can biet moc cuoi cua CA BANG, khong phai moc cuoi da di qua.
+                if (s.zoomAdd != 0f && s.level > lastStepLevel) lastStepLevel = s.level;
+
+                if (s.level > level) continue;
                 if (s.zoomAdd == 0f) continue;   // moc chi dong toi scale -> khong tinh la moc cua camera
 
                 stepAdd += s.zoomAdd;
@@ -259,9 +278,19 @@ public class CameraLevelZoom : MonoBehaviour
             }
         }
 
-        if (zoomEveryLevel)
+        if (zoomEveryLevel || zoomOnlyAfterLastStep)
         {
-            int normal = skipAddPerLevelOnStep ? levelsGained - distinctStepLevels : levelsGained;
+            int normal;
+            if (zoomOnlyAfterLastStep)
+            {
+                // Chi dem cac level NAM TREN moc cuoi. Chua toi moc cuoi thi bang 0 - camera y het
+                // bac thang cu, khong doi gi.
+                normal = level - Mathf.Max(1, lastStepLevel);
+            }
+            else
+            {
+                normal = skipAddPerLevelOnStep ? levelsGained - distinctStepLevels : levelsGained;
+            }
             size += addPerLevel * Mathf.Max(0, normal);
         }
         size += stepAdd;

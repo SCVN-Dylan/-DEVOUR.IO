@@ -391,11 +391,17 @@ MonoBehaviour:
   huntCooldown: 8
   escapeWhenDrained: 1
   escapeLateral: 0.7
+  counterAttack: 1
+  counterDelay: 1
+  counterDuration: 5
   fleeDuration: 3
   wanderRadius: 20
   wanderRepickTime: 5
   arriveDistance: 1.5
   whiskerLength: 3
+  scaleWhiskerWithBody: 1
+  lookAheadTime: 0.4
+  whiskerRadiusMul: 0.6
   whiskerAngle: 35
   obstacleLayers:
     serializedVersion: 2

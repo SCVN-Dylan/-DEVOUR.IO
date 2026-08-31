@@ -5,7 +5,8 @@ using UnityEngine;
 /// vao RbMovement.SetDir, y het duong ma PlayerController day input vao. Nho vay bot chay bang
 /// dung bo di chuyen cua nguoi choi, khong co duong rieng de lech hanh vi.
 ///
-/// Bon viec: VUNG RA khi bi hut, TRON con manh, DI con yeu, AN item, LANG THANG - xem Think().
+/// Cac viec: VUNG RA khi bi con manh hut, PHAN DON khi bi con yeu hut len, TRON con manh,
+/// DI con yeu, AN item, LANG THANG - xem Think().
 ///
 /// NHIP SUY NGHI: phan dat tien (quet item, do vat can) chay theo thinkInterval chu KHONG phai
 /// moi frame; giua hai lan nghi thi bot cu bam theo huong da chon. Day la khac biet lon nhat ve
@@ -109,6 +110,28 @@ public class AIController : MonoBehaviour
              "duong lach ngang thang.")]
     public float escapeLateral = 0.7f;
 
+    [Header("Phan don khi bi hut len")]
+    [Tooltip("BAT: bi mot con YEU HON hut len thi bot QUAY LAI DI CHINH CON DO thay vi bo chay.\n\n" +
+             "Chi an khi minh CAO CAP HON ke hut. Yeu hon hoac hoa level thi van chay nhu cu -\n" +
+             "do la nhanh vung ra o tren, khong dinh gi toi day.\n\n" +
+             "TAT thi ve lai hanh vi cu: bot to bi con nho hut len se KHONG phan ung gi ca - luat\n" +
+             "vung ra khong chay (vi no dang o vai KE HUT chu khong phai nan nhan), luat tron cung\n" +
+             "khong chay (ke hut qua yeu de tinh la de doa). No cu di an item trong khi bi rut XP.")]
+    public bool counterAttack = true;
+
+    [Tooltip("BI HUT bao lau moi quay lai (giay). Do TRE CO Y, khong phai gioi han ky thuat.\n\n" +
+             "0 = quay dau tuc thi, nhin nhu bot doc duoc y nghi nguoi choi. De 2 giay thi nguoi\n" +
+             "choi kip thay minh dang an duoc va bat dau tham, roi moi bi tra dua - pha danh moi\n" +
+             "co nhip len xuong thay vi cut ngay tu dau.\n\n" +
+             "Dem tu luc DINH NON, va chay o Update chu khong theo nhip nghi - de dung 2 giay that,\n" +
+             "khong bi nhip nghi 0.35s lam tron len 2.1-2.45s.")]
+    public float counterDelay = 2f;
+
+    [Tooltip("Bam ke hut toi da bao lau roi tha (giay). Dong ho nay GIA HAN moi khi con bi hut tiep,\n" +
+             "nen no chi thuc su chay khi ke hut DA NGUNG hut va bo chay.\n\n" +
+             "Khong co han nay thi bot duoi con da chay mat hut ngang qua ca ban do.")]
+    public float counterDuration = 5f;
+
     [Header("Tron con manh")]
     [Tooltip("Chay them bao lau sau khi de doa da khuat khoi vung phat hien (giay)")]
     public float fleeDuration = 3f;
@@ -180,7 +203,10 @@ public class AIController : MonoBehaviour
     public float stuckDistance = 0.4f;
 
     /// <summary>Bot dang lam gi - de doc trong Inspector / debug.</summary>
-    public enum Mode { Wander, Item, Hunt, Flee, Escape }
+    // Counter noi THEM VAO CUOI chu khong chen giua: chen giua se doi gia tri so cua Flee/Escape,
+    // ma enum serialize theo SO chu khong theo ten - moi field Mode da luu trong scene/prefab se
+    // im lang truot sang gia tri khac.
+    public enum Mode { Wander, Item, Hunt, Flee, Escape, Counter }
 
     /// <summary>Item bot dang nham toi. null = khong nham item nao.</summary>
     public PhysicsDevourable Target { get { return _target; } }
@@ -217,6 +243,7 @@ public class AIController : MonoBehaviour
         {
             if (_escapeCone) return Mode.Escape;
             if (_fleeTimer > 0f) return Mode.Flee;
+            if (_counterPrey != null) return Mode.Counter;   // tren Hunt: dang counter thi _prey cung dang tro vao dung con do
             if (_prey != null) return Mode.Hunt;
             if (_target != null) return Mode.Item;
             return Mode.Wander;
@@ -228,6 +255,11 @@ public class AIController : MonoBehaviour
     private Creature _threat;
     private Vector3 _threatPos;        // vi tri de doa lan cuoi thay - con chay tiep khi no da khuat
     private bool _escapeCone;          // dang vung ra khoi NON HUT (khac tron thuong: chay lech ngang)
+    private Creature _drainedBy;       // ke dang hut minh trong PHA nay. null = khong bi hut
+    private float _drainedSince;       // Time.time luc dinh non - moc dem counterDelay
+    private bool _counterArmed;        // da qua moc counterDelay cua pha nay chua (chi ban mot lan)
+    private Creature _counterPrey;     // ke hut dang bi phan don. null = khong phan don
+    private float _counterTimer;       // con bao lau nua thi tha ke hut ra
     private float _aggression = 0.5f;
     private float _huntRatio = 0.9f;
     private float _fleeRatio = 1.1f;
@@ -299,6 +331,8 @@ public class AIController : MonoBehaviour
         if (escapeWhenDrained && !_escapeCone && _creature != null
             && _creature.IsBeingDrained && _creature.IsVictimRole) _thinkTimer = 0f;
 
+        TrackDrain();
+
         _thinkTimer -= Time.deltaTime;
         if (_thinkTimer <= 0f)
         {
@@ -326,8 +360,9 @@ public class AIController : MonoBehaviour
     /// Phan DAT TIEN: nhin quanh roi quyet dinh lam gi. Chay theo thinkInterval.
     ///
     /// THU TU UU TIEN - song truoc, an sau:
-    ///   0. VUNG RA khi DANG BI HUT (bat ke ke hut manh hay yeu)
-    ///   1. TRON  con manh hon (bo het moi viec dang lam)
+    ///   0. VUNG RA   khi dang bi hut boi con MANH HON (hoac hoa level)
+    ///   1. TRON      con manh hon (bo het moi viec dang lam)
+    ///   1b. PHAN DON khi bi con YEU HON hut len, sau khi da chiu tran counterDelay
     ///   2. DI    con yeu hon, co han gio
     ///   3. AN    item gan nhat
     ///   4. LANG THANG
@@ -372,6 +407,44 @@ public class AIController : MonoBehaviour
         if (_fleeTimer > 0f)
         {
             _prey = null;
+            _target = null;
+            _counterPrey = null;   // dang chay con to thi bo han y dinh tra dua con nho
+            _counterTimer = 0f;
+            SenseObstacles(DesiredDirection());
+            return;
+        }
+
+        // --- 1b. PHAN DON ---
+        // Bi con YEU HON hut len. Khong roi vao nhanh vung ra o tren duoc: vung ra doc IsVictimRole,
+        // ma minh dang cao cap hon nen minh moi la KE HUT theo bo phan vai - day dung la cai lo lam
+        // bot to dung yen cho con nho ria. Cung khong roi vao nhanh tron: ke hut qua yeu de tinh la
+        // de doa. Nen phai la mot nhanh rieng.
+        //
+        // DAT DUOI NHANH TRON co y: dang bi con to duoi ma quay lai can con nho la chet ca hai duong.
+        // DAT TREN NHANH DI/AN vi ke dang rut XP cua minh gap hon moi thu khac - ke ca mieng dang bay.
+        if (_counterTimer > 0f) _counterTimer -= thinkInterval;
+        if (_counterPrey != null && (_counterTimer <= 0f || _counterPrey.IsDead
+                || !_counterPrey.isActiveAndEnabled)) _counterPrey = null;
+
+        Creature victimizer = CounterTarget();
+        if (victimizer != null)
+        {
+            if (victimizer != _counterPrey)
+            {
+                _orbitSide = 0;    // doi muc tieu -> chon lai ben von
+                _huntTimer = 0f;   // XOA dong ho san cu: het counterDuration la tha han, khong de
+                                   // pha san dang do truoc do noi them mot doan dai vo dinh
+            }
+            _counterPrey = victimizer;
+            _counterTimer = counterDuration;                  // con bi hut thi con gia han
+        }
+
+        if (_counterPrey != null)
+        {
+            // Di thang qua _prey de dung lai HuntDirection (lao toi roi von quanh) - khong viet
+            // duong di rieng. KHONG qua CanHunt/_huntRatio: no dam ria minh thi minh du suc an lai,
+            // vai tro da bao dam dieu do roi.
+            _prey = _counterPrey;
             _target = null;
             SenseObstacles(DesiredDirection());
             return;
@@ -433,6 +506,59 @@ public class AIController : MonoBehaviour
         Creature a = _creature.LastAttacker;
         if (a == null || a.IsDead || !a.isActiveAndEnabled) return null;
         return a;
+    }
+
+    /// <summary>
+    /// BAM DONG HO PHA HUT. Chay MOI FRAME o Update, khong theo nhip nghi.
+    ///
+    /// VI SAO KHONG DE TRONG Think(): counterDelay la mot con so nguoi choi CAM NHAN duoc (2 giay
+    /// tham roi bi tra dua). Dem trong Think thi buoc dem la thinkInterval 0.35s, tuc 2 giay that
+    /// ra roi vao khoang 2.1-2.45s va khac nhau tung con - dung cai nhip ma le ra phai deu nhat.
+    /// Doi lai chi ton hai phep doc bool moi frame, khong co query nao.
+    ///
+    /// Mot PHA = mot doan bi CUNG MOT con hut lien tuc. Ke hut nha ra (het drainMemory) hoac doi
+    /// sang con khac deu la pha moi, dem lai tu dau - khong thi bot bi ba con thay nhau ria moi
+    /// con mot ti se cong don thanh "da bi hut 2 giay" du chua ai hut no qua nua giay.
+    /// </summary>
+    private void TrackDrain()
+    {
+        Creature by = _creature != null && _creature.IsBeingDrained ? _creature.LastAttacker : null;
+        if (by != null && (by.IsDead || !by.isActiveAndEnabled)) by = null;
+
+        if (by != _drainedBy)
+        {
+            _drainedBy = by;
+            _drainedSince = Time.time;
+            _counterArmed = false;
+            return;
+        }
+
+        if (by == null || _counterArmed || !counterAttack) return;
+        if (_creature.IsVictimRole) return;                       // yeu hon/hoa -> viec cua nhanh vung ra
+        if (Time.time - _drainedSince < counterDelay) return;
+
+        // VUA TOI MOC: ep nghi lai NGAY frame nay. Cho het nhip nghi thi cong them toi 0.35s nua
+        // vao dung cho ma do tre dang la co y - va moi con lech mot kieu.
+        _counterArmed = true;
+        _thinkTimer = 0f;
+    }
+
+    /// <summary>
+    /// KE HUT DANG DANG BI PHAN DON, null = khong co.
+    ///
+    /// Ba dieu kien, thieu mot la thoi:
+    ///   - dang bi hut THAT (TrackDrain giu _drainedBy)
+    ///   - MINH CAO CAP HON ke do: !IsVictimRole. Vai tro do bang level nen day chinh la cau
+    ///     "nho hon thi chay, cao hon thi danh" - nho hon/hoa se roi vao nhanh vung ra o tren
+    ///   - da chiu tran du counterDelay
+    /// </summary>
+    private Creature CounterTarget()
+    {
+        if (!counterAttack || _creature == null || _drainedBy == null) return null;
+        if (!_creature.IsBeingDrained || _creature.IsVictimRole) return null;
+        if (Time.time - _drainedSince < counterDelay) return null;
+        if (_drainedBy.IsDead || !_drainedBy.isActiveAndEnabled) return null;
+        return _drainedBy;
     }
 
     /// <summary>
@@ -1089,6 +1215,7 @@ public class AIController : MonoBehaviour
         Vector3 t;
         if (_escapeCone) { Gizmos.color = new Color(1f, 0.35f, 0f); t = _threat != null ? _threat.Center : _threatPos; }
         else if (_fleeTimer > 0f) { Gizmos.color = Color.yellow; t = _threat != null ? _threat.Center : _threatPos; }
+        else if (_counterPrey != null) { Gizmos.color = Color.green; t = _counterPrey.Center; }   // PHAN DON
         else if (_prey != null) { Gizmos.color = Color.magenta; t = _prey.Center; }
         else if (_target != null) { Gizmos.color = Color.red; t = _target.Center; }
         else { Gizmos.color = Color.cyan; t = _wanderPoint; }
