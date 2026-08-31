@@ -17915,12 +17915,12 @@ MonoBehaviour:
   cam: {fileID: 642318133}
   _vcam: {fileID: 2053740913}
   baseSize: 5
-  maxSize: 150
+  maxSize: 110
   useSteps: 1
-  zoomEveryLevel: 1
+  zoomEveryLevel: 0
   addPerLevel: 4
-  skipAddPerLevelOnStep: 1
-  zoomOnlyAfterLastStep: 1
+  skipAddPerLevelOnStep: 0
+  zoomOnlyAfterLastStep: 0
   punchOnlyOnEvolution: 0
   stepPunch: 0.12
   stepPunchTime: 0.1
@@ -44187,6 +44187,10 @@ PrefabInstance:
     - target: {fileID: 571729810812342199, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Layer
       value: 12
+      objectReference: {fileID: 0}
+    - target: {fileID: 738451159045403192, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.074999996
       objectReference: {fileID: 0}
     - target: {fileID: 762801207420183786, guid: 1ad4d033e6ac246b39ec6fd8edda7a3e, type: 3}
       propertyPath: m_Layer

@@ -67,6 +67,16 @@ public class LevelProgressUI : MonoBehaviour
              "phong to cho moi moc.")]
     [SerializeField] private GameObject _evolutionIconPrefab;
 
+    [Tooltip("HINH cho tung moc TIEN HOA, xep theo THU TU GAP: phan tu 0 cho moc tien hoa dau tien\n" +
+             "tren thanh, 1 cho moc thu hai, 2 cho moc thu ba...\n\n" +
+             "Danh so theo THU TU TIEN HOA chu khong phai thu tu moc: bang hien tai co moc tien hoa\n" +
+             "o vi tri 2, 4, 5 tren thanh -> ba hinh nay roi vao dung ba cho do, cac moc phong to\n" +
+             "xen giua khong an mat mot so nao.\n\n" +
+             "De TRONG hoac thieu phan tu = moc do giu nguyen hinh trong prefab tien hoa. Doi hinh\n" +
+             "o day KHONG can sua prefab, va them mot moc tien hoa vao bang can bang cung khong lam\n" +
+             "vo gi - no chi dung lai hinh cua prefab cho toi khi ban them sprite vao day.")]
+    [SerializeField] private Sprite[] _evolutionSprites;
+
     [Tooltip("Prefab VACH NGAN giua hai moc. De trong = khong ve vach.\n" +
              "Chi ve o cac moc GIUA, khong ve o moc cuoi (do la mep phai cua thanh).")]
     [SerializeField] private GameObject _tickPrefab;
@@ -212,6 +222,7 @@ public class LevelProgressUI : MonoBehaviour
         if (_steps.Count == 0) return;
 
         int n = _steps.Count;
+        int evoIndex = 0;   // dem RIENG cac moc tien hoa - moc phong to xen giua khong lam nhay so
         for (int i = 0; i < n; i++)
         {
             float x = (i + 1) / (float)n;   // moc nam o CUOI doan cua no
@@ -222,10 +233,22 @@ public class LevelProgressUI : MonoBehaviour
 
             bool evo = _steps[i].isEvolution;
             GameObject prefab = evo && _evolutionIconPrefab != null ? _evolutionIconPrefab : _scaleIconPrefab;
+
+            // TANG SO NGAY O DAY, truoc moi loi thoat som: neu bo qua mot moc tien hoa vi thieu
+            // prefab/_iconRoot ma khong tang, moi moc tien hoa phia sau se an nham hinh cua moc
+            // truoc no - lech mot cach im lang, khong bao loi nao.
+            int slot = evo ? evoIndex++ : -1;
+
             if (prefab == null || _iconRoot == null) continue;
 
             GameObject go = Spawn(prefab, _iconRoot, x, evo ? _evolutionRaise : 0f);
-            _icons.Add(go.GetComponent<LevelProgressIcon>());
+            LevelProgressIcon icon = go.GetComponent<LevelProgressIcon>();
+
+            // Moc PHONG TO khong co danh sach rieng: no chi co mot hinh duy nhat nen de prefab lo.
+            if (icon != null && slot >= 0 && _evolutionSprites != null && slot < _evolutionSprites.Length)
+                icon.SetSprite(_evolutionSprites[slot]);
+
+            _icons.Add(icon);
         }
     }
 

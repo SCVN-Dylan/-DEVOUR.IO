@@ -1,5 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// MOT MOC tren thanh tien trinh. Chi lo phan NHIN: bat/tat hai the (chua toi / da dat) va nhun
@@ -24,6 +25,15 @@ public class LevelProgressIcon : MonoBehaviour
 
     [Tooltip("Object nhan cu nhun luc vua dat moc. De trong = nhun chinh object nay.")]
     [SerializeField] private RectTransform _punchTarget;
+
+    [Header("Anh LOI cua moc - de SetSprite doi duoc")]
+    [Tooltip("Image chua hinh loi cua ban CHUA DAT (bong den). De trong = SetSprite bo qua ban nay.\n" +
+             "Reset/them component se tu tim 'Locked/Core/Image'.")]
+    [SerializeField] private Image _lockedArt;
+
+    [Tooltip("Image chua hinh loi cua ban DA DAT (sang). De trong = SetSprite bo qua ban nay.\n" +
+             "Reset/them component se tu tim 'Reached/Core/Image'.")]
+    [SerializeField] private Image _reachedArt;
 
     [Header("Cu nhun luc vua dat moc")]
     [Range(0f, 1.5f)]
@@ -59,6 +69,34 @@ public class LevelProgressIcon : MonoBehaviour
             Transform t = transform.Find("Reached");
             if (t != null) _reached = t.gameObject;
         }
+
+        // Anh LOI nam sau mot lop Core (Core la cai dia tron co mau, Image la hinh tren dia).
+        // Tim theo duong dan chu khong GetComponentInChildren: nhanh Locked/Reached moi nhanh co
+        // toi 3 Image (Ring, Core, Image) - vo duoc cai dau tien la doi trung cai dia.
+        if (_lockedArt == null) _lockedArt = FindArt("Locked");
+        if (_reachedArt == null) _reachedArt = FindArt("Reached");
+    }
+
+    private Image FindArt(string branch)
+    {
+        Transform t = transform.Find(branch + "/Core/Image");
+        return t != null ? t.GetComponent<Image>() : null;
+    }
+
+    /// <summary>
+    /// DOI HINH LOI cua moc nay, ap cho CA HAI ban (chua dat + da dat).
+    ///
+    /// Chi doi sprite, KHONG dong toi mau: ban Locked dang duoc to den thanh bong, ban Reached de
+    /// trang. Ghi de mau o day thi bong den sang chóe len - ma do lai la thu prefab dang lo.
+    ///
+    /// null = giu nguyen hinh co san trong prefab. Nho vay danh sach sprite ben LevelProgressUI
+    /// thieu phan tu cung khong lam trong icon.
+    /// </summary>
+    public void SetSprite(Sprite sprite)
+    {
+        if (sprite == null) return;
+        if (_lockedArt != null) _lockedArt.sprite = sprite;
+        if (_reachedArt != null) _reachedArt.sprite = sprite;
     }
 
     /// <summary>
