@@ -13924,6 +13924,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: afe93f490b16efa4db88299a4a1787f3, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: dda3c20de1e7c4173842e50547d9760d, type: 2}
     - target: {fileID: 919132149155446097, guid: afe93f490b16efa4db88299a4a1787f3, type: 3}
       propertyPath: m_Name
       value: park_road_004
